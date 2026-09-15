@@ -36,22 +36,27 @@ COVERAGE_RADIUS_M = 250.0
 
 # Both sides of the box are constrained, including the lower bound on the
 # segment's own `min_lon` / `min_lat`, so SQLite can seek into
-# `ix_street_segment_lon` / `_lat` instead of scanning every row whose box
-# starts anywhere before the query box. The lower bound is the widest single
-# segment in the file: a segment whose box reaches the query box cannot begin
-# more than one segment-width before it. On the 2026-09-15 database (11,102
-# segments) the widest is 0.0115 deg of longitude and 0.0169 of latitude, so
-# the scan is a ~2% slice of the index rather than half of it.
+# `ix_street_segment_bbox` instead of scanning every row whose box starts
+# anywhere before the query box. The lower bound is the widest single segment
+# in the file: a segment whose box reaches the query box cannot begin more than
+# one segment-width before it. On the 2026-09-15 database (11,102 segments) the
+# widest is 0.0115 deg of longitude and 0.0169 of latitude, so the scan is a
+# ~2% slice of the index rather than half of it. `geom` is in that index too,
+# which is what keeps the slice from fetching a table row per segment it
+# rejects on the other axis.
 _PREFILTER_SQL = (
     "SELECT geom FROM street_segment"
     " WHERE min_lon >= ? AND min_lon <= ? AND max_lon >= ?"
     " AND min_lat >= ? AND min_lat <= ? AND max_lat >= ?"
 )
-# Written as two statements rather than one so each is answered from the
-# covering index it fits, which is the difference between reading the index and
-# reading all 94 MB of the table's geometry.
-_LON_EXTENT_SQL = "SELECT min(min_lon), max(max_lon), max(max_lon - min_lon) FROM street_segment"
-_LAT_EXTENT_SQL = "SELECT min(min_lat), max(max_lat), max(max_lat - min_lat) FROM street_segment"
+# One statement, because `ix_street_segment_bbox` carries all four bounds and
+# answers the whole thing from the index: the alternative is two scans of the
+# same index, and reading the table for this would be reading all 96 MB of its
+# geometry to learn six numbers.
+_EXTENT_SQL = (
+    "SELECT min(min_lon), max(max_lon), max(max_lon - min_lon),"
+    " min(min_lat), max(max_lat), max(max_lat - min_lat) FROM street_segment"
+)
 
 
 def within_coverage(
@@ -113,8 +118,8 @@ class CoverageExtent:
 def coverage_extent(conn: sqlite3.Connection) -> CoverageExtent:
     """The extent of `street_segment`, read once per database file.
 
-    Two aggregate index scans, which on the data mount cost ~110 ms together —
-    worth paying once and never per request, because every coverage check and
+    One aggregate index scan, which on the data mount costs ~30 ms — worth
+    paying once and never per request, because every coverage check and
     `/api/health` want the same two numbers. The cache is keyed on the file's
     inode, mtime and size, since `curbcheck sync` renames a new database over
     the old one under a running server (`db.swap_in`) and the answer changes
@@ -126,16 +131,15 @@ def coverage_extent(conn: sqlite3.Connection) -> CoverageExtent:
     if key is not None and _CACHED_EXTENT is not None and _CACHED_EXTENT[0] == key:
         return _CACHED_EXTENT[1]
 
-    lon_row = conn.execute(_LON_EXTENT_SQL).fetchone()
-    lat_row = conn.execute(_LAT_EXTENT_SQL).fetchone()
-    empty = lon_row is None or lon_row[0] is None or lat_row is None or lat_row[0] is None
+    row = conn.execute(_EXTENT_SQL).fetchone()
+    empty = row is None or row[0] is None or row[3] is None
     extent = (
         CoverageExtent(bbox=None, lon_span=0.0, lat_span=0.0)
         if empty
         else CoverageExtent(
-            bbox=(float(lon_row[0]), float(lat_row[0]), float(lon_row[1]), float(lat_row[1])),
-            lon_span=float(lon_row[2]),
-            lat_span=float(lat_row[2]),
+            bbox=(float(row[0]), float(row[3]), float(row[1]), float(row[4])),
+            lon_span=float(row[2]),
+            lat_span=float(row[5]),
         )
     )
     if key is not None:

@@ -246,14 +246,24 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     # for "1519 3rd ave" on the 9p mount.
     "CREATE INDEX IF NOT EXISTS ix_street_segment_norm ON street_segment (street_norm)",
     # `engine.coverage` asks "is this point near any centerline?" once per
-    # candidate, which was the same full scan again: 395 ms -> 3.3 ms per
-    # /api/geocode. Longitude first, for the same reason as the spans below.
-    "CREATE INDEX IF NOT EXISTS ix_street_segment_lon ON street_segment (min_lon, max_lon)",
-    "CREATE INDEX IF NOT EXISTS ix_street_segment_lat ON street_segment (min_lat, max_lat)",
-    # The radius query filters on longitude first (Manhattan is tall and narrow,
-    # so a longitude band cuts more candidates than a latitude band).
-    "CREATE INDEX IF NOT EXISTS ix_reg_seg_lon ON regulation_segment (min_lon, max_lon)",
-    "CREATE INDEX IF NOT EXISTS ix_reg_seg_lat ON regulation_segment (min_lat, max_lat)",
+    # geocode candidate, and `geocode.reverse` asks what a pin is nearest to.
+    # All four bbox bounds sit in one index, so a candidate is rejected on
+    # latitude without the row ever being read: with a bound on one axis only,
+    # SQLite fetched every row in the longitude band to test the other, which on
+    # the 9p mount was 48 ms a check and made a cold `q=1519 3` 249 ms against
+    # 15 ms for a street name. 14 ms a check with this, 0.5 MB. It also answers
+    # `coverage_extent` on its own. `geom` is deliberately not in it: adding it
+    # saves the ~48 row reads that survive the box but turns every extent scan
+    # and every band scan into a walk over 2.4 MB, which measured worse on both
+    # (cold 229 ms, warm p50 19 ms against 106 ms and 7 ms).
+    "CREATE INDEX IF NOT EXISTS ix_street_segment_bbox ON street_segment"
+    " (min_lon, max_lon, min_lat, max_lat)",
+    # The same shape for the radius query, which filters on longitude first
+    # (Manhattan is tall and narrow, so a longitude band cuts more candidates
+    # than a latitude band). Before it, a 30-minute radius scanned one axis and
+    # fetched every row in that band to test the other three.
+    "CREATE INDEX IF NOT EXISTS ix_reg_seg_bbox ON regulation_segment"
+    " (min_lon, max_lon, min_lat, max_lat)",
     "CREATE INDEX IF NOT EXISTS ix_reg_seg_segment ON regulation_segment (segment_id, side)",
     "CREATE INDEX IF NOT EXISTS ix_regulation_seg ON regulation (reg_seg_id)",
     "CREATE INDEX IF NOT EXISTS ix_sign_segment ON sign (segment_id)",
