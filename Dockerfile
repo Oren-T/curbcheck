@@ -31,7 +31,11 @@ COPY curbcheck ./curbcheck
 # hashed versions. --no-build-isolation: build with the hashed hatchling
 # installed above rather than letting pip fetch one from PyPI unhashed, which
 # used to be the only install in the image that --require-hashes did not cover.
-RUN pip install --no-cache-dir --no-deps --no-build-isolation --prefix=/install .
+# `python -m pip`, not `pip`: requirements-dev.txt pins pip itself (pip-audit
+# needs it), and installing that pin into /buildenv above uninstalls the
+# image's own copy first, console script included. The interpreter finds the
+# /buildenv copy through PYTHONPATH; the shell would find nothing.
+RUN python -m pip install --no-cache-dir --no-deps --no-build-isolation --prefix=/install .
 
 
 FROM python:3.12-slim
