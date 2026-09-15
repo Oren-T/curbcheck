@@ -128,9 +128,13 @@ input[type="number"].text-input {
   gap: var(--s-3);
 }
 
+/* 12 px, not 16: at 16 the four `Prefer` chips measured 362 px against a 358 px
+   rail and wrapped 3 + 1, leaving the *selected* default alone on its own line.
+   The four walk radii still wrap 4 + 1, which is the split they mean — presets,
+   then Custom. */
 .chip {
   min-height: 34px;
-  padding: 0 var(--s-6);
+  padding: 0 var(--s-5);
   border: 1px solid var(--c-border-strong);
   border-radius: var(--r-pill);
   background: var(--c-chip);
