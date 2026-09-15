@@ -21,7 +21,14 @@ curbcheck/
   model.py         Pydantic contract for parsed regulations (shared by parser, gold set, DB, API)
   db.py            Schema, connect(readonly=), Regulation <-> row, placeholders(), swap_in()
   cli.py           `curbcheck sync | serve | parse-report`
-  geocode.py       Local address / intersection lookup over centerline address ranges
+  geocode/         Local address, corner and place lookup over the ETL's vocabulary index
+    candidates.py    The answer records, the kinds, and the confidence ladder
+    query.py         Cleaning and classifying what was typed
+    street.py        Which street a spelling means; the street as an answer
+    address.py       The house-number rungs, incl. neighbour interpolation
+    intersection.py  The corner rung     places.py   Place names and ZIP centres
+    suggest.py       Which rungs run, in what order, what survives coverage
+    reverse.py       The inverse: what a dropped pin is nearest to
   etl/
     fetch.py       Socrata pulls into data/raw; manifest records and the drift check
     stage.py       Schema validation, formula-injection neutralization, active-row filter
@@ -47,15 +54,24 @@ curbcheck/
     routes.py      /api/search, /api/segment/{id}, /api/geocode, /api/health, /api/sync-status
     schemas.py     Pydantic request models, `extra="forbid"`; every HTTP input passes through one
     errors.py      The single `{error: {code, message}}` shape
-web/
-  index.html       Single page, disclaimer banner, attribution
-  app.js           UI state and form handling
+web/               16 plain ES modules, 3 stylesheets, no bundler
+  index.html       Single page: the §17 strip, the map, the rail, the sheet
+  app.js           UI state, the search lifecycle, and what each control does
   map.js           MapLibre setup, PMTiles protocol, layer styling by verdict
   api.js           fetch wrappers for the local API
-  results.js       Ranked list       detail.js   Per-segment panel with the raw sign text
+  searchcard.js    Destination, window, radius and weight controls
+  autocomplete.js  The ARIA 1.2 combobox over /api/geocode, one call per 150 ms
+  results.js       Ranked list      detail.js   Per-segment panel with the raw sign text
+  verdicts.js      The four verdict states: colour, label, and what each means
+  rank.js          Client-side re-ranking from the weight chips (no new request)
+  legend.js        Map legend      drawer.js   The phone drawer's three detents
+  about.js         The About & data sheet    states.js   Empty, loading, error states
   dom.js           `el()` — the one place text reaches the page, always via textContent
   format.js        Money, minutes, confidence     copy.js   User-facing strings in one file
-  styles.css       favicon.svg
+  tokens.css       Design tokens (verdict hues, inks, spacing), from docs/ux/tokens.css
+  components.css   Component rules      styles.css   Layout and the responsive breakpoints
+  favicon.svg
+  fonts/           Inter 4.1, one 72 KB Latin subset, OFL licence and hashes in MANIFEST.md
   vendor/          maplibre-gl, pmtiles (checked in, hashes in MANIFEST.md)
   basemap/         style.json, glyphs, sprites (checked in, hashes in MANIFEST.md).
                    The .pmtiles archive is not here; it lives in data/basemap/.
@@ -155,6 +171,12 @@ builds a fresh file and `db.swap_in` renames it over the old one.
 | `regulation` | one parsed rule on one span | `reg_id`, `reg_seg_id`, the `Regulation` fields (`action`, `permitted`, `vehicle_class`, `exclusive`, `days_mask`, `time_from/to`, `metered`, `max_duration_min`, `flags`, `effective_from/to`, `arrow`), `raw_sign_description`, `parse_method`, `parse_confidence`, `parse_notes` |
 | `meter_rate` | ParkNYC blockface × centerline segment | `blockface_id`, `segment_id`, `side`, `rate_label`, `hour_rates` (JSON), `commercial_hour_rates`, `max_session_min`, `source`, `confidence`, geom |
 | `asp_suspension` | calendar date | `date`, `is_major_legal_holiday`, `meters_suspended`, `label` |
+| `street` | centerline street, by normalized name | `street_norm`, `display`, a lon/lat on one of its own segments |
+| `street_variant` | spelling a person might type | `variant`, `street_norm`. `WITHOUT ROWID`, `variant` first, so resolving a half-typed street is a range scan inside the key (2,814 rows) |
+| `address_point` | surveyed door from OTI AddressPoint | `street_norm`, `house_number`, `display`, `zipcode`, lon/lat (63,245 rows) |
+| `intersection` | ordered pair of streets meeting at a node | `a_norm`, `b_norm`, `display`, lon/lat. Both orders stored, so a lookup never tries the pair twice (5,645 corners) |
+| `place` / `place_token` | CommonPlace name / one word of one | `place_id`, `display`, lon/lat, `token_count`; `token`, `place_id` (5,817 names, 23,659 tokens) |
+| `zip_centroid` | ZIP code | `zipcode`, lon/lat, `address_points` — the count is what says how coarse the centre is (91 rows) |
 | `sync_meta` | key/value | `last_sync_at`, row counts, per-step coverage and failure-reason histograms (57 keys). Source SHA-256s are *not* here; they live in each `data/raw/*.meta.json` and in `data/raw/manifest.jsonl`. |
 
 ## Query path
@@ -181,7 +203,7 @@ collapses these into two colors. A span with no rules at all — every
 placeholder, and the 56 real spans whose only signs state no curb rule — is
 `no_data`; nothing reaches `legal` on an empty stack.
 
-**Geocoding is local and degrades in steps.** `geocode.py` reads the
+**Geocoding is local and degrades in steps.** `geocode/` reads the
 vocabulary index `etl/addresses.py` builds — 63,245 surveyed doors, 5,645
 corners, 5,817 places, 2,814 street spellings — so a destination address never
 leaves the machine, and neither does the typing that led to it (T6, D29). The
@@ -191,6 +213,19 @@ itself at 0.70, `near <closest door>` at 0.60, CSCL's own address range at 0.50
 for a street with no door at all, and a ZIP centre at 0.25. A low confidence is
 returned and shown, never rounded up, and the user can always drop a pin
 instead.
+
+**The server holds one read-only connection per worker thread, not one per
+request.** `api/routes.open_database` caches it in a `threading.local`, so
+`sqlite3`'s thread affinity is respected and `check_same_thread` stays at its
+default; the cache is dropped and reopened when the file's inode, mtime or size
+changes, which is how a `curbcheck sync` that renames a new database into place
+is picked up without a restart. The connection is worth keeping because
+`db.connect(readonly=True)` gives it an 8 MB page cache: at SQLite's 2 MB
+default the vocabulary index and the coverage geometry evict each other inside
+a single `/api/geocode`, which cost 488 ms a keystroke on this container's data
+mount and costs 22 ms now. `engine.coverage` caches the centerline's extent
+against the same file identity, because both the radius prefilter and
+`/api/health` want that aggregate on every request.
 
 **The basemap is served, not proxied.** `data/basemap/manhattan.pmtiles` is a
 gitignored 23 MB archive that `api/app.py` serves at
@@ -209,9 +244,9 @@ zero third-party requests.
   fails on a network import anywhere else.
 - `etl/` never imports from `api/` and vice versa. The same test enforces it,
   and that `BIND_HOST` is a constant no flag or environment variable can widen.
-- `geocode.py` is the one seam that crosses: it imports
-  `etl.streets.normalize_street_name` so a name typed by the user is folded
-  exactly the way the ETL folded the data. One direction only.
+- `geocode/` is the one seam that crosses: it imports the ETL's `fold` so a
+  name typed by the user is folded exactly the way the ETL folded the data.
+  One direction only.
 - `api/` sets CSP, `X-Content-Type-Options: nosniff`, and binds `127.0.0.1`.
 - Everything in `data/` is treated as untrusted at read time, including the
   SQLite file's text columns, which are escaped by the frontend before display.

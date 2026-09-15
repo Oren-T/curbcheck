@@ -1,9 +1,8 @@
 # CurbCheck UI redesign — implementation notes
 
 What was built against `docs/ux/UX_AUDIT.md` and `docs/ux/DESIGN_DIRECTION.md`,
-where the build departs from either, and what is left. Written here rather than
-in `docs/DECISIONS.md` because that file belongs to the backend change landing
-alongside this one; **§1 below is the entry that needs to move there.**
+where the build departs from either, and what is left. The one decision in it
+that overrides the spec has moved to the log where decisions live; see §1.
 
 Verified against `curbcheck serve` on `data/curbcheck.sqlite` (74,389 signs) at
 1440×900, 1024×768 and 390×844 on 2026-09-15. Screenshots: `screens/after/`.
@@ -12,30 +11,7 @@ Verified against `curbcheck serve` on `data/curbcheck.sqlite` (74,389 signs) at
 
 ## 1. Decision: SPEC §17 is rendered as a strip plus a disclosure
 
-**Change.** The §17 disclaimer is no longer a 121-word paragraph at the top of
-the page. The persistent, undismissible strip carries the two load-bearing
-sentences — *"Advisory only. Read the posted sign."* and *"Grey means no data,
-not no restriction."* — and a `Full notice` disclosure expands the complete §17
-text in place. The same text is printed verbatim at the foot of **every** detail
-sheet, so it is inside every verdict as well as at the top of every screen.
-
-**Evidence.** The old banner was 106 px (12%) of a 900 px viewport and 275 px
-(33%) of a 390×844 phone, pushing the map entirely off the first screen
-(UX_AUDIT P1-11, `screens/06-first-load-390.png`). Nine bolded clauses in one
-paragraph is read as boilerplate on the second visit; the sentence that changes
-behaviour is read every time.
-
-**Why this is still SPEC §17.** The spec requires a persistent banner plus
-per-verdict text. Both survive: the strip cannot be dismissed (there is no close
-control and nothing is persisted to storage — a static test pins this), the full
-text is one click from any screen, and the per-verdict text is the "Before you
-park" block, which is never behind a disclosure.
-
-**Departure from DESIGN_DIRECTION §3.** The design doc wanted the full notice
-*expanded* on the first load of each session. It ships collapsed: the brief for
-this build asks for a 36 px strip with the full text "one click away", and an
-amber wall on first load is the failure mode the compaction exists to fix. No
-session state is stored either way.
+Moved, with its evidence, to `docs/DECISIONS.md` **D30**.
 
 ---
 

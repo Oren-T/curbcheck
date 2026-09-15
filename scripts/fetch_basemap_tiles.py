@@ -12,7 +12,7 @@ basemap artifact that is not vendored (23 MB, gitignored). Its companion,
 `scripts/fetch_basemap_assets.py`, vendors the style, glyphs and sprites.
 
 Run: `python scripts/fetch_basemap_tiles.py [--dry-run]`. Needs the `pmtiles`
-CLI on PATH; see docs/DATA.md §5 for the release URL.
+CLI on PATH; see docs/DATA.md §6 for the release URL.
 """
 
 from __future__ import annotations

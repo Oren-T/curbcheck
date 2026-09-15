@@ -7,13 +7,16 @@ from NYC Open Data: every DOT parking sign is snapped onto the correct side of
 the correct blockface by linear referencing, its `sign_description` text is read
 by a deterministic grammar into a structured rule, overlapping rules are stacked
 most-restrictive-wins over your time window, metered spans are priced against
-ParkNYC rates, and the survivors are ranked. It is a single-user app: one ETL
-run downloads the data, and after that the server runs offline, bound to
-`127.0.0.1`, with no telemetry and no remote assets of any kind.
+ParkNYC rates, and the survivors are ranked. Typing the destination is local
+too: the address box suggests surveyed doors, corners and place names from an
+index built into the same SQLite file, so not even the typing leaves the
+machine. It is a single-user app: one ETL run downloads the data, and after
+that the server runs offline, bound to `127.0.0.1`, with no telemetry and no
+remote assets of any kind.
 
-![CurbCheck showing a legal, metered stretch of 3 Ave with the sign text that produced the verdict](docs/images/search-legal.png)
+![CurbCheck ranking the legal curb within a ten-minute walk of 1519 3 Ave, each stretch drawn on the map in its verdict colour](docs/images/search-results.png)
 
-![The same search showing a stretch with no sign data, and the ranked result list](docs/images/search-no-data.png)
+![The destination box suggesting 1519 3 AVE and three nearby doors, from the local index — no keystroke leaves the machine](docs/images/search-autocomplete.png)
 
 ## Safety posture
 
@@ -74,7 +77,7 @@ runs that command for you; `--dry-run` prints it instead. To re-vendor the
 style, glyphs and sprites from upstream, run `python scripts/fetch_basemap_assets.py`
 (`--check` verifies the checked-in bytes against
 `web/basemap/MANIFEST.md` without writing). Without the archive the app still
-runs; the map panel is simply blank. See `docs/DATA.md` §5.
+runs; the map panel is simply blank. See `docs/DATA.md` §6.
 
 ## How it works
 
@@ -88,7 +91,12 @@ runs; the map panel is simply blank. See `docs/DATA.md` §5.
    is reported, never guessed.
 4. **segments / meters / calendar** — arrow glyphs extrapolate posts into curb
    spans, ParkNYC rates are joined on, and the ASP suspension calendar is loaded.
-5. **serve** — the API resolves the rule stack against your window, prices and
+5. **addresses** — OTI's 63,245 surveyed Manhattan doors, 5,645 corners and
+   5,817 place names are folded into a vocabulary index in the same file, which
+   is what `/api/geocode` answers each keystroke from. Ten online geocoders
+   were read in full and all were rejected, on privacy first and accuracy
+   second (`docs/DECISIONS.md` D29).
+6. **serve** — the API resolves the rule stack against your window, prices and
    ranks the survivors, and hands them to a MapLibre frontend with a strict CSP.
 
 Full module map, schema and query path: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**.

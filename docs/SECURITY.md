@@ -13,12 +13,12 @@ actually lives, how to check it yourself, and what is knowingly left open.
 
 | | Threat | What we do about it |
 |---|---|---|
-| **T1** | A dependency is hijacked upstream | Every package is hash-pinned and installed with `--require-hashes`; `pip-audit` runs in `make check` and in CI; the frontend libraries are checked in with SHA-256s, not fetched. |
+| **T1** | A dependency is hijacked upstream | Every package is hash-pinned and installed with `--require-hashes`; `pip-audit` runs in `make check` and in CI; the frontend libraries, the basemap assets and the one vendored font are checked in with SHA-256s, not fetched. |
 | **T2** | A data endpoint is spoofed or MITM'd | One HTTP client, HTTPS only, certificate verification with no way to turn it off, a six-host allowlist re-checked on every redirect hop, byte caps, and a SHA-256 of every artifact in a manifest. The previous database survives as `.prev`. |
 | **T3** | Hostile strings ride in on the data | Explicit Pydantic schemas at the boundary, stdlib `json` only, no `eval`/`exec`/`pickle`/`yaml`/`subprocess` anywhere near a downloaded value, every SQL statement parameterized, spreadsheet-formula leads neutralized, and a frontend with no markup-building code path at all. |
 | **T4** | The local server is reached or abused | Binds `127.0.0.1` with no flag or environment variable that can widen it, one worker, no `--reload`, no `/docs`, a strict CSP on every response, no CORS, and a read-only SQLite connection. |
 | **T5** | Prompt injection through sign text | Not applicable: there is no LLM. `docs/DECISIONS.md` D2 removed the fallback parser, which removed the threat. |
-| **T6** | The user's destinations leak | No analytics, no telemetry, no crash reporting, no cookies, no `localStorage`, no remote asset of any kind. The geocoder and its autocomplete are local (D29), so not even the typing leaks; the basemap is a file on disk. After a sync the app never opens a socket. |
+| **T6** | The user's destinations leak | No analytics, no telemetry, no crash reporting, no cookies, no `localStorage`, no remote asset of any kind. The geocoder and its autocomplete are local (D29), so not even the typing leaks; the basemap and the UI font are files on disk. The index the autocomplete reads is built from two public city datasets and holds no trace of anyone's use of it — no query log, no history, no recents — and the request log omits query strings by construction. After a sync the app never opens a socket. |
 
 ## Where each control lives
 
@@ -41,6 +41,14 @@ actually lives, how to check it yourself, and what is knowingly left open.
   `rel="noopener noreferrer"`. `web/basemap/style.json` points at `/basemap/…`
   and `pmtiles:///basemap/…`. The vendored MapLibre and PMTiles builds contain
   no telemetry endpoint, no `sendBeacon`, and no absolute URL that is fetched.
+- `web/fonts/InterVariable-latin.woff2` — the UI type is one 72 KB file served
+  from `'self'`, never a font CDN, which is what keeps a page load from
+  announcing itself to a third party. The CSP names no `font-src`, so
+  `default-src 'self'` covers it. `web/fonts/MANIFEST.md` records the upstream
+  release URL, the SHA-256 of the 33.7 MB source zip, the SHA-256 of the
+  `InterVariable.ttf` inside it, the `pyftsubset` flags that produced the
+  subset, and the SHA-256 and byte count of the two files that ship. The
+  licence (SIL OFL 1.1) travels with it in `web/fonts/LICENSE.txt`.
 
 **Untrusted data (T3)**
 
@@ -48,6 +56,12 @@ actually lives, how to check it yourself, and what is knowingly left open.
   (Pydantic) before anything else touches it.
 - `curbcheck/etl/stage.py:neutralize_formula` — applied to `sign_description`,
   `order_number`, the three street names, `sign_code` and `sign_notes`.
+- `curbcheck/etl/addresses.py:RawAddressPointRow` / `RawCommonPlaceRow` — the
+  two datasets behind the autocomplete (D29) go through the same boundary:
+  Pydantic first, then `neutralize_formula` on every label that is stored, then
+  `fold` into the key the query is matched against. The index holds only what
+  those two datasets published — doors, corners, place names, ZIP centres — so
+  reading it back cannot reveal anything about the person reading it.
 - `curbcheck/etl/parse/__init__.py:parse_description` — never raises, never
   guesses; an unreadable string becomes `ParseMethod.UNPARSED` and the segment
   goes amber (`docs/DECISIONS.md` D13).
@@ -95,7 +109,8 @@ pip-audit -r requirements.txt -r requirements-dev.txt
 python - <<'EOF'
 import hashlib, pathlib, re
 for manifest, base in (("web/vendor/MANIFEST.md", "web/vendor"),
-                       ("web/basemap/MANIFEST.md", "web/basemap")):
+                       ("web/basemap/MANIFEST.md", "web/basemap"),
+                       ("web/fonts/MANIFEST.md", "web/fonts")):
     rows = re.findall(r'^\|\s*`([^`]+)`\s*\|\s*(\d+)\s*\|\s*`([0-9a-f]{64})`',
                       pathlib.Path(manifest).read_text(), re.M)
     for rel, size, want in rows:

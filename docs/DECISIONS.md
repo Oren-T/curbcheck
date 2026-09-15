@@ -658,3 +658,37 @@ The centerline and unsnapped-sign indexes it needed alongside cost a further
 **Would reverse it:** a need to geocode outside Manhattan, where AddressPoint's
 other 904,626 rows would still serve but the centerline, the signs and the
 meters would not — so it would not be this decision that changed.
+
+## D30. SPEC §17 is rendered as a persistent strip plus a full-notice disclosure
+
+**Decided:** 2026-09-15. The §17 disclaimer is no longer a 121-word paragraph
+at the top of the page. An undismissible 36 px strip carries the two
+load-bearing sentences — *"Advisory only. Read the posted sign."* and *"Grey
+means no data, not no restriction."* — and a `Full notice` disclosure expands
+the complete §17 text in place. The same text is printed verbatim at the foot
+of **every** detail sheet, so it is inside every verdict as well as at the top
+of every screen.
+
+**Why:** the old banner was 106 px (12%) of a 900 px viewport and 275 px (33%)
+of a 390×844 phone, pushing the map entirely off the first screen
+(`docs/ux/UX_AUDIT.md` P1-11, `docs/ux/screens/06-first-load-390.png`). Nine
+bolded clauses in one paragraph are read as boilerplate on the second visit;
+the sentence that changes behaviour is read every time.
+
+**Why this is still SPEC §17.** The spec requires a persistent banner plus
+per-verdict text, and both survive. The strip cannot be dismissed — there is no
+close control and nothing is persisted to storage, which `tests/test_web_static.py`
+pins — the full text is one click from any screen, and the per-verdict text is
+the "Before you park" block, which is never behind a disclosure.
+
+**What it does not reach:** `docs/ux/DESIGN_DIRECTION.md` §3 wanted the full
+notice *expanded* on the first load of each session. It ships collapsed,
+because an amber wall on first load is the failure mode the compaction exists
+to fix, and the brief for the build asked for a 36 px strip with the full text
+one click away. No session state is stored either way.
+
+**Would reverse it:** evidence that the disclosure is never opened. If the
+short strip is the only §17 anyone reads, the compaction has replaced the
+notice rather than fronting it, and the full text goes back to being expanded
+on the first load of a session — the cost the audit measured, paid once per
+session instead of once per visit.

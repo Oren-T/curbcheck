@@ -43,6 +43,26 @@ whatever PyPI serves at build time.
 | hatchling | 1.32.0 | MIT | The build backend `pyproject.toml` declares. Pinned and hashed here so `make setup` and the Dockerfile can install the package with `--no-build-isolation`: PEP 517 build isolation otherwise fetches hatchling from PyPI with no hash, which was the last install `--require-hashes` did not cover (threat T1). Brings `tomlkit` and `trove-classifiers`. |
 | editables | 0.6 | MIT | Hatchling asks for it when it builds an *editable* wheel, which is what `make setup` installs; it is not a dependency of hatchling itself, so it is listed on its own. |
 
+## Tools that built a vendored artifact, and are not dependencies
+
+`web/fonts/InterVariable-latin.woff2` — the UI's 72 KB Latin subset of Inter
+4.1 — was produced with **fontTools 4.65.0** and **brotli 1.2.0** via
+`pyftsubset`. Neither is in `requirements.in` or `requirements-dev.in`, neither
+is pinned or hashed, and neither should be: they happened to be in the conda
+env and were used once to make a binary that is now checked in with its hashes.
+Nothing at runtime or in `make check` imports them.
+
+What replaces the pin is a recipe plus a hash. `scripts/vendor_font.py` records
+the release URL and the SHA-256 of the 33.7 MB source zip, the SHA-256 of the
+`InterVariable.ttf` inside it, and the exact `pyftsubset` flags; it verifies
+both hashes before it unpacks anything, and when fontTools is not importable it
+prints the command instead of running it. `--check` re-verifies the shipped
+bytes against `web/fonts/MANIFEST.md` using the standard library alone, which
+is what `tests/test_scripts_vendor_font.py` runs on every `make check`.
+
+If subsetting a font ever becomes a routine step rather than a one-off, that is
+the point at which fontTools earns a pin, a hash and a row in the table above.
+
 ## Audit result
 
 ```
