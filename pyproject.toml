@@ -64,9 +64,10 @@ ignore = [
 # The homograph hosts this file refuses are the point of it, so the ambiguous-
 # character rules would be flagging the test data itself.
 "tests/test_net_security.py" = ["ARG001", "RUF001", "RUF003", "S105", "S106", "SIM300"]
-# A fuzzer is the one place a non-cryptographic PRNG is the right tool; the
-# seed is fixed so a failure is reproducible.
+# A fuzzer and a property test are where a non-cryptographic PRNG is the right
+# tool; the seeds are fixed so a failure is reproducible.
 "tests/test_parse_fuzz.py" = ["ARG001", "S105", "S106", "S311", "SIM300"]
+"tests/test_etl_segments_projection.py" = ["ARG001", "S105", "S106", "S311", "SIM300"]
 
 [tool.mypy]
 python_version = "3.12"

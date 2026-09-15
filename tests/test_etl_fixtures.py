@@ -31,6 +31,7 @@ CROSS_NAMES = ("E 1 ST", "E 2 ST", "E 3 ST", "E 4 ST")
 # canonical orientation `segments` groups by. See segments._canonical_chain.
 AVENUE_LENGTHS_FT = (364.0, 364.0, 728.0)
 AVENUE_LENGTH_FT = sum(AVENUE_LENGTHS_FT)
+AVENUE_SEGMENT_IDS = ("avenue-0", "avenue-1", "avenue-2")
 
 MAIN_STREET_LAT = 40.7500
 MAIN_STREET_LONS = (-73.9900, -73.9860)
@@ -143,6 +144,64 @@ def divided_graph() -> StreetGraph:
 
 def grid_graph() -> StreetGraph:
     return build_graph(stage_centerline(grid_rows()))
+
+
+def avenue_chain_offsets() -> dict[str, float]:
+    """Where each BROAD AVE segment starts along the south-to-north chain, in feet.
+
+    Read off the graph rather than off AVENUE_LENGTHS_FT so span assertions do
+    not have to carry the reprojection's own rounding.
+    """
+    segments = grid_graph().segments
+    offsets: dict[str, float] = {}
+    travelled = 0.0
+    for segment_id in AVENUE_SEGMENT_IDS:
+        offsets[segment_id] = travelled
+        travelled += segments[segment_id].length_ft
+    return offsets
+
+
+# Two segments of one avenue, digitized in opposite directions, with a cross
+# street at each end and in the middle. DOT writes some signs against
+# "E 16 ST -> E 18 ST" and others against "E 16 ST -> E 17 ST", which are two
+# chains over one piece of curb (docs/DECISIONS.md D26). Both centerline rows
+# start at the middle corner, so the chain from E 16 ST runs with one of them
+# and against the other.
+TWO_CHAIN_LON = -73.9700
+TWO_CHAIN_LATS = (40.7360, 40.7370, 40.7380)
+TWO_CHAIN_NAMES = ("E 16 ST", "E 17 ST", "E 18 ST")
+SOUTH_SEGMENT = "ave-south"
+NORTH_SEGMENT = "ave-north"
+
+
+def two_chain_rows() -> list[dict[str, Any]]:
+    """1 AVE in two oppositely-digitized segments, plus its three cross streets."""
+    rows = [
+        centerline_row(
+            SOUTH_SEGMENT,
+            "1 AVE",
+            [[TWO_CHAIN_LON, TWO_CHAIN_LATS[1]], [TWO_CHAIN_LON, TWO_CHAIN_LATS[0]]],
+            streetwidth="60",
+        ),
+        centerline_row(
+            NORTH_SEGMENT,
+            "1 AVE",
+            [[TWO_CHAIN_LON, TWO_CHAIN_LATS[1]], [TWO_CHAIN_LON, TWO_CHAIN_LATS[2]]],
+            streetwidth="60",
+        ),
+    ]
+    for name, lat in zip(TWO_CHAIN_NAMES, TWO_CHAIN_LATS, strict=True):
+        rows.append(
+            centerline_row(f"{name}-w", name, [[TWO_CHAIN_LON - 0.002, lat], [TWO_CHAIN_LON, lat]])
+        )
+        rows.append(
+            centerline_row(f"{name}-e", name, [[TWO_CHAIN_LON, lat], [TWO_CHAIN_LON + 0.002, lat]])
+        )
+    return rows
+
+
+def two_chain_graph() -> StreetGraph:
+    return build_graph(stage_centerline(two_chain_rows()))
 
 
 def avenue_chain_length_ft() -> float:

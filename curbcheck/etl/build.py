@@ -639,9 +639,10 @@ def _resolve_arrow(
 def _segment_points(geom: str) -> tuple[float, float] | None:
     """Unit vector of a segment's curb line, from its start to its end.
 
-    The curb line is built by offsetting the chain in its canonical direction
-    and neither `offset_curve` nor the manual fallback reverses it, so the first
-    coordinate is `start_ft` and the last is `end_ft` (see `segments`).
+    The curb line is built by offsetting the centerline segment in its own
+    digitization direction and neither `offset_curve` nor the manual fallback
+    reverses it, so the first coordinate is `start_ft` and the last is `end_ft`
+    (see `segments`, docs/DECISIONS.md D26).
     Longitude is scaled to metres so the dot product against a compass vector is
     not skewed by Manhattan's 0.76 cos(lat) factor.
     """

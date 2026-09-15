@@ -8,6 +8,7 @@ import pytest
 from test_etl_fixtures import (
     AVENUE_LON,
     avenue_chain_length_ft,
+    avenue_chain_offsets,
     first_block_length_ft,
     grid_graph,
     staged_sign,
@@ -28,6 +29,7 @@ NO_PARKING = "NO PARKING ANYTIME"
 NO_STANDING = "NO STANDING ANYTIME"
 
 WHOLE_SIDE_FT = round(avenue_chain_length_ft())
+AVENUE_OFFSETS = avenue_chain_offsets()
 
 
 def resolve(*signs):
@@ -36,8 +38,37 @@ def resolve(*signs):
     return resolve_segments(snaps)
 
 
+def stretches(segments):
+    """The BROAD AVE spans in chain feet, as `(start, end, derived_from)`.
+
+    A span is stored per centerline segment it crosses (docs/DECISIONS.md D26),
+    so the rows a chain-long span becomes are glued back together here. These
+    tests are about which rules fall on which curb, not about where the
+    segment boundaries cut it.
+    """
+    placed = sorted(
+        (
+            AVENUE_OFFSETS[segment.segment_id] + segment.start_ft,
+            AVENUE_OFFSETS[segment.segment_id] + segment.end_ft,
+            segment.derived_from,
+        )
+        for segment in segments
+    )
+    joined = []
+    for start_ft, end_ft, sign_ids in placed:
+        if joined and joined[-1][2] == sign_ids and abs(joined[-1][1] - start_ft) < 0.02:
+            joined[-1][1] = end_ft
+            continue
+        joined.append([start_ft, end_ft, sign_ids])
+    return [(start, end, sign_ids) for start, end, sign_ids in joined]
+
+
 def spans(segments):
-    return sorted((round(s.start_ft), round(s.end_ft)) for s in segments)
+    return [(round(start), round(end)) for start, end, _ in stretches(segments)]
+
+
+def sign_sets(segments):
+    return [sign_ids for _, _, sign_ids in stretches(segments)]
 
 
 @pytest.mark.parametrize(
@@ -75,9 +106,9 @@ def test_regulation_family_groups_the_signs_that_subdivide_a_blockface():
 def test_a_sign_with_no_arrow_governs_the_whole_blockface_side():
     segments, report = resolve(staged_sign("a", description=NO_PARKING, distance_ft=100.0))
 
-    assert len(segments) == 1
-    assert segments[0].start_ft == 0.0
-    assert segments[0].end_ft == pytest.approx(WHOLE_SIDE_FT, abs=1.0)
+    assert spans(segments) == [(0, WHOLE_SIDE_FT)]
+    # One span, but one row per centerline segment it runs over (D26).
+    assert len(segments) == 3
     assert report.whole_side_spans == 1
 
 
@@ -154,8 +185,7 @@ def test_signs_on_one_post_with_the_same_span_merge_into_one_segment():
         staged_sign("b", description=NO_STANDING, sign_code="PS-2G", distance_ft=100.0),
     )
 
-    assert len(segments) == 1
-    assert segments[0].derived_from == ("a", "b")
+    assert sign_sets(segments) == [("a", "b")]
 
 
 def test_different_spans_on_one_post_split_the_curb_between_them():
@@ -173,7 +203,7 @@ def test_different_spans_on_one_post_split_the_curb_between_them():
     )
 
     assert spans(segments) == [(0, 100), (100, WHOLE_SIDE_FT)]
-    assert [segment.derived_from for segment in segments] == [("a",), ("a", "b")]
+    assert sign_sets(segments) == [("a",), ("a", "b")]
 
 
 def test_the_two_sides_of_a_block_resolve_independently():
@@ -201,8 +231,8 @@ def test_confidence_is_the_weakest_snap_that_contributed():
         staged_sign("b", description=NO_PARKING, distance_ft=100.0, on_street="BROADE AVENUE"),
     )
 
-    assert len(segments) == 1
-    assert segments[0].confidence < 0.9
+    assert spans(segments) == [(0, WHOLE_SIDE_FT)]
+    assert all(segment.confidence < 0.9 for segment in segments)
 
 
 def test_geometry_is_the_curb_line_offset_towards_the_named_side():
@@ -308,7 +338,7 @@ def test_posts_repeating_one_rule_merge_into_a_single_span():
     )
 
     assert spans(segments) == [(0, WHOLE_SIDE_FT)]
-    assert segments[0].derived_from == ("a", "b", "c")
+    assert sign_sets(segments) == [("a", "b", "c")]
     assert report.merged_repeat_spans == 2
 
 
@@ -322,7 +352,7 @@ def test_a_different_rule_is_split_out_rather_than_merged_away():
     )
 
     assert spans(segments) == [(0, 100), (100, 700), (700, WHOLE_SIDE_FT)]
-    assert [segment.derived_from for segment in segments] == [("np",), ("np", "ns"), ("ns",)]
+    assert sign_sets(segments) == [("np",), ("np", "ns"), ("ns",)]
     assert report.merged_repeat_spans == 0
 
 
@@ -432,8 +462,8 @@ def test_a_side_with_a_gap_between_its_spans_still_gets_no_placeholder():
 
 
 def test_a_whole_chain_span_leaves_no_placeholder_on_the_segments_it_crosses():
-    # The span is filed under the segment covering its midpoint, but it covers
-    # all three, and a placeholder on the other two would double-draw the curb.
+    # The span is cut into one row per segment it crosses (D26), so all three
+    # are covered; a placeholder on any of them would double-draw the curb.
     segments, _ = resolve_with_placeholders(
         staged_sign("a", to_street="E 4 STREET", description=NO_PARKING, side="W")
     )
@@ -525,11 +555,7 @@ def test_a_ban_and_a_permission_that_overlap_become_three_stacked_segments():
     )
 
     assert spans(segments) == [(0, 50), (50, 150), (150, FIRST_BLOCK_FT)]
-    assert [segment.derived_from for segment in segments] == [
-        ("ns",),
-        ("hmp", "ns"),
-        ("hmp",),
-    ]
+    assert sign_sets(segments) == [("ns",), ("hmp", "ns"), ("hmp",)]
 
 
 def test_a_flattened_side_never_holds_two_spans_over_one_foot_of_curb():

@@ -8,12 +8,13 @@ is what 34 RCNY 4-08 says about a single authorized sign. The arrow's *arity*
 comes from the grammar's reading of the sign and its *bearing* from
 `arrow_direction` (docs/DECISIONS.md D3 refined).
 
-Three passes follow the extrapolation: posts that repeat one rule over a stretch
-have their spans unioned (D5 in docs/VALIDATION.md §4), the spans left on a side
-are cut at every boundary so no two of them cover the same foot of curb
-(docs/DECISIONS.md D25), and every street side left with no span at all gets a
-placeholder so the map can say "no data" rather than draw nothing
-(docs/DECISIONS.md D23).
+Four passes follow the extrapolation: posts that repeat one rule over a stretch
+have their spans unioned (D5 in docs/VALIDATION.md §4), every span is projected
+off its chain onto the centerline segments it covers (docs/DECISIONS.md D26),
+the spans that land on one segment-side are cut at every boundary so no two of
+them cover the same foot of curb (docs/DECISIONS.md D25), and every street side
+left with no span at all gets a placeholder so the map can say "no data" rather
+than draw nothing (docs/DECISIONS.md D23).
 """
 
 from __future__ import annotations
@@ -65,6 +66,13 @@ _LEADING_SYMBOL = re.compile(r"^\([^)]*\)\s*|^[A-Z /&]+\(SYMBOLS?\)\s*")
 # A span shorter than this is a sign pointing off the end of its own block,
 # which means the distance or the bearing is wrong; fall back to the whole side.
 MIN_SPAN_FT = 1.0
+
+# Which curb of a centerline segment a span sits on, named against the segment's
+# own digitization direction rather than the compass. Two chains can run through
+# one segment in opposite directions and DOT can letter the same curb from either
+# end, so this is the only key both of them agree on (docs/DECISIONS.md D26).
+LEFT_SIDE = "L"
+RIGHT_SIDE = "R"
 
 # Half the 0.01 ft quantum the span bounds are rounded to. A span that reaches a
 # boundary exactly covers up to it and no further, so a span merely touching an
@@ -154,8 +162,11 @@ class RegulationSegment:
 
     reg_seg_id: str
     segment_id: str
+    """The centerline segment the span lies on, exactly: a span never crosses one."""
     side: str
+    """The compass letter DOT lettered this curb with; the key is segment-local."""
     start_ft: float
+    """Feet from the segment's own start, in its own digitization direction."""
     end_ft: float
     length_ft: float
     geometry: dict[str, Any]
@@ -180,12 +191,14 @@ class SegmentReport:
     merged_repeat_spans: int
     """Spans absorbed into a neighbour because they state the same rule (SPEC §B.2)."""
     pre_flatten_spans: int
-    """Per-post spans that went into the flatten, before they were cut at their boundaries."""
+    """Per-post spans on a chain, before they were projected onto segments and cut."""
+    projected_pieces: int
+    """Those spans after the cut at every centerline segment boundary (D26)."""
     degenerate_spans: int
     offset_curve_fallbacks: int
     signs_used: int
     sides_with_rules: int
-    """Centerline `(segment_id, side)` pairs a resolved span covers."""
+    """Segment-local `(segment_id, left-or-right)` curbs a resolved span covers."""
     no_signs_sides: int
     unmatched_sides: int
 
@@ -243,10 +256,13 @@ def resolve_segments(
 ) -> tuple[list[RegulationSegment], SegmentReport]:
     """Group snapped regulation signs into curb spans, one per stretch of curb.
 
-    Only matched regulation panels take part (docs/DECISIONS.md D10). Each
-    blockface-side comes back as a non-overlapping tiling: a span is cut at
-    every other span's boundary and each piece carries every sign governing it,
-    so the rules a foot of curb is under are one stack (docs/DECISIONS.md D25).
+    Only matched regulation panels take part (docs/DECISIONS.md D10). Spans are
+    resolved per blockface-side, then projected onto the centerline segments they
+    cross and stacked per segment-side, so curb that two different DOT blockface
+    tuples describe ends up in one stack (docs/DECISIONS.md D26). Each
+    segment-side comes back as a non-overlapping tiling: a span is cut at every
+    other span's boundary and each piece carries every sign governing it, so the
+    rules a foot of curb is under are one stack (docs/DECISIONS.md D25).
 
     With `graph`, every street side that ends up with no span also gets a
     placeholder so the map can draw SPEC §11's grey "no sign data" state there
@@ -260,19 +276,33 @@ def resolve_segments(
             continue
         faces.setdefault((_chain_key(snap), snap.side), []).append(snap)
 
-    segments: list[RegulationSegment] = []
     counts = {
         "whole": 0,
         "arrow": 0,
         "merged": 0,
         "pre_flatten": 0,
+        "projected": 0,
         "degenerate": 0,
         "fallback": 0,
         "signs": 0,
     }
-    covered: set[tuple[str, str]] = set()
-    for (chain_key, side), members in sorted(faces.items()):
-        segments.extend(_resolve_face(chain_key, side, members, readings or {}, counts, covered))
+    curbs: dict[tuple[str, str], list[_SegmentSpan]] = {}
+    for (_, side), members in sorted(faces.items()):
+        for piece in _resolve_face(side, members, readings or {}, counts):
+            curbs.setdefault((piece.segment.segment_id, piece.local_side), []).append(piece)
+    counts["projected"] = sum(len(pieces) for pieces in curbs.values())
+
+    segments: list[RegulationSegment] = []
+    # Recorded from the rows and not from the keys: a curb whose spans all round
+    # away to nothing has no row, so D23 must still draw grey over it. Every row
+    # on one curb carries the same letter, which is what the placeholder reads.
+    covered: dict[tuple[str, str], str] = {}
+    for key, pieces in sorted(curbs.items()):
+        rows = _flatten_curb(pieces, counts)
+        if not rows:
+            continue
+        covered[key] = rows[0].side
+        segments.extend(rows)
     placeholders = [] if graph is None else coverage_placeholders(graph, covered, all_snaps)
     segments.extend(placeholders)
     report = SegmentReport(
@@ -282,6 +312,7 @@ def resolve_segments(
         arrow_extended_spans=counts["arrow"],
         merged_repeat_spans=counts["merged"],
         pre_flatten_spans=counts["pre_flatten"],
+        projected_pieces=counts["projected"],
         degenerate_spans=counts["degenerate"],
         offset_curve_fallbacks=counts["fallback"],
         signs_used=counts["signs"],
@@ -291,20 +322,21 @@ def resolve_segments(
     )
     LOGGER.info(
         "segments.resolve faces=%d segments=%d whole_side=%d arrow=%d merged=%d"
-        " pre_flatten=%d degenerate=%d",
+        " pre_flatten=%d projected=%d degenerate=%d",
         report.blockface_sides,
         report.segments,
         report.whole_side_spans,
         report.arrow_extended_spans,
         report.merged_repeat_spans,
         report.pre_flatten_spans,
+        report.projected_pieces,
         report.degenerate_spans,
     )
     return segments, report
 
 
 def coverage_placeholders(
-    graph: StreetGraph, covered: set[tuple[str, str]], snaps: Sequence[SnapResult]
+    graph: StreetGraph, covered: Mapping[tuple[str, str], str], snaps: Sequence[SnapResult]
 ) -> list[RegulationSegment]:
     """One empty span per street side that no resolved span covers (SPEC §11).
 
@@ -318,32 +350,54 @@ def coverage_placeholders(
     Only `rw_type` 1 — the street network — gets placeholders. Highways (2),
     bridges (3) and connectors (10) are in the snap pool because signs are
     posted along them, but they have no parkable curb to leave grey.
+
+    `covered` maps each segment-local curb a real span reached to the compass
+    letter that span carries, which is both the membership test and the source
+    of the letters `_sides_for` reads.
     """
     unmatched = _unmatched_faces(graph, snaps)
-    sides_used: dict[str, set[str]] = {}
-    for segment_id, side in covered:
-        sides_used.setdefault(segment_id, set()).add(side)
+    letters_used: dict[str, set[str]] = {}
+    for (segment_id, _), letter in covered.items():
+        letters_used.setdefault(segment_id, set()).add(letter)
     placeholders = []
     for segment in graph.segments.values():
         if segment.rw_type != PLACEHOLDER_RW_TYPE:
             continue
         crossing = graph.node_streets(segment.from_node) | graph.node_streets(segment.to_node)
-        for side in _sides_for(segment, sides_used.get(segment.segment_id)):
-            if (segment.segment_id, side) in covered:
+        for side, local_side in _placeholder_sides(segment, letters_used.get(segment.segment_id)):
+            if (segment.segment_id, local_side) in covered:
                 continue
             placeholders.append(
-                _placeholder(segment, side, _gap_kind(unmatched, segment, crossing, side))
+                _placeholder(
+                    segment, side, local_side, _gap_kind(unmatched, segment, crossing, side)
+                )
             )
     return placeholders
 
 
-def _placeholder(segment: StreetSegment, side: str, gap_kind: str) -> RegulationSegment:
-    offset_sign, _ = side_offset_sign(segment.line_ft, side)
+def _placeholder_sides(
+    segment: StreetSegment, used: set[str] | None
+) -> tuple[tuple[str, str], tuple[str, str]]:
+    """The two curbs of a segment as (compass letter, segment-local side) pairs.
+
+    The second letter's local side is taken as the opposite of the first rather
+    than read off the compass again: on a run whose side letters lie along its
+    own bearing both letters would read the same way and draw two placeholders
+    over one curb, leaving the other blank.
+    """
+    first, second = _sides_for(segment, used)
+    local = _local_side(segment.line_ft, first)
+    return ((first, local), (second, RIGHT_SIDE if local == LEFT_SIDE else LEFT_SIDE))
+
+
+def _placeholder(
+    segment: StreetSegment, side: str, local_side: str, gap_kind: str
+) -> RegulationSegment:
     geometry, _ = _curb_geometry(
-        segment.line_ft, 0.0, segment.length_ft, segment.width_ft / 2.0, offset_sign
+        segment.line_ft, 0.0, segment.length_ft, segment.width_ft / 2.0, _offset_sign(local_side)
     )
     return RegulationSegment(
-        reg_seg_id=_reg_seg_id(f"gap|{segment.segment_id}", side, 0.0, segment.length_ft),
+        reg_seg_id=_reg_seg_id(f"gap|{segment.segment_id}", local_side, 0.0, segment.length_ft),
         segment_id=segment.segment_id,
         side=side,
         start_ft=0.0,
@@ -453,17 +507,36 @@ class _Post:
     """Whether a single arrow points towards increasing distance. None if unknown."""
 
 
+@dataclass(frozen=True)
+class _SegmentSpan:
+    """One chain span cut down to a single centerline segment, in that segment's feet."""
+
+    segment: StreetSegment
+    local_side: str
+    side_label: str
+    """The compass letter the chain this piece came from was lettered with."""
+    start_ft: float
+    end_ft: float
+    posts: tuple[_Post, ...]
+
+
 def _resolve_face(
-    chain_key: str,
     side: str,
     members: Sequence[SnapResult],
     readings: Mapping[str, SignReading],
     counts: dict[str, int],
-    covered: set[tuple[str, str]],
-) -> list[RegulationSegment]:
+) -> list[_SegmentSpan]:
+    """Resolve one blockface-side's posts into spans, in the segments' own feet.
+
+    The arrow rules work in chain feet, because that is what DOT measures a post
+    in and where "the next post along" means anything. The result is projected
+    onto the chain's segments before it leaves this function, because that is the
+    frame two chains over one piece of curb can share (docs/DECISIONS.md D26).
+    """
     block = _block_of(members[0])
     line_ft = _canonical_line(block)
-    length_ft = float(line_ft.length)
+    chain = _canonical_chain(block)
+    length_ft = sum(link.segment.length_ft for link in chain)
     posts = sorted(
         (_post_for(snap, line_ft, length_ft, readings) for snap in members),
         key=lambda post: (post.distance_ft, post.snap.sign.sign_id),
@@ -484,27 +557,73 @@ def _resolve_face(
         counts["signs"] += 1
     spans = _merge_repeated_spans(spans, counts)
     counts["pre_flatten"] += len(spans)
+    return [
+        piece
+        for (start_ft, end_ft), group in spans.items()
+        for piece in _project_span(chain, side, start_ft, end_ft, group)
+    ]
 
-    offset_sign, _ = side_offset_sign(line_ft, side)
-    chain = _canonical_chain(block)
+
+def _project_span(
+    chain: Sequence[_ChainSegment],
+    side: str,
+    start_ft: float,
+    end_ft: float,
+    posts: Sequence[_Post],
+) -> list[_SegmentSpan]:
+    """Cut one chain span at the boundaries of the segments it runs over.
+
+    Each piece comes back in its segment's own digitization direction, which is
+    not the chain's: two chains through one segment can traverse it opposite ways,
+    and only the segment's own frame makes their spans comparable. The side is
+    re-expressed the same way, so "west curb" from either chain is one key.
+    """
+    pieces = []
+    for link in chain:
+        length_ft = link.segment.length_ft
+        low = max(start_ft - link.chain_start_ft, 0.0)
+        high = min(end_ft - link.chain_start_ft, length_ft)
+        if high - low <= _BOUNDARY_EPS_FT:
+            continue
+        if link.traversed_backwards:
+            low, high = length_ft - high, length_ft - low
+        pieces.append(
+            _SegmentSpan(
+                segment=link.segment,
+                local_side=_local_side(link.segment.line_ft, side),
+                side_label=side,
+                start_ft=low,
+                end_ft=high,
+                posts=tuple(posts),
+            )
+        )
+    return pieces
+
+
+def _flatten_curb(
+    pieces: Sequence[_SegmentSpan], counts: dict[str, int]
+) -> list[RegulationSegment]:
+    """Tile one segment-side with the spans that reached it, from however many chains."""
+    segment = pieces[0].segment
+    local_side = pieces[0].local_side
+    offset_sign = _offset_sign(local_side)
+    side = _side_letter(pieces)
+    # Re-quantized after the projection: `length - x` on a reversed traversal
+    # leaves a boundary two chains should share differing by an ULP, and a
+    # hundredth of a foot of disagreement would tile as a sliver row.
+    spans = [((round(p.start_ft, 2), round(p.end_ft, 2)), p.posts) for p in pieces]
     resolved = []
     for (start_ft, end_ft), group in flatten_spans(spans):
         geometry, fell_back = _curb_geometry(
-            line_ft, start_ft, end_ft, block.width_ft / 2.0, offset_sign
+            segment.line_ft, start_ft, end_ft, segment.width_ft / 2.0, offset_sign
         )
         if fell_back:
             counts["fallback"] += 1
-        sign_ids = _sign_ids(group)
         span_length = end_ft - start_ft
-        # A span that runs over a chain covers every segment it crosses, not
-        # only the one it is filed under, or the rest would look uncovered.
-        covered.update(
-            (segment_id, side) for segment_id in _segments_between(chain, start_ft, end_ft)
-        )
         resolved.append(
             RegulationSegment(
-                reg_seg_id=_reg_seg_id(chain_key, side, start_ft, end_ft),
-                segment_id=_segment_at(chain, (start_ft + end_ft) / 2.0),
+                reg_seg_id=_reg_seg_id(segment.segment_id, local_side, start_ft, end_ft),
+                segment_id=segment.segment_id,
                 side=side,
                 start_ft=round(start_ft, 2),
                 end_ft=round(end_ft, 2),
@@ -516,10 +635,34 @@ def _resolve_face(
                 # none of them are in the data yet (SPEC §8.5, config.HYDRANT_SETBACK_FT).
                 capacity_approximate=True,
                 confidence=round(min(post.snap.snap_confidence for post in group), 4),
-                derived_from=sign_ids,
+                derived_from=_sign_ids(group),
             )
         )
     return resolved
+
+
+def _side_letter(pieces: Sequence[_SegmentSpan]) -> str:
+    """The compass letter to show for a segment-side.
+
+    The key is segment-local, so two chains can letter one curb differently —
+    DOT sides a run by the axis it is closest to and does not always agree with
+    the bearing. The letter covering the most of the curb wins.
+    """
+    by_letter: dict[str, float] = {}
+    for piece in pieces:
+        length_ft = piece.end_ft - piece.start_ft
+        by_letter[piece.side_label] = by_letter.get(piece.side_label, 0.0) + length_ft
+    return max(sorted(by_letter), key=by_letter.__getitem__)
+
+
+def _local_side(line_ft: LineString, side: str) -> str:
+    """Which curb of a segment's own digitization direction a compass letter names."""
+    offset_sign, _ = side_offset_sign(line_ft, side)
+    return LEFT_SIDE if offset_sign > 0 else RIGHT_SIDE
+
+
+def _offset_sign(local_side: str) -> int:
+    return 1 if local_side == LEFT_SIDE else -1
 
 
 def _merge_repeated_spans(
@@ -564,9 +707,9 @@ def _union_touching(
 
 
 def flatten_spans(
-    spans: Mapping[tuple[float, float], Sequence[_Post]],
+    spans: Sequence[tuple[tuple[float, float], Sequence[_Post]]],
 ) -> list[tuple[tuple[float, float], list[_Post]]]:
-    """Cut the spans on one blockface-side into a non-overlapping tiling of it.
+    """Cut the spans on one segment-side into a non-overlapping tiling of it.
 
     D20 has a `<->` post extend to the next post of *any* family, so a
     permission and a prohibition each claim the curb between them and their
@@ -580,11 +723,15 @@ def flatten_spans(
     decides them per foot of curb and the uncontested remainder stays legal.
     Pieces no span covers are dropped: they are curb no post governs, and the
     only grey this module draws is the side-level placeholder of D23.
+
+    The spans arrive as a sequence rather than a mapping because two chains over
+    one segment-side can hand in the same extent under different posts
+    (docs/DECISIONS.md D26), and those are one stack, not one of them.
     """
     if not spans:
         return []
-    items = sorted(spans.items())
-    bounds = sorted({value for span in spans for value in span})
+    items = sorted(spans, key=lambda item: item[0])
+    bounds = sorted({value for span, _ in spans for value in span})
     pieces: list[tuple[tuple[float, float], list[_Post]]] = []
     for start_ft, end_ft in pairwise(bounds):
         covering = [
@@ -612,7 +759,8 @@ def _continues(
 
 
 def _sign_ids(posts: Sequence[_Post]) -> tuple[str, ...]:
-    return tuple(sorted(post.snap.sign.sign_id for post in posts))
+    """The provenance of a stretch: one entry per sign, however many spans carried it."""
+    return tuple(sorted({post.snap.sign.sign_id for post in posts}))
 
 
 def _post_for(
@@ -780,7 +928,7 @@ def _manual_offset(span: LineString, offset_ft: float, offset_sign: int) -> Line
 
 
 def _chain_key(snap: SnapResult) -> str:
-    return "+".join(_canonical_chain(_block_of(snap))[0])
+    return "+".join(link.segment.segment_id for link in _canonical_chain(_block_of(snap)))
 
 
 def _block_of(snap: SnapResult) -> BlockMatch:
@@ -789,18 +937,38 @@ def _block_of(snap: SnapResult) -> BlockMatch:
     return snap.block
 
 
-def _canonical_chain(block: BlockMatch) -> tuple[tuple[str, ...], tuple[float, ...]]:
-    """Segment ids and lengths in the chain's canonical direction.
+@dataclass(frozen=True)
+class _ChainSegment:
+    """One centerline segment of a chain, with where the chain enters and how."""
+
+    segment: StreetSegment
+    chain_start_ft: float
+    traversed_backwards: bool
+    """True when the chain runs against the segment's own digitization direction."""
+
+
+def _canonical_chain(block: BlockMatch) -> tuple[_ChainSegment, ...]:
+    """The chain's segments in canonical order, each with its offset and its sense.
 
     A blockface described as "E 85 ST to E 86 ST" and one described the other
     way round are the same curb, so both are reduced to the orientation whose
-    start node sorts first before anything is grouped or measured.
+    start node sorts first before anything is grouped or measured. CSCL digitizes
+    each segment in its own arbitrary direction, so which way the chain crosses
+    one is what turns chain feet into segment feet (docs/DECISIONS.md D26).
     """
-    ids = tuple(segment.segment_id for segment in block.segments)
-    lengths = tuple(segment.length_ft for segment in block.segments)
-    if _is_canonical(block):
-        return (ids, lengths)
-    return (ids[::-1], lengths[::-1])
+    node_id = block.from_node
+    walked = []
+    for segment in block.segments:
+        walked.append((segment, segment.from_node != node_id))
+        node_id = segment.other_end(node_id)
+    if not _is_canonical(block):
+        walked = [(segment, not backwards) for segment, backwards in reversed(walked)]
+    chain = []
+    travelled = 0.0
+    for segment, backwards in walked:
+        chain.append(_ChainSegment(segment, travelled, backwards))
+        travelled += segment.length_ft
+    return tuple(chain)
 
 
 def _is_canonical(block: BlockMatch) -> bool:
@@ -819,31 +987,6 @@ def _canonical_distance(snap: SnapResult, block: BlockMatch, length_ft: float) -
     return max(0.0, length_ft - snap.distance_ft)
 
 
-def _segments_between(
-    chain: tuple[tuple[str, ...], tuple[float, ...]], start_ft: float, end_ft: float
-) -> list[str]:
-    """Every centerline segment a span touches, in chain order."""
-    ids, lengths = chain
-    touched = []
-    travelled = 0.0
-    for segment_id, length in zip(ids, lengths, strict=True):
-        if travelled < end_ft and start_ft < travelled + length:
-            touched.append(segment_id)
-        travelled += length
-    return touched or [ids[-1]]
-
-
-def _segment_at(chain: tuple[tuple[str, ...], tuple[float, ...]], distance_ft: float) -> str:
-    """The centerline segment a span is filed under: the one covering its midpoint."""
-    ids, lengths = chain
-    travelled = 0.0
-    for segment_id, length in zip(ids, lengths, strict=True):
-        travelled += length
-        if distance_ft <= travelled:
-            return segment_id
-    return ids[-1]
-
-
-def _reg_seg_id(chain_key: str, side: str, start_ft: float, end_ft: float) -> str:
-    key = f"{chain_key}|{side}|{start_ft:.2f}|{end_ft:.2f}"
+def _reg_seg_id(segment_id: str, local_side: str, start_ft: float, end_ft: float) -> str:
+    key = f"{segment_id}|{local_side}|{start_ft:.2f}|{end_ft:.2f}"
     return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
