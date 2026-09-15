@@ -15,6 +15,7 @@ import {
   CALENDAR_MISSING_CAVEAT,
   NEEDS_DESTINATION,
   OUTSIDE_COVERAGE,
+  OUTSIDE_COVERAGE_DETAIL,
   PIN_MODE_NEEDS_A_CLICK,
   PIN_MODE_PROMPT,
   SERVER_UNREACHABLE,
@@ -145,7 +146,28 @@ function onSubmit(event) {
     setStatus(windowErrorSentence(window_.error), "error");
     return;
   }
+  // A pin can be dropped anywhere the map goes, and `/api/search` bounds its
+  // inputs to a Manhattan-ish box: a pin in Staten Island came back 422
+  // `validation_error` and was reported as "check the date, the time, and the
+  // walk radius", which is a sentence about three things that were all fine.
+  // Inside the box the server's own 250 m centerline test still decides
+  // (docs/API.md, docs/DECISIONS.md D28) and lands on the same notice.
+  if (outsideCoverage(where)) {
+    clearResults();
+    searchCard.expand();
+    showOutsideCoverage();
+    return;
+  }
   runSearch(where, window_);
+}
+
+/** Clearly outside the coverage box `/api/health` published. Never the last word. */
+function outsideCoverage(where) {
+  if (!state.coverage || typeof where.lat !== "number" || typeof where.lon !== "number") {
+    return false;
+  }
+  const [minLon, minLat, maxLon, maxLat] = state.coverage;
+  return where.lon < minLon || where.lon > maxLon || where.lat < minLat || where.lat > maxLat;
 }
 
 function destinationFor(text) {
@@ -350,7 +372,7 @@ function showOutsideCoverage() {
   renderNotice(dom.notices, {
     kind: "error",
     title: OUTSIDE_COVERAGE,
-    text: "Your destination is outside the outlined area on the map. Move it into Manhattan.",
+    text: OUTSIDE_COVERAGE_DETAIL,
   });
   setStatus("");
   if (state.coverage) {

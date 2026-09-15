@@ -727,3 +727,30 @@ def test_a_placeholder_with_unplaced_signs_is_never_called_empty() -> None:
         source = (WEB_DIR / name).read_text(encoding="utf-8")
         assert "reasonLine(result)" in source, f"{name} prints the raw reason again"
     assert "text: result.reason" not in (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+
+
+def test_a_point_off_the_street_network_is_refused_as_coverage_not_as_arithmetic() -> None:
+    """A pin can be dropped anywhere the map goes, including Staten Island.
+
+    `/api/search` bounds `lat`/`lon` to a Manhattan-ish box, so a pin at
+    40.597, -74.337 came back 422 `validation_error` and was reported as "that
+    search does not add up — check the date, the time, and the walk radius",
+    three things that were all fine. And the sentence under "CurbCheck covers
+    Manhattan only" said the point was "outside the outlined area on the map"
+    while the outline — the coverage *bounding box* from `/api/health` — visibly
+    contains Hoboken, Jersey City and half of Queens.
+
+    The box is a hint about where to look; the service-area test is 250 m from a
+    street centerline (`docs/DECISIONS.md` D28) and stays the server's.
+    """
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    assert "export const OUTSIDE_COVERAGE_DETAIL" in copy
+    sentence = copy.split("export const OUTSIDE_COVERAGE_DETAIL")[1].split(";")[0]
+    assert "outside the outlined area" not in sentence
+
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert "outside the outlined area" not in app, "the sentence is back in the wiring"
+    submit = app.split("function onSubmit(event)")[1].split("\n}")[0]
+    assert "outsideCoverage(where)" in submit, "a pin off the box is sent as a search again"
+    guard = app.split("function outsideCoverage(where)")[1].split("\n}")[0]
+    assert "state.coverage" in guard, "the guard invented its own bounding box"

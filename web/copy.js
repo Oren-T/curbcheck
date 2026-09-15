@@ -184,6 +184,20 @@ export const LEGAL_SUBSET_NOTE = (shown, total) =>
 
 export const OUTSIDE_COVERAGE = "CurbCheck covers Manhattan only.";
 
+/**
+ * The second line under it.
+ *
+ * It used to read "your destination is outside the outlined area on the map",
+ * and the outline is the coverage **bounding box** from `/api/health` — which
+ * contains Hoboken, Jersey City and half of Queens. A pin dropped in Hoboken
+ * was refused with a sentence saying it was outside a rectangle it was visibly
+ * inside. The service-area test is 250 m from a street centerline, not the box
+ * (`docs/API.md`, `docs/DECISIONS.md` D28), so the sentence names the street and
+ * the box is a hint about where to look, not the claim.
+ */
+export const OUTSIDE_COVERAGE_DETAIL =
+  "That point is not on a Manhattan street. Move it onto a block inside the dashed outline.";
+
 export const SERVER_UNREACHABLE =
   "CurbCheck can't reach its local server, so these results are gone. Check that " +
   "`curbcheck serve` is still running.";
