@@ -24,6 +24,11 @@ are never used: httpx 1.0.devN and pydantic 2.14 alphas exist and are excluded.
 `numpy` 2.5.3 is pulled in transitively by shapely and pyproj and is not used
 directly.
 
+Nothing is installed outside these two files. `pip install -e .` runs with
+`--no-build-isolation` in both `make setup` and the Dockerfile, so the build
+backend is the hashed `hatchling` from `requirements-dev.txt` rather than
+whatever PyPI serves at build time.
+
 ## Development (`requirements-dev.txt`)
 
 | Package | Version | License | Why |
@@ -35,6 +40,8 @@ directly.
 | pip-audit | 2.10.1 | Apache-2.0 | Vulnerability scan of the pinned tree against PyPI's advisory database (threat T1). |
 | uv | 0.12.14 | MIT OR Apache-2.0 | Compiles the `.in` files into the hashed `.txt` lockfiles. |
 | types-shapely | 2.1.0.20260728 | Apache-2.0 | Shapely ships no inline type hints, so `mypy --strict` needs these stubs. |
+| hatchling | 1.32.0 | MIT | The build backend `pyproject.toml` declares. Pinned and hashed here so `make setup` and the Dockerfile can install the package with `--no-build-isolation`: PEP 517 build isolation otherwise fetches hatchling from PyPI with no hash, which was the last install `--require-hashes` did not cover (threat T1). Brings `tomlkit` and `trove-classifiers`. |
+| editables | 0.6 | MIT | Hatchling asks for it when it builds an *editable* wheel, which is what `make setup` installs; it is not a dependency of hatchling itself, so it is listed on its own. |
 
 ## Audit result
 
@@ -46,8 +53,8 @@ $ pip-audit -r requirements-dev.txt
 No known vulnerabilities found
 ```
 
-Run on 2026-09-14 with pip-audit 2.10.1. `make audit` reruns the first of these
-and is part of `make check`.
+Run on 2026-09-15 with pip-audit 2.10.1, after adding hatchling and editables.
+`make audit` reruns the first of these and is part of `make check`.
 
 ## Packages the spec listed that are deliberately absent
 

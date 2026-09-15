@@ -13,17 +13,25 @@ WORKDIR /src
 
 # Dependencies first, on their own layer: they change far less often than the
 # source, and --require-hashes means a tampered wheel fails here (threat T1).
-COPY requirements.txt ./
+COPY requirements.txt requirements-dev.txt ./
 RUN pip install --no-cache-dir --require-hashes --prefix=/install -r requirements.txt
+
+# The build backend, hashed, into a prefix this stage keeps to itself: only
+# /install is copied into the runtime image, so hatchling and the rest of the
+# dev tree never reach it. `--require-hashes` refuses a requirement named on the
+# command line, so the whole file is installed here rather than two names out of
+# it; it costs build time and nothing else.
+RUN pip install --no-cache-dir --require-hashes --prefix=/buildenv -r requirements-dev.txt
+ENV PYTHONPATH=/buildenv/lib/python3.12/site-packages
 
 # pyproject reads CLAUDE.md as its long description, so hatchling needs it here.
 COPY pyproject.toml CLAUDE.md ./
 COPY curbcheck ./curbcheck
 # --no-deps: everything the package needs is already installed above, at the
-# hashed versions. This is the one unhashed install in the image — pip's build
-# isolation fetches hatchling from PyPI to build the wheel, exactly as
-# `make setup` does today. Pin hatchling in requirements.txt to close it.
-RUN pip install --no-cache-dir --no-deps --prefix=/install .
+# hashed versions. --no-build-isolation: build with the hashed hatchling
+# installed above rather than letting pip fetch one from PyPI unhashed, which
+# used to be the only install in the image that --require-hashes did not cover.
+RUN pip install --no-cache-dir --no-deps --no-build-isolation --prefix=/install .
 
 
 FROM python:3.12-slim

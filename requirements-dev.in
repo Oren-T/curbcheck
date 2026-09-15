@@ -10,3 +10,13 @@ pytest-cov
 pip-audit
 uv
 types-shapely
+# The build backend. Pinned and hashed here so `pip install -e .` can run with
+# --no-build-isolation: PEP 517 build isolation would otherwise fetch hatchling
+# hatchling asks for `editables` when it builds an *editable* wheel, which is
+# what `make setup` installs; it is not a dependency of hatchling itself.
+editables
+# from PyPI unhashed, which was the one unhashed install left (threat T1).
+hatchling
+# hatchling asks for `editables` when it builds an *editable* wheel, which is
+# what `make setup` installs; it is not a dependency of hatchling itself.
+editables

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import re
 import tomllib
 from pathlib import Path
 
@@ -63,3 +64,21 @@ def test_the_package_declares_no_licence_the_owner_has_not_chosen() -> None:
 
     assert "license" not in pyproject["project"]
     assert "license-files" not in pyproject["project"]
+
+
+def test_the_build_backend_is_pinned_hashed_and_used_without_build_isolation() -> None:
+    """Threat T1: PEP 517 build isolation used to fetch hatchling from PyPI unhashed.
+
+    It was the one install `--require-hashes` did not cover, in `make setup` and
+    in the image alike (docs/SECURITY.md residual 8).
+    """
+    root = Path(__file__).resolve().parents[1]
+    backend = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))["build-system"]
+    locked = (root / "requirements-dev.txt").read_text(encoding="utf-8")
+
+    assert backend["build-backend"] == "hatchling.build"
+    for package in ("hatchling", "editables"):
+        assert re.search(rf"^{package}==\S+ \\\n\s+--hash=sha256:", locked, re.M), package
+
+    assert "--no-build-isolation" in (root / "Makefile").read_text(encoding="utf-8")
+    assert "--no-build-isolation" in (root / "Dockerfile").read_text(encoding="utf-8")

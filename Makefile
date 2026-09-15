@@ -2,9 +2,13 @@
 .PHONY: setup lint typecheck test audit check sync serve compile \
 	docker-build docker-sync docker-serve
 
+# --no-build-isolation on the second line: without it pip fetches hatchling from
+# PyPI unhashed to build the wheel, which was the one install in the project
+# that --require-hashes did not cover. hatchling and editables are pinned and
+# hashed in requirements-dev.txt, and the first line installs them.
 setup:
 	pip install --require-hashes -r requirements-dev.txt -r requirements.txt
-	pip install -e . --no-deps
+	pip install -e . --no-deps --no-build-isolation
 
 lint:
 	ruff check .

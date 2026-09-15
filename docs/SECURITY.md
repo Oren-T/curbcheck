@@ -154,10 +154,12 @@ and pan the map: there should be zero requests off `127.0.0.1`.
    tests can inject a `MockTransport`. Passing a real transport with
    `verify=False` would defeat the module; nothing does, and
    `tests/test_boundaries.py` keeps httpx out of every other module.
-8. **The allowlist is by host, not host and port**, and `pip install -e .`
-   fetches `hatchling` through PEP 517 build isolation without a hash. CI pins
-   actions by major tag (`actions/checkout@v4`); pinning by commit SHA would be
-   stronger.
+8. **The allowlist is by host, not host and port.** CI pins actions by major
+   tag (`actions/checkout@v4`); pinning by commit SHA would be stronger. The
+   unhashed `hatchling` that PEP 517 build isolation used to fetch is closed:
+   `hatchling` and `editables` are pinned and hashed in `requirements-dev.txt`
+   and both `make setup` and the Dockerfile build with `--no-build-isolation`,
+   so every byte installed comes from a hashed lockfile.
 9. **Closed.** An unreadable `geom` cell used to fail the whole search:
    `engine/search.py:_candidates_in_radius` called `json.loads` and `shape()` on
    `regulation_segment.geom` without a guard, so a truncated snapshot answered
