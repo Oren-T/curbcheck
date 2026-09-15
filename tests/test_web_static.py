@@ -675,3 +675,28 @@ def test_a_search_leaves_focus_on_the_answer_and_not_on_the_body() -> None:
     index = INDEX_HTML.read_text(encoding="utf-8")
     results = index.split('id="results"')[1].split(">")[0]
     assert 'tabindex="-1"' in results, "the results region can no longer take focus"
+
+
+def test_the_ranked_list_says_what_it_is_not_showing() -> None:
+    """Two silences measured in the rail, both of them about legal curb.
+
+    A Midtown search at noon comes back 0 legal / 226 illegal / 6 no data, and
+    the rail printed a "Results" heading over three collapsed group headers:
+    nothing on screen said in words that there is nowhere legal to park, which
+    is the question the page exists to answer.
+
+    And `limit` caps the ranked legal list at 100, so "Show more" runs out while
+    the pill above still reads 308 legal. The three verdict groups have carried
+    an "N of M drawn" note since the rebuild; the shortlist carried none
+    (UX_AUDIT (f) 7 — the UI says plainly when it is showing a subset).
+    """
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    assert "export const NO_LEGAL_NEARBY" in copy
+    assert "export const LEGAL_SUBSET_NOTE" in copy
+
+    results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
+    render = results.split("export function renderResults")[1].split("\nfunction ")[0]
+    assert "NO_LEGAL_NEARBY(view.walkMinutes)" in render, "a zero-legal answer is silent again"
+    assert "LEGAL_SUBSET_NOTE(legal.length, legalTotal)" in render, "the cap is silent again"
+    # The total is the server's count, never the rows that happened to arrive.
+    assert "view.counts.legal" in render, "the subset note is counting its own list"

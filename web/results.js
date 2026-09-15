@@ -13,7 +13,7 @@
  * of the map, and every drawn span is reachable from it.
  */
 
-import { EMPTY_RESULTS, SEARCH_PROGRESS } from "./copy.js";
+import { EMPTY_RESULTS, LEGAL_SUBSET_NOTE, NO_LEGAL_NEARBY, SEARCH_PROGRESS } from "./copy.js";
 import { collapsible, el, replaceChildren, verdictChipNode } from "./dom.js";
 import { VERDICT_ORDER, swatchBackground } from "./verdicts.js";
 import {
@@ -129,6 +129,17 @@ export function renderResults(container, view) {
   }
   nodes.push(list);
 
+  // The question this page answers is "where do I park", and a Midtown search at
+  // noon answers "nowhere". Three collapsed group headers under a "Results"
+  // heading is not that sentence; the pill reading `0 legal` is not either.
+  if (view.visible.has("legal") && legal.length === 0) {
+    nodes.push(
+      el("div", { className: "notice-block notice-empty" }, [
+        el("p", { text: NO_LEGAL_NEARBY(view.walkMinutes) }),
+      ]),
+    );
+  }
+
   if (legal.length > shortlist.length) {
     const more = el("button", {
       className: "ghost show-more",
@@ -137,6 +148,17 @@ export function renderResults(container, view) {
     });
     more.addEventListener("click", () => view.onShowMore());
     nodes.push(more);
+  }
+
+  // `limit` caps the ranked legal list at 100, so "Show more" runs out while the
+  // pill above still reads 220 legal. The groups have said which of them arrived
+  // since the rebuild; the shortlist said nothing (UX_AUDIT (f) 7).
+  const legalTotal =
+    view.counts && typeof view.counts.legal === "number" ? view.counts.legal : legal.length;
+  if (view.visible.has("legal") && legal.length > 0 && legal.length < legalTotal) {
+    nodes.push(
+      el("p", { className: "group-note", text: LEGAL_SUBSET_NOTE(legal.length, legalTotal) }),
+    );
   }
 
   for (const group of GROUPS) {

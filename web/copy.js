@@ -149,6 +149,23 @@ export const CONFIDENCE_EXPLANATION =
 export const EMPTY_RESULTS = (walkMinutes) =>
   `Nothing within a ${walkMinutes}-minute walk. Try a longer walk or another spot.`;
 
+/**
+ * The answer to "where do I park" when the answer is "not here".
+ *
+ * A Midtown search at noon comes back 0 legal / 226 illegal / 6 no data, and
+ * the rail printed a "Results" heading over three collapsed group headers and
+ * nothing else: the count pill said `0 legal` and no sentence anywhere said so.
+ * The question the page exists to answer went unanswered in words.
+ */
+export const NO_LEGAL_NEARBY = (walkMinutes) =>
+  `No legal stretch within a ${walkMinutes}-minute walk. Everything nearby is restricted, ` +
+  `unreadable, or unsurveyed — the groups below are what there is.`;
+
+/** The ranked list is the server's best `limit`, not every legal stretch. */
+export const LEGAL_SUBSET_NOTE = (shown, total) =>
+  `Showing the ${shown.toLocaleString("en-US")} best-ranked of ` +
+  `${total.toLocaleString("en-US")} legal stretches.`;
+
 export const OUTSIDE_COVERAGE = "CurbCheck covers Manhattan only.";
 
 export const SERVER_UNREACHABLE =
