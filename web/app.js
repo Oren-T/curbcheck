@@ -8,7 +8,7 @@
  */
 
 import * as api from "./api.js";
-import { TEMPORARY_SIGNAGE_CAVEAT } from "./copy.js";
+import { CALENDAR_MISSING_CAVEAT, TEMPORARY_SIGNAGE_CAVEAT } from "./copy.js";
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
 import { clear, el, replaceChildren } from "./dom.js";
 import { nextTopOfHour, statusLine, toLocalInputValue } from "./format.js";
@@ -106,15 +106,22 @@ function init() {
 async function reportHealth() {
   try {
     const health = await api.health();
-    if (health.status !== "ok") {
+    const signs = typeof health.sign_count === "number" ? health.sign_count : 0;
+    if (!health.db_present || signs === 0) {
       setStatus(
         "No parking database yet. Run `curbcheck sync` to build data/curbcheck.sqlite.",
         "error",
       );
       return;
     }
-    const signs = typeof health.sign_count === "number" ? health.sign_count : 0;
-    setStatus(`Ready. ${signs.toLocaleString("en-US")} signs loaded.`);
+    const ready = `Ready. ${signs.toLocaleString("en-US")} signs loaded.`;
+    // `degraded` with a database present means the calendar did not survive the
+    // sync; searching still works, so this is a warning, not a refusal.
+    if (health.calendar_missing) {
+      setStatus(`${ready} ${CALENDAR_MISSING_CAVEAT}.`, "error");
+      return;
+    }
+    setStatus(ready);
   } catch (error) {
     setStatus(error.message, "error");
   }

@@ -16,7 +16,7 @@ import pytest
 from curbcheck import db
 from curbcheck.config import NYC_TZ
 from curbcheck.engine.cost import Weights
-from curbcheck.engine.resolve import Verdict
+from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT, Verdict
 from curbcheck.engine.search import (
     MAX_MAP_LIMIT,
     SearchResult,
@@ -532,6 +532,33 @@ def test_a_calendar_override_changes_the_verdict(conn: sqlite3.Connection) -> No
     assert result.verdict is Verdict.LEGAL
     assert result.charged_minutes == 0
     assert result.money == "0.00"
+
+
+def test_a_missing_calendar_puts_the_caveat_on_every_result(conn: sqlite3.Connection) -> None:
+    """Without the calendar a holiday reads as an ordinary day, so every verdict is a guess."""
+    conn.execute("DELETE FROM asp_suspension")
+
+    results = run_search(conn)
+
+    assert results
+    for result in results:
+        assert CALENDAR_MISSING_CAVEAT in result.caveats
+
+
+def test_the_etl_can_declare_the_calendar_missing_even_with_rows(
+    conn: sqlite3.Connection,
+) -> None:
+    """`sync_meta.calendar_missing` is the ETL saying it found no calendar file."""
+    conn.execute("INSERT INTO sync_meta (key, value) VALUES ('calendar_missing', '1')")
+
+    result = run_search(conn)[0]
+
+    assert CALENDAR_MISSING_CAVEAT in result.caveats
+
+
+def test_a_database_with_a_calendar_carries_no_calendar_caveat(conn: sqlite3.Connection) -> None:
+    for result in run_search(conn):
+        assert CALENDAR_MISSING_CAVEAT not in result.caveats
 
 
 def test_an_empty_database_returns_nothing(conn: sqlite3.Connection) -> None:

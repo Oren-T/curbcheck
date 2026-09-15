@@ -64,6 +64,9 @@ class CalendarContext:
     non_school_dates: frozenset[date] | None = None
     snow_emergency: bool = False
     labels: Mapping[date, str] = field(default_factory=dict)
+    # True when this database has no ASP/holiday calendar at all. Every verdict
+    # that could turn on a holiday or a suspension is then a guess, and says so.
+    calendar_missing: bool = False
 
     @classmethod
     def from_asp_rows(
@@ -72,6 +75,7 @@ class CalendarContext:
         *,
         non_school_dates: Iterable[date] | None = None,
         snow_emergency: bool = False,
+        calendar_missing: bool = False,
     ) -> CalendarContext:
         """Build from `asp_suspension` rows (`date`, `is_major_legal_holiday`, `meters_suspended`, `label`)."""
         suspensions: set[date] = set()
@@ -95,6 +99,7 @@ class CalendarContext:
             non_school_dates=None if non_school_dates is None else frozenset(non_school_dates),
             snow_emergency=snow_emergency,
             labels=labels,
+            calendar_missing=calendar_missing,
         )
 
     def is_asp_suspended(self, day: date) -> bool:

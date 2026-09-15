@@ -20,7 +20,7 @@ from fastapi import APIRouter, Query, Request
 from curbcheck.api.errors import ApiError, database_unavailable
 from curbcheck.api.schemas import MAX_QUERY_CHARS, REG_SEG_ID_PATTERN, SearchRequest
 from curbcheck.db import connect, regulation_from_row
-from curbcheck.engine.search import SearchResult, search
+from curbcheck.engine.search import SearchResult, calendar_is_missing, search
 from curbcheck.geocode import GeocodeCandidate, geocode
 
 # SPEC §17, the persistent banner. Kept verbatim except for the markdown bold,
@@ -176,22 +176,39 @@ def get_health(request: Request) -> dict[str, Any]:
     """Answers even with no database: this is the endpoint you ask *about* the database."""
     db_path = request.app.state.db_path
     if not db_path.is_file():
-        return {"status": "degraded", "db_present": False, "db_readonly": False, "sign_count": 0}
+        return {
+            "status": "degraded",
+            "db_present": False,
+            "db_readonly": False,
+            "sign_count": 0,
+            "calendar_missing": True,
+        }
 
     connection = connect(db_path, readonly=True)
     try:
         sign_count = int(connection.execute(_SIGN_COUNT_SQL).fetchone()[0])
+        no_calendar = calendar_is_missing(connection)
     except sqlite3.Error:
         # A file that exists but will not answer is a failed or partial sync,
         # which SPEC §11 says to surface rather than to hide behind a 500.
-        return {"status": "degraded", "db_present": True, "db_readonly": True, "sign_count": 0}
+        return {
+            "status": "degraded",
+            "db_present": True,
+            "db_readonly": True,
+            "sign_count": 0,
+            "calendar_missing": True,
+        }
     finally:
         connection.close()
     return {
-        "status": "ok",
+        # A database with no calendar answers every query, and gets every
+        # holiday and street-cleaning suspension wrong while doing it, so it is
+        # degraded rather than ok (SPEC §11).
+        "status": "degraded" if no_calendar else "ok",
         "db_present": True,
         "db_readonly": True,
         "sign_count": sign_count,
+        "calendar_missing": no_calendar,
     }
 
 

@@ -121,6 +121,11 @@ def _build_hostile_database(path: Path) -> None:
             json.dumps([f"sign-{name}" for name in PAYLOADS]),
         ),
     )
+    conn.execute(
+        "INSERT INTO asp_suspension (date, is_major_legal_holiday, meters_suspended, label)"
+        " VALUES (?,?,?,?)",
+        ("2026-12-25", 1, 1, PAYLOADS["sql_comment"]),
+    )
     for index, text in enumerate(PAYLOADS.values()):
         conn.execute(
             "INSERT INTO regulation (reg_id, reg_seg_id, action, permitted, vehicle_class,"
@@ -404,10 +409,6 @@ def test_the_request_log_records_method_path_status_and_duration(client, caplog)
     with caplog.at_level(logging.INFO):
         client.post("/api/search", json={**DESTINATION, **WINDOW})
 
-    lines = [
-        record.getMessage()
-        for record in caplog.records
-        if record.name == "curbcheck.access"
-    ]
+    lines = [record.getMessage() for record in caplog.records if record.name == "curbcheck.access"]
     assert len(lines) == 1
     assert re.fullmatch(r"POST /api/search 200 \d+\.\dms", lines[0]), lines[0]

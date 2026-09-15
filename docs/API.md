@@ -364,12 +364,19 @@ numbers resolve only to the nearest hundred-block corner at confidence ≈ 0.5.
 
 ## `GET /api/health`
 
-Answers even with no database. `status` is `"ok"` when the database is present
-and readable, `"degraded"` otherwise.
+Answers even with no database. `status` is `"ok"` only when the database is
+present, readable, **and** has an ASP/holiday calendar; otherwise `"degraded"`.
 
 ```json
-{ "status": "ok", "db_present": true, "db_readonly": true, "sign_count": 74590 }
+{ "status": "ok", "db_present": true, "db_readonly": true, "sign_count": 74590, "calendar_missing": false }
 ```
+
+`calendar_missing` is true when `sync_meta.calendar_missing` is set or
+`asp_suspension` is empty. Such a database answers every query and gets every
+holiday and street-cleaning suspension wrong while doing it, so it is
+`degraded` rather than `ok`, and every `SearchResult` from it carries the
+caveat "Holiday and street-cleaning suspension calendar is missing; holiday and
+ASP verdicts may be wrong" (SPEC §11).
 
 `db_readonly` reports that the server opened the file with SQLite's `mode=ro`
 URI, i.e. that a bug in a request handler cannot write to it. It is `false`

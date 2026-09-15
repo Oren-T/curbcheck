@@ -30,6 +30,13 @@ from curbcheck.model import Action, ParseMethod, Regulation
 # per-rule floor below which we refuse to show a verdict.
 AMBIGUITY_THRESHOLD = 0.8
 
+# SPEC §11: a missing calendar is a failure state the user has to see, because
+# every holiday and street-cleaning verdict silently becomes a guess without it.
+CALENDAR_MISSING_CAVEAT = (
+    "Holiday and street-cleaning suspension calendar is missing; holiday and ASP verdicts "
+    "may be wrong"
+)
+
 # Least to most restrictive when prohibited, for picking what to report.
 _PROHIBITION_RANK: dict[Action, int] = {Action.PARK: 0, Action.STAND: 1, Action.STOP: 2}
 
@@ -163,6 +170,7 @@ def evaluate_segment(
         return SegmentVerdict(
             verdict=Verdict.NO_DATA,
             reason="no sign data on this block",
+            caveats=_calendar_caveats(calendar),
             window_minutes=_window_minutes(t1, t2),
             confidence=0.0,
         )
@@ -241,7 +249,7 @@ def _caveats(
     outcomes: list[IntervalOutcome],
     calendar: CalendarContext,
 ) -> list[str]:
-    caveats: list[str] = []
+    caveats = _calendar_caveats(calendar)
     regulations = [item.regulation for item in stack]
     dates = sorted({outcome.interval.date for outcome in outcomes})
 
@@ -266,6 +274,11 @@ def _caveats(
     if any(outcome.by_absence for outcome in outcomes):
         caveats.append("part of this window has no posted rule; read the curb")
     return caveats
+
+
+def _calendar_caveats(calendar: CalendarContext) -> list[str]:
+    """The caveats that are true of every span in the database, not of this one."""
+    return [CALENDAR_MISSING_CAVEAT] if calendar.calendar_missing else []
 
 
 def _prohibition_reason(reg: Regulation) -> str:

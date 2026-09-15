@@ -27,6 +27,7 @@ with warnings.catch_warnings():
 from curbcheck.api.app import CONTENT_SECURITY_POLICY, create_app
 from curbcheck.api.routes import ASP_SUSPENSION_CAVEAT, TEMPORARY_SIGNAGE_CAVEAT
 from curbcheck.db import create_schema, days_to_mask
+from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT
 from curbcheck.model import ALL_DAYS
 
 # The block from docs/DATA.md §2.3: 3 AVE between E 85 ST and E 86 ST.
@@ -121,6 +122,14 @@ def _build_database(path: Path) -> None:
         "INSERT INTO meter_rate (blockface_id, segment_id, side, rate_label, hour_rates,"
         " max_session_min) VALUES (?,?,?,?,?,?)",
         ("bf-1", "3681", "W", "Area 1", json.dumps(["4.50", "5.50"]), 120),
+    )
+    # One suspension date, so the database has a calendar: with none at all
+    # /api/health is `degraded` and every result carries the missing-calendar
+    # caveat, which is its own test below.
+    conn.execute(
+        "INSERT INTO asp_suspension (date, is_major_legal_holiday, meters_suspended, label)"
+        " VALUES (?,?,?,?)",
+        ("2026-12-25", 1, 1, "Christmas Day"),
     )
     for key, value in (
         ("last_sync_at", "2026-09-14T22:05:11-04:00"),
@@ -457,6 +466,7 @@ def test_health_reports_a_present_database(client):
         "db_present": True,
         "db_readonly": True,
         "sign_count": 2,
+        "calendar_missing": False,
     }
 
 
@@ -466,7 +476,35 @@ def test_health_answers_without_a_database(empty_client):
         "db_present": False,
         "db_readonly": False,
         "sign_count": 0,
+        "calendar_missing": True,
     }
+
+
+def test_a_database_with_no_calendar_is_degraded(client, tmp_path):
+    """A sync that dropped the calendar answers every query and gets holidays wrong."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute("DELETE FROM asp_suspension")
+    conn.commit()
+    conn.close()
+
+    health = client.get("/api/health").json()
+
+    assert health["status"] == "degraded"
+    assert health["calendar_missing"] is True
+    assert health["sign_count"] == 2
+
+
+def test_every_result_carries_the_caveat_when_the_calendar_is_missing(client, tmp_path):
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute("DELETE FROM asp_suspension")
+    conn.commit()
+    conn.close()
+
+    body = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()
+
+    assert body["results"]
+    for result in body["results"]:
+        assert CALENDAR_MISSING_CAVEAT in result["caveats"]
 
 
 def test_sync_status_returns_the_meta_table_as_strings(client):

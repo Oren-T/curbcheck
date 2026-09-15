@@ -66,6 +66,8 @@ _CANDIDATE_SQL = (
     " WHERE max_lon >= ? AND min_lon <= ? AND max_lat >= ? AND min_lat <= ?"
 )
 _ASP_SQL = "SELECT date, is_major_legal_holiday, meters_suspended, label FROM asp_suspension"
+# The ETL writes this key when `curbcheck sync` found no calendar file at all.
+_CALENDAR_META_SQL = "SELECT value FROM sync_meta WHERE key = 'calendar_missing'"
 _REGULATION_SQL = (
     "SELECT reg_id, reg_seg_id, action, permitted, vehicle_class, exclusive, days_mask,"
     " time_from, time_to, metered, max_duration_min, flags, effective_from, effective_to,"
@@ -261,11 +263,40 @@ def load_calendar(
     non_school_dates: Iterable[Any] | None = None,
     snow_emergency: bool = False,
 ) -> CalendarContext:
-    """Build the calendar from `asp_suspension`. The table is one year of dates, so read it whole."""
+    """Build the calendar from `asp_suspension`. The table is one year of dates, so read it whole.
+
+    A database with no calendar produces a context that says so, and every
+    verdict resolved against it carries the caveat: without the calendar a
+    holiday reads as an ordinary day and a street-cleaning ban that the city
+    suspended still reads as in force (SPEC §11).
+    """
     rows = [dict(row) for row in conn.execute(_ASP_SQL)]
     return CalendarContext.from_asp_rows(
-        rows, non_school_dates=non_school_dates, snow_emergency=snow_emergency
+        rows,
+        non_school_dates=non_school_dates,
+        snow_emergency=snow_emergency,
+        calendar_missing=not rows or _meta_says_calendar_missing(conn),
     )
+
+
+def calendar_is_missing(conn: sqlite3.Connection) -> bool:
+    """Whether this database has no usable ASP and holiday calendar.
+
+    Two signals meaning one thing: the ETL recorded that it found no calendar
+    file, or `asp_suspension` is empty. `/api/health` reports `degraded` on
+    either, because a sync that quietly dropped the calendar otherwise looks
+    exactly like a good one.
+    """
+    if _meta_says_calendar_missing(conn):
+        return True
+    return conn.execute(_ASP_SQL).fetchone() is None
+
+
+def _meta_says_calendar_missing(conn: sqlite3.Connection) -> bool:
+    row = conn.execute(_CALENDAR_META_SQL).fetchone()
+    if row is None or row[0] is None:
+        return False
+    return str(row[0]).strip().lower() not in ("", "0", "false", "no")
 
 
 def _candidates_in_radius(

@@ -54,6 +54,13 @@ export const TEMPORARY_SIGNAGE_CAVEAT =
   "Temporary or construction signage may override what is shown here. The posted sign at the " +
   "curb is the only authoritative regulation.";
 
+// The engine sends this with every result when the database has no ASP and
+// holiday calendar (curbcheck/engine/resolve.py). The page says it once more,
+// on load, because by then the user has not searched yet.
+export const CALENDAR_MISSING_CAVEAT =
+  "Holiday and street-cleaning suspension calendar is missing; holiday and ASP verdicts " +
+  "may be wrong";
+
 // SPEC §11, "Emergency ASP suspensions (offline mode)".
 export const ASP_SUSPENSION_CAVEAT =
   "Emergency ASP suspensions are not reflected. Same-day weather and parade suspensions are " +
