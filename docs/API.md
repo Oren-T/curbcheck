@@ -157,7 +157,7 @@ point in the Bronx corner of the box simply returns no results.
     "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation.",
     "Emergency ASP suspensions are not reflected. Same-day weather and parade suspensions are only visible if the optional 311 live check is enabled, and it is off by default."
   ],
-  "sync": { "last_sync": "2026-09-14T22:05:11-04:00", "sign_count": 74590, "coverage_pct": 83.1 }
+  "sync": { "last_sync": "2026-09-15T03:18:02+00:00", "sign_count": 74389, "coverage_pct": 93.78 }
 }
 ```
 
@@ -194,9 +194,12 @@ illegal and ambiguous curb too (SPEC §11). Order is `legal` first by ascending
 #### `sync`
 
 `last_sync` (string \| null), `sign_count` (integer), `coverage_pct` (number \|
-null). Values are read from the `sync_meta` key/value table; missing keys come
-back as `null` / `0` rather than an error, so a half-built database does not
-break search.
+null). These are read from the `sync_meta` key/value table, which the ETL fills
+with its own key names (`last_sync_at`, `signs_loaded`,
+`blockface_sides_matched_share`, the last of which is a 0-1 share and is
+multiplied by 100 here). A key the ETL stops writing comes back as `null` / `0`
+rather than an error, so a half-built database does not break search. Use
+`GET /api/sync-status` for the whole table.
 
 ---
 
@@ -220,6 +223,7 @@ method" requirement.
     "end_ft": 284.8,
     "length_ft": 284.8,
     "capacity_cars": 12,
+    "capacity_approximate": true,
     "confidence": 0.94,
     "derived_from": ["9f2c…"]
   },
@@ -259,7 +263,9 @@ method" requirement.
       "side_of_street": "W",
       "distance_from_intersection": 44.0,
       "snap_confidence": 0.94,
-      "snap_notes": ""
+      "snap_notes": "",
+      "is_regulation": true,
+      "panel_class": "regulation"
     }
   ],
   "meter_rates": [
@@ -272,6 +278,13 @@ method" requirement.
 weekday numbers with **Monday = 0** through Sunday = 6. `hour_rates` are money
 strings, first hour then second hour; stays longer than the listed hours bill
 at the last rate.
+
+`capacity_approximate` is always true in v1: hydrant, driveway, and crosswalk
+setbacks are not in the data, so a car count is an upper bound (SPEC §8.5).
+`signs` lists every sign on the parent centerline segment, including the
+non-regulation panels decision D10 classifies out (`is_regulation: false`,
+`panel_class` one of `regulation`, `mta_route`, `pay_by_cell`,
+`blank_location`) — they are kept visible for audit but produce no rule.
 
 A rule with `parse_method: "unparsed"` carries a placeholder `regulation` whose
 fields mean nothing — read only `raw_sign_description`, `parse_method`, and
@@ -329,7 +342,13 @@ they are stored as; they are never parsed, evaluated, or coerced. Keys are
 whatever the ETL wrote.
 
 ```json
-{ "last_sync": "2026-09-14T22:05:11-04:00", "sign_count": "74590", "coverage_pct": "83.1", "source_sha256_nfid_uabd": "…" }
+{
+  "last_sync_at": "2026-09-15T03:18:02+00:00",
+  "signs_loaded": "74389",
+  "signs_snapped_share": "0.95",
+  "blockface_sides_matched_share": "0.9378",
+  "street_segments": "11102"
+}
 ```
 
 Returns 503 when the database is missing.
