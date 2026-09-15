@@ -828,7 +828,10 @@ input[type="range"] {
   position: absolute;
   right: var(--s-6);
   top: var(--s-6);
-  bottom: var(--s-6);
+  /* Stops one band short of the bottom so the OpenStreetMap credit and the
+     About & data button are never underneath it. An attribution nobody can
+     read or click is not an attribution. */
+  bottom: calc(var(--s-6) + 30px);
   width: var(--sheet-w);
   max-width: calc(100% - var(--s-6) * 2);
   z-index: 8;
@@ -1195,11 +1198,14 @@ input[type="range"] {
 /* ---- Phone: the sheet is a second drawer layer over the rail ----------- */
 
 @media (max-width: 1099px) {
+  /* 520 px of a 1024 px screen, next to a 340 px rail, left 145 px of map and
+     buried the legend under the sheet. The sheet is still the widest thing on
+     the screen; it just stops short of hiding what the map has to keep saying. */
   .detail {
-    width: min(520px, calc(100% - var(--s-5) * 2));
+    width: min(440px, calc(100% - var(--s-5) * 2));
     right: var(--s-5);
     top: var(--s-5);
-    bottom: var(--s-5);
+    bottom: calc(var(--s-5) + 30px);
   }
 }
 

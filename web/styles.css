@@ -216,6 +216,13 @@ h4 {
 .map-area {
   position: absolute;
   inset: 0;
+  /* How much of the map's right edge a floating sheet is standing on, set by
+     `updatePadding()`. The attribution, the Recentre button, MapLibre's own
+     controls and the legend's right bound all step out from under it: an
+     OpenStreetMap credit no one can read or click is not an attribution, and
+     the legend carries the sentence that stops an empty curb reading as a safe
+     one (SPEC §11), which cannot be behind a panel while curb is still drawn. */
+  --sheet-offset: 0px;
 }
 
 .map {
@@ -254,8 +261,12 @@ h4 {
 .legend {
   position: absolute;
   left: calc(var(--panel-w) + var(--s-6) * 2);
-  bottom: var(--s-6);
+  right: calc(var(--s-6) + var(--sheet-offset));
+  /* One band above the attribution: when a sheet pushes the credit line left it
+     would otherwise land on the no-data sentence. */
+  bottom: calc(var(--s-6) + 26px);
   z-index: 4;
+  width: fit-content;
   max-width: 420px;
   padding: var(--s-4) var(--s-6);
   border-radius: var(--r-pill);
@@ -301,7 +312,7 @@ h4 {
 /* The one map button that is ours rather than MapLibre's. */
 .map-control {
   position: absolute;
-  right: var(--s-6);
+  right: calc(var(--s-6) + var(--sheet-offset));
   top: var(--s-6);
   z-index: 5;
   display: inline-flex;
@@ -334,6 +345,12 @@ h4 {
   height: 9px;
   border-radius: 50%;
   border: 2px solid var(--c-marker);
+}
+
+/* MapLibre positions its controls itself; the sheet still has to be able to
+   push them aside, or the zoom buttons end up under a panel. */
+.maplibregl-ctrl-bottom-right {
+  right: var(--sheet-offset);
 }
 
 /* A button that reads as a link: the attribution line is prose. */
@@ -653,7 +670,7 @@ h4 {
      here, does not sit on top of it. */
   .legend {
     left: calc(340px + var(--s-5) * 2);
-    bottom: var(--s-5);
+    bottom: calc(var(--s-5) + 26px);
     max-width: 360px;
   }
 }

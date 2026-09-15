@@ -95,6 +95,7 @@ const dom = {
   drawerHandle: byId("drawer-handle"),
   drawerSummary: byId("drawer-summary"),
   mapContainer: byId("map"),
+  mapArea: document.querySelector(".map-area"),
   recentre: byId("recentre"),
 };
 
@@ -593,12 +594,16 @@ function pickCandidate(candidate) {
   // the user has seen what was picked.
 }
 
-/** Keep the map's fitBounds clear of the rail and the sheet. */
+/** Keep the map's fitBounds — and the map's own chrome — clear of the sheet. */
 function updatePadding() {
   const phone = drawer.isPhone();
   const railWidth = phone ? 0 : dom.rail.getBoundingClientRect().width + 32;
   const sheet = dom.detail.hidden ? dom.about : dom.detail;
   const sheetWidth = sheet.hidden || phone ? 0 : sheet.getBoundingClientRect().width + 32;
+  // The sheet floats over the map's right edge, where the attribution, the
+  // Recentre button and MapLibre's zoom controls live. On a phone it covers the
+  // whole map by design and there is nowhere to step aside to.
+  dom.mapArea.style.setProperty("--sheet-offset", `${sheetWidth}px`);
   curbMap.setPadding({
     top: 40,
     bottom: phone ? dom.rail.getBoundingClientRect().height + 24 : 40,

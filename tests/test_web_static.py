@@ -628,3 +628,30 @@ def test_a_place_name_is_title_cased_for_display_and_kept_raw_beside_it() -> Non
     card = (WEB_DIR / "searchcard.js").read_text(encoding="utf-8")
     collapse = card.split("collapse(destinationLabel")[1].split("\n    },")[0]
     assert "As published:" in collapse, "the summary no longer offers the raw label"
+
+
+def test_a_floating_sheet_never_stands_on_the_attribution_or_the_legend() -> None:
+    """The detail and About sheets float over the map's right edge.
+
+    That edge is where the OpenStreetMap credit, the About & data button, the
+    Recentre control and MapLibre's own zoom buttons live, and the bottom-left
+    is where the legend carries the sentence that stops an empty curb reading as
+    a safe one (SPEC §11). Measured at 1440, 1280 and 1024 the open sheet made
+    every one of them unreadable and unclickable — `elementFromPoint` returned
+    the sheet. The sheet now stops one band short of the bottom, and the pieces
+    in its column step aside by the sheet's own width.
+    """
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    components = (WEB_DIR / "components.css").read_text(encoding="utf-8")
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert "--sheet-offset: 0px" in styles, "the map area lost its sheet inset"
+    assert 'setProperty("--sheet-offset"' in app, "nothing measures the open sheet"
+
+    for selector in (".map-control {", ".legend {", ".maplibregl-ctrl-bottom-right {"):
+        rule = styles.split(selector)[1].split("}")[0]
+        assert "var(--sheet-offset)" in rule, f"{selector.strip(' {')} no longer dodges the sheet"
+
+    # The credit keeps its corner; the sheet is what gets out of the way.
+    sheet = components.split("\n.detail {")[1].split("}")[0]
+    assert "bottom: calc(var(--s-6) + 30px)" in sheet, "the sheet covers the attribution band again"
