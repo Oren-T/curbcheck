@@ -13,6 +13,8 @@ from curbcheck.config import NYC_TZ
 from curbcheck.engine.resolve import (
     ABSENCE_REASON,
     AMBIGUITY_THRESHOLD,
+    NO_DATA_CAVEAT,
+    UNKNOWN_GAP_REASON,
     RegulationWithMeta,
     Verdict,
     VerdictBasis,
@@ -600,6 +602,35 @@ def test_an_empty_stack_is_no_data() -> None:
     assert verdict.verdict is Verdict.NO_DATA
     assert verdict.window_minutes == 120
     assert verdict.intervals == []
+    assert verdict.reason == UNKNOWN_GAP_REASON
+
+
+def test_a_stretch_dot_lists_no_signs_for_says_so() -> None:
+    verdict = evaluate_segment(
+        [],
+        moment("2026-09-14T10:00"),
+        moment("2026-09-14T12:00"),
+        EMPTY_CALENDAR,
+        gap_kind="no_signs",
+    )
+
+    assert verdict.reason == "NYC DOT lists no signs on this stretch"
+    assert verdict.caveats == [NO_DATA_CAVEAT["no_signs"]]
+
+
+def test_a_stretch_with_signs_we_could_not_place_is_not_called_empty() -> None:
+    """DOT publishes signs for these 499 blockface-sides; "no sign data" is false there."""
+    verdict = evaluate_segment(
+        [],
+        moment("2026-09-14T10:00"),
+        moment("2026-09-14T12:00"),
+        EMPTY_CALENDAR,
+        gap_kind="unmatched_signs",
+    )
+
+    assert verdict.reason == "Signs exist here that CurbCheck could not place"
+    assert "could not place" in verdict.caveats[0]
+    assert "no sign" not in verdict.reason.lower()
 
 
 def test_a_temporary_sign_adds_a_caveat() -> None:

@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from curbcheck.db import json_string_list
+from curbcheck.engine.resolve import UNMATCHED_SIGNS
 from curbcheck.etl.streets import normalize_street_name
 
 # Written out twice rather than shared through a variable: every SQL string in
@@ -45,12 +46,6 @@ _SEGMENT_NAMES_SQL = (
     " WHERE ss.segment_id = ?"
 )
 _STREET_NAMES_SQL = "SELECT DISTINCT street_norm FROM street_segment"
-
-# The `regulation_segment.gap_kind` value `etl.segments` writes when DOT
-# publishes signs for a blockface-side and none of them could be placed. Spelled
-# here rather than imported, because importing `etl.segments` would pull the
-# snapping and staging modules into the server process for one string.
-UNMATCHED_SIGNS = "unmatched_signs"
 
 
 @dataclass(frozen=True)

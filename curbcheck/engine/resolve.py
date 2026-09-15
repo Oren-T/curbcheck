@@ -42,6 +42,36 @@ CALENDAR_MISSING_CAVEAT = (
 # card with it rather than appending it to a verdict word (UX audit P0-1).
 ABSENCE_REASON = "No posted rule covers this window"
 
+# `regulation_segment.gap_kind`: why a placeholder span carries no rules at all.
+# Spelled out here rather than imported from `etl.segments`, which would pull
+# the snapping and staging modules into the server process for two strings.
+NO_SIGNS = "no_signs"
+UNMATCHED_SIGNS = "unmatched_signs"
+
+# What grey means on this stretch. The two gaps are different facts about the
+# curb and must not read the same: `unmatched_signs` is a blockface DOT does
+# publish signs for and we could not place, and 332 of those 499 sides carry a
+# NO STANDING/PARKING/STOPPING ANYTIME panel (docs/VALIDATION.md §5), so
+# "no sign data on this block" is false there rather than merely vague.
+NO_DATA_REASON: dict[str, str] = {
+    NO_SIGNS: "NYC DOT lists no signs on this stretch",
+    UNMATCHED_SIGNS: "Signs exist here that CurbCheck could not place",
+}
+# A stack that is empty without a `gap_kind` to explain it: a snapshot built
+# before the column, or a span whose rules did not load. Neither sentence above
+# can be claimed about it, so it says only what we know.
+UNKNOWN_GAP_REASON = "No sign data for this stretch"
+
+# The same two facts in the caveat list, which is what a client that reads only
+# `caveats` sees. Each carries the consequence the reason has no room for.
+NO_DATA_CAVEAT: dict[str, str] = {
+    NO_SIGNS: "NYC DOT lists no signs on this stretch; unknown is not the same as unrestricted.",
+    UNMATCHED_SIGNS: (
+        "DOT publishes signs for this blockface that CurbCheck could not place;"
+        " read the posted signs."
+    ),
+}
+
 # Least to most restrictive when prohibited, for picking what to report.
 _PROHIBITION_RANK: dict[Action, int] = {Action.PARK: 0, Action.STAND: 1, Action.STOP: 2}
 
@@ -197,13 +227,20 @@ def evaluate_segment(
     t1: datetime,
     t2: datetime,
     calendar: CalendarContext,
+    *,
+    gap_kind: str | None = None,
 ) -> SegmentVerdict:
-    """Verdict for one segment over [t1, t2): legal only if every sub-interval permits parking."""
+    """Verdict for one segment over [t1, t2): legal only if every sub-interval permits parking.
+
+    `gap_kind` is the span's `regulation_segment.gap_kind`, which is the only
+    thing that can say what an empty stack means. Without it the NO_DATA reason
+    claims nothing about the curb beyond our own ignorance.
+    """
     if not stack:
         return SegmentVerdict(
             verdict=Verdict.NO_DATA,
-            reason="no sign data on this block",
-            caveats=_calendar_caveats(calendar),
+            reason=NO_DATA_REASON.get(gap_kind or "", UNKNOWN_GAP_REASON),
+            caveats=_calendar_caveats(calendar) + _gap_caveats(gap_kind),
             window_minutes=_window_minutes(t1, t2),
             confidence=0.0,
         )
@@ -312,6 +349,12 @@ def _caveats(
 def _calendar_caveats(calendar: CalendarContext) -> list[str]:
     """The caveats that are true of every span in the database, not of this one."""
     return [CALENDAR_MISSING_CAVEAT] if calendar.calendar_missing else []
+
+
+def _gap_caveats(gap_kind: str | None) -> list[str]:
+    """What the caveat list says about a stretch with no rules on it."""
+    caveat = NO_DATA_CAVEAT.get(gap_kind or "")
+    return [caveat] if caveat is not None else []
 
 
 def _prohibition_reason(reg: Regulation) -> str:

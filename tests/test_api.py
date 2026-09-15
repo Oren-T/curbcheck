@@ -29,7 +29,7 @@ from curbcheck.api import routes
 from curbcheck.api.app import CONTENT_SECURITY_POLICY, create_app
 from curbcheck.api.routes import ASP_SUSPENSION_CAVEAT, TEMPORARY_SIGNAGE_CAVEAT
 from curbcheck.db import create_schema, days_to_mask
-from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT
+from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT, NO_DATA_CAVEAT
 from curbcheck.etl.addresses import build_address_index
 from curbcheck.geocode import MAX_QUERY_CHARS
 from curbcheck.model import ALL_DAYS
@@ -413,6 +413,44 @@ def test_a_verdict_legal_only_by_absence_hides_its_confidence(client):
     assert result["basis"] == "absence"
     assert result["reason"] == "No posted rule covers this window"
     assert result["confidence_shown"] is False
+
+
+def test_a_grey_span_says_which_kind_of_nothing_it_is(client, tmp_path):
+    """The engine, not the client, decides the sentence: UX verification open item 10."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    for reg_seg_id, side, gap_kind in (
+        ("3681:E:gap", "E", "no_signs"),
+        ("3681:W:gap", "W", "unmatched_signs"),
+    ):
+        conn.execute(
+            "INSERT INTO regulation_segment (reg_seg_id, segment_id, side, geom, min_lon, min_lat,"
+            " max_lon, max_lat, confidence, derived_from, gap_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                reg_seg_id,
+                "3681",
+                side,
+                _geojson(NODE_85, NODE_86),
+                min(NODE_85[0], NODE_86[0]),
+                min(NODE_85[1], NODE_86[1]),
+                max(NODE_85[0], NODE_86[0]),
+                max(NODE_85[1], NODE_86[1]),
+                0.0,
+                "[]",
+                gap_kind,
+            ),
+        )
+    conn.commit()
+    conn.close()
+
+    body = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()
+    grey = {result["gap_kind"]: result for result in body["results"] if result["gap_kind"]}
+
+    assert grey["no_signs"]["reason"] == "NYC DOT lists no signs on this stretch"
+    assert grey["no_signs"]["caveats"][0] == NO_DATA_CAVEAT["no_signs"]
+    assert grey["unmatched_signs"]["reason"] == "Signs exist here that CurbCheck could not place"
+    assert grey["unmatched_signs"]["caveats"][0] == NO_DATA_CAVEAT["unmatched_signs"]
+    # The sentence the frontend had to override because it was false here.
+    assert "no sign data" not in grey["unmatched_signs"]["reason"].lower()
 
 
 def test_every_caveat_is_a_sentence(client):

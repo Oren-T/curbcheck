@@ -18,7 +18,13 @@ from curbcheck import db
 from curbcheck.config import NYC_TZ
 from curbcheck.db import json_string_list
 from curbcheck.engine.cost import Weights
-from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT, Verdict, VerdictBasis
+from curbcheck.engine.resolve import (
+    CALENDAR_MISSING_CAVEAT,
+    NO_DATA_CAVEAT,
+    UNKNOWN_GAP_REASON,
+    Verdict,
+    VerdictBasis,
+)
 from curbcheck.engine.search import (
     COST_TIE_BAND,
     MAX_MAP_LIMIT,
@@ -325,6 +331,22 @@ def test_a_placeholder_span_reports_why_it_has_no_data(conn: sqlite3.Connection)
     assert by_id["seg-nosigns"].gap_kind == "no_signs"
     assert by_id["seg-unmatched"].gap_kind == "unmatched_signs"
     assert by_id["seg-blank"].gap_kind is None
+
+
+def test_the_grey_reason_and_caveats_follow_the_gap_kind(conn: sqlite3.Connection) -> None:
+    """Calling a side DOT does publish signs for "no sign data" is false, not vague (§5)."""
+    add_placeholder(conn, "seg-nosigns", lat=ORIGIN_LAT + 0.0013, gap_kind="no_signs")
+    add_placeholder(conn, "seg-unmatched", lat=ORIGIN_LAT + 0.0014, gap_kind="unmatched_signs")
+
+    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+
+    assert by_id["seg-nosigns"].reason == "NYC DOT lists no signs on this stretch"
+    assert by_id["seg-nosigns"].caveats[0] == NO_DATA_CAVEAT["no_signs"]
+    assert by_id["seg-unmatched"].reason == "Signs exist here that CurbCheck could not place"
+    assert by_id["seg-unmatched"].caveats[0] == NO_DATA_CAVEAT["unmatched_signs"]
+    # A span with an empty stack and no gap kind cannot claim either of those.
+    assert by_id["seg-blank"].reason == UNKNOWN_GAP_REASON
+    assert by_id["seg-blank"].caveats == []
 
 
 def test_a_database_without_gap_kind_still_searches(conn: sqlite3.Connection) -> None:

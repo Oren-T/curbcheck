@@ -233,7 +233,11 @@ def search(
 
     verdicts = {
         candidate.reg_seg_id: evaluate_segment(
-            stacks.get(candidate.reg_seg_id, []), t1, t2, resolved_calendar
+            stacks.get(candidate.reg_seg_id, []),
+            t1,
+            t2,
+            resolved_calendar,
+            gap_kind=candidate.gap_kind,
         )
         for candidate in candidates
     }
@@ -633,7 +637,7 @@ def _build_result(
 def _confidence_is_meaningful(verdict: Verdict, basis: VerdictBasis | None) -> bool:
     """Whether the confidence number says anything the user should be shown.
 
-    On NO_DATA it is 0 next to "no sign data on this block", and on an
+    On NO_DATA it is 0 next to a reason that says nothing was read, and on an
     absence-based LEGAL verdict it is the confidence of an empty stack, i.e. 1.
     Both printed as a percentage read as certainty about parking rather than as
     certainty about a reading (UX audit P0-1, P2-1).
