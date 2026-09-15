@@ -236,10 +236,19 @@ function showResponse(response, walkMinutes) {
   curbMap.fitResults();
 
   searchCard.markSearched();
+  // Collapsing the card removes whatever the keyboard was standing on — the
+  // Search button that was just pressed, or the destination field Enter was
+  // pressed in — and focus falls to <body>. Tab then resumes from the middle of
+  // the document: it skipped both skip links and landed on a count pill, where
+  // the next Enter presses a verdict filter. The answer is where focus belongs.
+  const hadFocus = dom.form.contains(document.activeElement);
   searchCard.collapse(
     state.resolved ? state.resolved.label : dom.destination.value.trim(),
     state.resolved ? state.resolved.raw : "",
   );
+  if (hadFocus) {
+    dom.results.focus({ preventScroll: true });
+  }
 
   if (state.results.length === 0) {
     dom.resultsHeading.hidden = true;

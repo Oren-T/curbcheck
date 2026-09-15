@@ -655,3 +655,23 @@ def test_a_floating_sheet_never_stands_on_the_attribution_or_the_legend() -> Non
     # The credit keeps its corner; the sheet is what gets out of the way.
     sheet = components.split("\n.detail {")[1].split("}")[0]
     assert "bottom: calc(var(--s-6) + 30px)" in sheet, "the sheet covers the attribution band again"
+
+
+def test_a_search_leaves_focus_on_the_answer_and_not_on_the_body() -> None:
+    """The search card folds to one line when the answer arrives.
+
+    That removes the control the keyboard was standing on — the Search button
+    just pressed, or the destination field Enter was pressed in — so focus fell
+    to `<body>`. Measured: the next Tab skipped both skip links and landed on a
+    count pill, where Enter presses a verdict filter. `#results` carries
+    `tabindex="-1"` for exactly this hand-off.
+    """
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    show = app.split("function showResponse(response, walkMinutes)")[1].split("\nfunction ")[0]
+    assert "dom.form.contains(document.activeElement)" in show, "nothing notices where focus was"
+    assert "dom.results.focus(" in show, "focus is dropped on the floor after a search"
+    assert show.index("searchCard.collapse(") < show.index("dom.results.focus(")
+
+    index = INDEX_HTML.read_text(encoding="utf-8")
+    results = index.split('id="results"')[1].split(">")[0]
+    assert 'tabindex="-1"' in results, "the results region can no longer take focus"
