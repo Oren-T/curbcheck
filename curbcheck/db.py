@@ -126,7 +126,10 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         arrow                TEXT NOT NULL DEFAULT 'none',
         raw_sign_description TEXT NOT NULL DEFAULT '',
         parse_method         TEXT NOT NULL,
-        parse_confidence     REAL NOT NULL
+        parse_confidence     REAL NOT NULL,
+        -- Why this rule reads the way it does: the parser's skipped-token note,
+        -- or the sibling link a meta sign added (SPEC §8.5, docs/DECISIONS.md D17).
+        parse_notes          TEXT NOT NULL DEFAULT ''
     )
     """,
     """
@@ -136,7 +139,14 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         side            TEXT,
         rate_label      TEXT,
         hour_rates      TEXT NOT NULL DEFAULT '[]',
+        -- ParkNYC prices commercial plates separately; a passenger query never
+        -- reads this column, but the detail panel shows what the meter charges.
+        commercial_hour_rates TEXT NOT NULL DEFAULT '[]',
         max_session_min INTEGER,
+        -- 'parknyc' is the blockface join, 'rate_zone' the point-in-polygon
+        -- fallback for a metered segment ParkNYC does not list (SPEC §13.1c).
+        source          TEXT NOT NULL DEFAULT 'parknyc',
+        confidence      REAL NOT NULL DEFAULT 0.0,
         geom            TEXT,
         min_lon         REAL,
         min_lat         REAL,
@@ -188,15 +198,17 @@ REGULATION_COLUMNS: tuple[str, ...] = (
     "raw_sign_description",
     "parse_method",
     "parse_confidence",
+    "parse_notes",
 )
 
 INSERT_REGULATION_SQL = (
     "INSERT INTO regulation (reg_id, reg_seg_id, action, permitted, vehicle_class, exclusive,"
     " days_mask, time_from, time_to, metered, max_duration_min, flags, effective_from,"
-    " effective_to, arrow, raw_sign_description, parse_method, parse_confidence)"
+    " effective_to, arrow, raw_sign_description, parse_method, parse_confidence, parse_notes)"
     " VALUES (:reg_id, :reg_seg_id, :action, :permitted, :vehicle_class, :exclusive,"
     " :days_mask, :time_from, :time_to, :metered, :max_duration_min, :flags, :effective_from,"
-    " :effective_to, :arrow, :raw_sign_description, :parse_method, :parse_confidence)"
+    " :effective_to, :arrow, :raw_sign_description, :parse_method, :parse_confidence,"
+    " :parse_notes)"
 )
 
 
@@ -285,6 +297,7 @@ def regulation_to_params(
     raw_sign_description: str,
     parse_method: ParseMethod,
     parse_confidence: float,
+    parse_notes: str = "",
 ) -> dict[str, Any]:
     """Named parameters for `INSERT_REGULATION_SQL`."""
     return {
@@ -306,6 +319,7 @@ def regulation_to_params(
         "raw_sign_description": raw_sign_description,
         "parse_method": parse_method.value,
         "parse_confidence": parse_confidence,
+        "parse_notes": parse_notes,
     }
 
 
