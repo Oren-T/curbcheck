@@ -315,8 +315,19 @@ def test_hostile_text_cannot_inject_a_response_header(client):
 def test_a_hundred_kilobyte_description_is_returned_whole_not_truncated(client):
     response = client.get("/api/segment/3681:W:0")
     assert response.status_code == 200
-    descriptions = [sign["sign_description"] for sign in response.json()["signs"]]
+    body = response.json()
+    descriptions = [
+        sign["sign_description"] for sign in [*body["governing"], *body["other_on_block"]]
+    ]
     assert PAYLOADS["long"] in descriptions
+
+
+def test_every_hostile_sign_reaches_one_of_the_two_groups(client):
+    """Grouping the signs is allowed; losing one is not (UX audit invariant 4)."""
+    body = client.get("/api/segment/3681:W:0").json()
+    grouped = {sign["sign_description"] for sign in [*body["governing"], *body["other_on_block"]]}
+
+    assert grouped == set(PAYLOADS.values())
 
 
 def test_sql_metacharacters_in_the_data_do_not_execute(client):

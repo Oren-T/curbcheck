@@ -212,6 +212,10 @@ def test_search_result_mirrors_the_search_result_fields(client):
         "charged_minutes",
         "metered",
         "score",
+        "money_value",
+        "risk",
+        "basis",
+        "confidence_shown",
         "rate_label",
         "street_name",
         "gap_kind",
@@ -345,6 +349,130 @@ def test_naive_times_are_read_as_new_york_local_time(client):
     assert naive["results"] == aware["results"]
 
 
+def test_the_search_result_says_how_its_legal_verdict_was_reached(client):
+    [result] = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()["results"]
+
+    assert result["basis"] == "posted"
+    assert result["confidence_shown"] is True
+    assert result["money_value"] == pytest.approx(float(result["money"]))
+    # snap confidence 0.94 is the weaker of the two: 0.06 doubt * 0.5 * $65.
+    assert result["risk"] == pytest.approx(1.95)
+
+
+def test_a_verdict_legal_only_by_absence_hides_its_confidence(client):
+    """Absence of a rule is not a confident permission (UX audit P0-1)."""
+    body = client.post(
+        "/api/search",
+        json={**DESTINATION, "t1": "2026-09-15T20:00:00", "t2": "2026-09-15T22:00:00"},
+    ).json()
+
+    [result] = body["results"]
+    assert result["verdict"] == "legal"
+    assert result["basis"] == "absence"
+    assert result["reason"] == "No posted rule covers this window"
+    assert result["confidence_shown"] is False
+
+
+def test_a_no_data_span_reports_no_price_and_no_confidence(client, tmp_path):
+    """Never "$0.00" and never "no meter" on curb the app knows nothing about (P0-5)."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute(
+        "INSERT INTO regulation_segment (reg_seg_id, segment_id, side, geom, min_lon, min_lat,"
+        " max_lon, max_lat, confidence, derived_from, gap_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "3681:E:gap",
+            "3681",
+            "E",
+            _geojson(NODE_85, NODE_86),
+            min(NODE_85[0], NODE_86[0]),
+            min(NODE_85[1], NODE_86[1]),
+            max(NODE_85[0], NODE_86[0]),
+            max(NODE_85[1], NODE_86[1]),
+            0.0,
+            "[]",
+            "no_signs",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    body = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()
+    grey = next(result for result in body["results"] if result["verdict"] == "no_data")
+
+    assert grey["money"] is None
+    assert grey["money_value"] is None
+    assert grey["price_known"] is False
+    assert grey["rate_label"] is None
+    assert grey["basis"] is None
+    assert grey["confidence_shown"] is False
+
+
+# --- coverage ------------------------------------------------------------
+
+
+def test_a_destination_outside_coverage_is_refused_not_answered_empty(client):
+    """A pin in New Jersey is a question this build cannot answer (UX audit P0-3)."""
+    response = client.post(
+        "/api/search", json={"lat": 40.8600, "lon": -73.9000, **WINDOW, "walk_minutes": 30}
+    )
+
+    assert response.status_code == 422
+    error = response.json()["error"]
+    assert error["code"] == "outside_coverage"
+    assert "Manhattan" in error["message"]
+
+
+def test_a_destination_inside_coverage_still_answers(client):
+    assert client.post("/api/search", json={**DESTINATION, **WINDOW}).status_code == 200
+
+
+def test_health_reports_the_coverage_area_and_its_box(client):
+    coverage = client.get("/api/health").json()["coverage"]
+
+    assert coverage["area"] == "Manhattan"
+    min_lon, min_lat, max_lon, max_lat = coverage["bbox"]
+    assert min_lon < max_lon and min_lat < max_lat
+    assert min_lon <= DESTINATION["lon"] <= max_lon
+
+
+# --- reverse -------------------------------------------------------------
+
+
+def test_reverse_names_the_place_a_pin_landed_on(client):
+    body = client.get("/api/reverse", params={"lat": 40.77849, "lon": -73.95424}).json()
+
+    assert set(body) == {"label", "secondary", "kind", "lat", "lon", "distance_m"}
+    assert body["kind"] in ("address", "intersection", "street")
+    assert body["label"]
+    assert body["distance_m"] >= 0
+
+
+def test_reverse_outside_coverage_is_422(client):
+    response = client.get("/api/reverse", params={"lat": 40.8600, "lon": -73.9000})
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "outside_coverage"
+
+
+@pytest.mark.parametrize(
+    ("params", "reason"),
+    [
+        ({"lat": 40.7784}, "lon missing"),
+        ({"lon": -73.9542}, "lat missing"),
+        ({"lat": 51.5, "lon": -73.9542}, "lat outside the bbox"),
+        ({"lat": 40.7784, "lon": -80.0}, "lon outside the bbox"),
+        ({"lat": "nope", "lon": -73.9542}, "lat not a number"),
+        ({"lat": "nan", "lon": -73.9542}, "lat is NaN"),
+        ({"lat": "inf", "lon": -73.9542}, "lat is infinite"),
+    ],
+)
+def test_bad_reverse_parameters_are_422_with_an_error_envelope(client, params, reason):
+    response = client.get("/api/reverse", params=params)
+
+    assert response.status_code == 422, reason
+    assert response.json()["error"]["code"] == "validation_error"
+
+
 # --- validation ----------------------------------------------------------
 
 
@@ -396,12 +524,139 @@ def test_segment_returns_the_stack_the_signs_and_the_rates(client):
     assert regulation["parse_confidence"] == 0.98
     assert regulation["raw_sign_description"] == XSS_SIGN_TEXT
     assert regulation["regulation"]["max_duration_min"] == 240
+    # The rule names the post it was read from, so the UI can file it under it.
+    assert regulation["sign_id"] == "sign-1"
 
-    assert {sign["sign_description"] for sign in body["signs"]} == {
+    assert [sign["sign_description"] for sign in body["governing"]] == [XSS_SIGN_TEXT]
+    assert [sign["sign_description"] for sign in body["other_on_block"]] == ["NO STANDING ANYTIME"]
+    assert body["meter_rates"][0]["hour_rates"] == ["4.50", "5.50"]
+
+
+def test_segment_signs_carry_the_distance_and_the_arrow(client):
+    [sign] = client.get("/api/segment/3681:W:0").json()["governing"]
+
+    assert sign["distance_ft"] == 44.0
+    assert sign["distance_ft"] == sign["distance_from_intersection"]
+    assert sign["arrow"] is None
+    assert sign["side_of_street"] == "W"
+    assert sign["panel_class"] == "regulation"
+
+
+def test_governing_signs_come_back_in_curb_order(client, tmp_path):
+    """SPEC §10's sign list is read standing on the pavement, not sorted by id."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute(
+        "INSERT INTO sign (sign_id, on_street, from_street, to_street, side_of_street,"
+        " distance_from_intersection, sign_description, arrow_direction, segment_id)"
+        " VALUES (?,?,?,?,?,?,?,?,?)",
+        (
+            "aaa-first-by-id",
+            "3 AVENUE",
+            "EAST 85 STREET",
+            "EAST 86 STREET",
+            "W",
+            120.0,
+            "2 HOUR PARKING 9AM-7PM",
+            "N",
+            "3681",
+        ),
+    )
+    conn.execute(
+        "UPDATE regulation_segment SET derived_from = ? WHERE reg_seg_id = ?",
+        (json.dumps(["sign-1", "aaa-first-by-id"]), "3681:W:0"),
+    )
+    conn.commit()
+    conn.close()
+
+    governing = client.get("/api/segment/3681:W:0").json()["governing"]
+
+    assert [sign["distance_ft"] for sign in governing] == [44.0, 120.0]
+    assert governing[1]["arrow"] == "N"
+
+
+def test_a_placeholder_span_has_no_governing_signs(client, tmp_path):
+    """A grey span asserts nothing: no sign of its own, and the block's signs beside it."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute(
+        "INSERT INTO regulation_segment (reg_seg_id, segment_id, side, geom, min_lon, min_lat,"
+        " max_lon, max_lat, confidence, derived_from, gap_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "3681:W:gap",
+            "3681",
+            "W",
+            _geojson(NODE_85, NODE_86),
+            min(NODE_85[0], NODE_86[0]),
+            min(NODE_85[1], NODE_86[1]),
+            max(NODE_85[0], NODE_86[0]),
+            max(NODE_85[1], NODE_86[1]),
+            0.0,
+            json.dumps(["sign-1"]),
+            "no_signs",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    body = client.get("/api/segment/3681:W:gap").json()
+
+    assert body["segment"]["gap_kind"] == "no_signs"
+    assert body["governing"] == []
+    assert {sign["sign_description"] for sign in body["other_on_block"]} == {
         XSS_SIGN_TEXT,
         "NO STANDING ANYTIME",
     }
-    assert body["meter_rates"][0]["hour_rates"] == ["4.50", "5.50"]
+
+
+def test_an_unmatched_placeholder_lists_the_signs_that_never_snapped(client, tmp_path):
+    """332 of 499 unmatched blockface-sides carry a NO STANDING sign (VALIDATION §5)."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute(
+        "INSERT INTO street_node (node_id, lon, lat, street_names) VALUES (?,?,?,?)",
+        ("n86", NODE_86[0], NODE_86[1], json.dumps(["3 AVE", "E 86 ST"])),
+    )
+    conn.execute(
+        "UPDATE street_segment SET from_node = 'n85', to_node = 'n86' WHERE segment_id = '3681'"
+    )
+    conn.execute(
+        "INSERT INTO sign (sign_id, on_street, from_street, to_street, side_of_street,"
+        " distance_from_intersection, sign_description, segment_id, snap_notes)"
+        " VALUES (?,?,?,?,?,?,?,?,?)",
+        (
+            "sign-unplaced",
+            "3 AVENUE",
+            "EAST 85 STREET",
+            "EAST 86 STREET",
+            "E",
+            10.0,
+            "NO STANDING ANYTIME",
+            None,
+            "unmatched: no_geometry",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO regulation_segment (reg_seg_id, segment_id, side, geom, min_lon, min_lat,"
+        " max_lon, max_lat, confidence, derived_from, gap_kind) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "3681:E:gap",
+            "3681",
+            "E",
+            _geojson(NODE_85, NODE_86),
+            min(NODE_85[0], NODE_86[0]),
+            min(NODE_85[1], NODE_86[1]),
+            max(NODE_85[0], NODE_86[0]),
+            max(NODE_85[1], NODE_86[1]),
+            0.0,
+            "[]",
+            "unmatched_signs",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    body = client.get("/api/segment/3681:E:gap").json()
+
+    assert body["governing"] == []
+    assert [sign["sign_id"] for sign in body["other_on_block"]] == ["sign-unplaced"]
 
 
 def test_unknown_segment_id_is_404(client):
@@ -469,7 +724,8 @@ def test_geocode_returns_candidates_for_a_real_address(client):
     assert body["query"] == "1519 3rd Ave"
     [candidate] = body["candidates"]
     assert candidate["kind"] == "address"
-    assert set(candidate) == {"label", "lat", "lon", "kind", "confidence"}
+    assert set(candidate) == {"label", "lat", "lon", "kind", "confidence", "secondary"}
+    assert candidate["secondary"] == "Manhattan"
 
 
 @pytest.mark.parametrize("q", ["", "x" * 201])
@@ -487,6 +743,15 @@ def test_health_reports_a_present_database(client):
         "db_readonly": True,
         "sign_count": 2,
         "calendar_missing": False,
+        "coverage": {
+            "area": "Manhattan",
+            "bbox": [
+                min(NODE_85[0], NODE_86[0]),
+                min(NODE_85[1], NODE_86[1]),
+                max(NODE_85[0], NODE_86[0]),
+                max(NODE_85[1], NODE_86[1]),
+            ],
+        },
     }
 
 
@@ -497,6 +762,7 @@ def test_health_answers_without_a_database(empty_client):
         "db_readonly": False,
         "sign_count": 0,
         "calendar_missing": True,
+        "coverage": None,
     }
 
 
@@ -538,7 +804,12 @@ def test_sync_status_returns_the_meta_table_as_strings(client):
 
 @pytest.mark.parametrize(
     ("method", "path"),
-    [("post", "/api/search"), ("get", "/api/segment/3681:W:0"), ("get", "/api/sync-status")],
+    [
+        ("post", "/api/search"),
+        ("get", "/api/segment/3681:W:0"),
+        ("get", "/api/sync-status"),
+        ("get", "/api/reverse?lat=40.7784&lon=-73.9542"),
+    ],
 )
 def test_a_missing_database_is_503_with_the_sync_instruction(empty_client, method, path):
     body = {**DESTINATION, **WINDOW} if method == "post" else None
@@ -559,7 +830,17 @@ def test_unknown_api_path_is_a_json_404(client):
 
 
 @pytest.mark.parametrize(
-    "path", ["/", "/index.html", "/vendor/pmtiles.js", "/api/health", "/api/nope", "/nope.html"]
+    "path",
+    [
+        "/",
+        "/index.html",
+        "/vendor/pmtiles.js",
+        "/api/health",
+        "/api/nope",
+        "/nope.html",
+        "/api/reverse?lat=40.7784&lon=-73.9542",
+        "/api/reverse?lat=999&lon=-73.9542",
+    ],
 )
 def test_security_headers_are_on_every_response(client, path):
     response = client.get(path)

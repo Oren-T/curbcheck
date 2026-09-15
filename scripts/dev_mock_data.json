@@ -3,228 +3,1392 @@
     "destination": {
       "lat": 40.778402,
       "lon": -73.955249,
-      "label": "3 AVE & E 85 ST"
+      "label": "1519 3 AVE"
     },
     "results": [
       {
-        "reg_seg_id": "3681:W:0",
+        "reg_seg_id": "3600:W:0",
         "geometry": {
           "type": "LineString",
           "coordinates": [
             [
-              -73.95566,
-              40.77818
+              -73.95865,
+              40.7762
             ],
             [
-              -73.95474,
-              40.77941
+              -73.95862,
+              40.7771
             ]
           ]
         },
         "verdict": "legal",
-        "reason": "metered parking permitted for the whole window",
+        "reason": "metered parking permitted for your whole window",
         "caveats": [
           "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
         ],
-        "walk_min": 1.4,
+        "walk_min": 1.2,
         "money": "9.00",
+        "money_value": 9.0,
         "price_known": true,
-        "capacity_cars": 12,
-        "confidence": 0.94,
+        "capacity_cars": 4,
+        "confidence": 0.82,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.2,
+        "score": 10.2,
+        "street_name": "3 AVENUE, west side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
         "signs": [
           {
-            "sign_id": "9f2c11",
-            "order_number": "1-411121",
+            "sign_id": "9f2c0000",
+            "order_number": "1-c0000",
             "sign_code": "PRK-9",
             "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
             "parse_method": "grammar",
-            "parse_confidence": 0.98
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
           }
         ],
         "charged_minutes": 120,
         "metered": true,
-        "score": 10.4,
-        "rate_label": "Area 1",
-        "street_name": "3 AVENUE, west side, E 85 ST → E 86 ST",
-        "gap_kind": null
+        "rate_label": "Area 1"
       },
       {
-        "reg_seg_id": "3681:E:0",
+        "reg_seg_id": "3601:E:0",
         "geometry": {
           "type": "LineString",
           "coordinates": [
             [
-              -73.95541,
-              40.77812
+              -73.95705,
+              40.7762
             ],
             [
-              -73.95449,
-              40.77935
+              -73.95702,
+              40.7771
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 1.8,
+        "money": "12.75",
+        "money_value": 12.75,
+        "price_known": true,
+        "capacity_cars": 5,
+        "confidence": 0.84,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.35,
+        "score": 14.55,
+        "street_name": "3 AVENUE, east side, E 84 ST \u2192 E 85 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0001",
+            "order_number": "1-c0001",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3602:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95545,
+              40.7762
+            ],
+            [
+              -73.95542,
+              40.7771
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 2.4,
+        "money": "4.50",
+        "money_value": 4.5,
+        "price_known": true,
+        "capacity_cars": 6,
+        "confidence": 0.86,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.5,
+        "score": 6.9,
+        "street_name": "LEXINGTON AVENUE, east side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0002",
+            "order_number": "1-c0002",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3603:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95385,
+              40.7762
+            ],
+            [
+              -73.95275,
+              40.77624
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 3.0,
+        "money": "15.00",
+        "money_value": 15.0,
+        "price_known": true,
+        "capacity_cars": 7,
+        "confidence": 0.88,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.65,
+        "score": 18.0,
+        "street_name": "E 85 STREET, north side, LEXINGTON AVE \u2192 3 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0003",
+            "order_number": "1-c0003",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3604:S:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95225,
+              40.7762
+            ],
+            [
+              -73.95115,
+              40.77624
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 3.6,
+        "money": "6.25",
+        "money_value": 6.25,
+        "price_known": true,
+        "capacity_cars": 8,
+        "confidence": 0.9,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.8,
+        "score": 9.85,
+        "street_name": "E 85 STREET, south side, 3 AVE \u2192 2 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0004",
+            "order_number": "1-c0004",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3605:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95865,
+              40.7773
+            ],
+            [
+              -73.95755,
+              40.77734
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 4.2,
+        "money": "10.50",
+        "money_value": 10.5,
+        "price_known": true,
+        "capacity_cars": 9,
+        "confidence": 0.92,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.2,
+        "score": 14.7,
+        "street_name": "E 86 STREET, north side, 3 AVE \u2192 2 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0005",
+            "order_number": "1-c0005",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3606:S:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95705,
+              40.7773
+            ],
+            [
+              -73.95595,
+              40.77734
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 4.8,
+        "money": "3.75",
+        "money_value": 3.75,
+        "price_known": true,
+        "capacity_cars": 10,
+        "confidence": 0.94,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.35,
+        "score": 8.55,
+        "street_name": "E 84 STREET, south side, LEXINGTON AVE \u2192 3 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0006",
+            "order_number": "1-c0006",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3607:W:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95545,
+              40.7773
+            ],
+            [
+              -73.95542,
+              40.7782
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 5.4,
+        "money": "13.50",
+        "money_value": 13.5,
+        "price_known": true,
+        "capacity_cars": 11,
+        "confidence": 0.96,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.5,
+        "score": 18.9,
+        "street_name": "2 AVENUE, west side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0007",
+            "order_number": "1-c0007",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3608:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95385,
+              40.7773
+            ],
+            [
+              -73.95275,
+              40.77734
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 6.0,
+        "money": "5.00",
+        "money_value": 5.0,
+        "price_known": true,
+        "capacity_cars": 12,
+        "confidence": 0.82,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.65,
+        "score": 11.0,
+        "street_name": "E 87 STREET, north side, 3 AVE \u2192 LEXINGTON AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0008",
+            "order_number": "1-c0008",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3609:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95225,
+              40.7773
+            ],
+            [
+              -73.95222,
+              40.7782
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 6.6,
+        "money": "8.25",
+        "money_value": 8.25,
+        "price_known": true,
+        "capacity_cars": 4,
+        "confidence": 0.84,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.8,
+        "score": 14.85,
+        "street_name": "PARK AVENUE, east side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0009",
+            "order_number": "1-c0009",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3610:W:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95865,
+              40.7784
+            ],
+            [
+              -73.95862,
+              40.7793
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 7.2,
+        "money": "16.00",
+        "money_value": 16.0,
+        "price_known": true,
+        "capacity_cars": 5,
+        "confidence": 0.86,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.2,
+        "score": 23.2,
+        "street_name": "3 AVENUE, west side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0010",
+            "order_number": "1-c0010",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3611:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95705,
+              40.7784
+            ],
+            [
+              -73.95702,
+              40.7793
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "metered parking permitted for your whole window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 7.8,
+        "money": "7.50",
+        "money_value": 7.5,
+        "price_known": true,
+        "capacity_cars": 6,
+        "confidence": 0.88,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.35,
+        "score": 15.3,
+        "street_name": "3 AVENUE, east side, E 84 ST \u2192 E 85 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "9f2c0011",
+            "order_number": "1-c0011",
+            "sign_code": "PRK-9",
+            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 44.0,
+            "arrow": "-->"
+          }
+        ],
+        "charged_minutes": 120,
+        "metered": true,
+        "rate_label": "Area 1"
+      },
+      {
+        "reg_seg_id": "3612:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95545,
+              40.7784
+            ],
+            [
+              -73.95542,
+              40.7793
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 2.0,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 3,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 1.4,
+        "score": 3.4,
+        "street_name": "LEXINGTON AVENUE, east side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3613:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95385,
+              40.7784
+            ],
+            [
+              -73.95275,
+              40.77844
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 2.9,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 4,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 1.6,
+        "score": 4.3,
+        "street_name": "E 85 STREET, north side, LEXINGTON AVE \u2192 3 AVE",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3614:S:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95225,
+              40.7784
+            ],
+            [
+              -73.95115,
+              40.77844
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 3.8,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 5,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 1.8,
+        "score": 5.2,
+        "street_name": "E 85 STREET, south side, 3 AVE \u2192 2 AVE",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3615:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95865,
+              40.7795
+            ],
+            [
+              -73.95755,
+              40.77954
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 4.7,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 6,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 2.0,
+        "score": 6.1,
+        "street_name": "E 86 STREET, north side, 3 AVE \u2192 2 AVE",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3616:S:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95705,
+              40.7795
+            ],
+            [
+              -73.95595,
+              40.77954
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 5.6,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 7,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 1.4,
+        "score": 7.0,
+        "street_name": "E 84 STREET, south side, LEXINGTON AVE \u2192 3 AVE",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3617:W:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95545,
+              40.7795
+            ],
+            [
+              -73.95542,
+              40.7804
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 6.5,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 8,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 1.6,
+        "score": 7.9,
+        "street_name": "2 AVENUE, west side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3618:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95385,
+              40.7795
+            ],
+            [
+              -73.95275,
+              40.77954
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 7.4,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 3,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 1.8,
+        "score": 8.8,
+        "street_name": "E 87 STREET, north side, 3 AVE \u2192 LEXINGTON AVE",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3619:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95225,
+              40.7795
+            ],
+            [
+              -73.95222,
+              40.7804
+            ]
+          ]
+        },
+        "verdict": "legal",
+        "reason": "no posted rule covers this window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 8.3,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 4,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": "absence",
+        "risk": 2.0,
+        "score": 9.7,
+        "street_name": "PARK AVENUE, east side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3620:W:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95865,
+              40.7806
+            ],
+            [
+              -73.95862,
+              40.7815
             ]
           ]
         },
         "verdict": "ambiguous",
-        "reason": "one sign on this stretch could not be read",
+        "reason": "the software could not read the signs on this stretch",
         "caveats": [
-          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation.",
-          "a sign here is unreadable, so the whole stretch is ambiguous (D13)"
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
         ],
-        "walk_min": 1.9,
+        "walk_min": 2.4,
         "money": null,
+        "money_value": null,
         "price_known": false,
-        "capacity_cars": 9,
-        "confidence": 0.0,
+        "capacity_cars": 5,
+        "confidence": 0.41,
+        "confidence_shown": true,
+        "basis": null,
+        "risk": 2.6,
+        "score": 6.0,
+        "street_name": "3 AVENUE, west side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
         "signs": [
           {
-            "sign_id": "7a01bd",
-            "order_number": "1-409887",
+            "sign_id": "77aa0020",
+            "order_number": "1-a0020",
             "sign_code": "PRK-11",
-            "sign_description": "<script>alert('xss')</script> NO PARKING 11AM-12:30PM TUE & FRI <-->",
+            "sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
             "parse_method": "unparsed",
-            "parse_confidence": 0.0
-          },
-          {
-            "sign_id": "7a01be",
-            "order_number": "1-409887",
-            "sign_code": "PRK-9",
-            "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
-            "parse_method": "grammar",
-            "parse_confidence": 0.98
+            "parse_confidence": 0.2,
+            "distance_ft": 18.0,
+            "arrow": "<->"
           }
         ],
         "charged_minutes": 0,
         "metered": false,
-        "score": 34.4,
-        "rate_label": null,
-        "street_name": "3 AVENUE, east side, E 85 ST → E 86 ST",
-        "gap_kind": null
+        "rate_label": null
       },
       {
-        "reg_seg_id": "3712:N:0",
+        "reg_seg_id": "3621:E:0",
         "geometry": {
           "type": "LineString",
           "coordinates": [
             [
-              -73.957,
-              40.779
+              -73.95705,
+              40.7806
             ],
             [
-              -73.95404,
-              40.77784
+              -73.95702,
+              40.7815
+            ]
+          ]
+        },
+        "verdict": "ambiguous",
+        "reason": "the software could not read the signs on this stretch",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 3.5,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 5,
+        "confidence": 0.41,
+        "confidence_shown": true,
+        "basis": null,
+        "risk": 2.6,
+        "score": 6.0,
+        "street_name": "3 AVENUE, east side, E 84 ST \u2192 E 85 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "77aa0021",
+            "order_number": "1-a0021",
+            "sign_code": "PRK-11",
+            "sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+            "parse_method": "unparsed",
+            "parse_confidence": 0.2,
+            "distance_ft": 18.0,
+            "arrow": "<->"
+          }
+        ],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3622:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95545,
+              40.7806
+            ],
+            [
+              -73.95542,
+              40.7815
+            ]
+          ]
+        },
+        "verdict": "ambiguous",
+        "reason": "the software could not read the signs on this stretch",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 4.6,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": 5,
+        "confidence": 0.41,
+        "confidence_shown": true,
+        "basis": null,
+        "risk": 2.6,
+        "score": 6.0,
+        "street_name": "LEXINGTON AVENUE, east side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "77aa0022",
+            "order_number": "1-a0022",
+            "sign_code": "PRK-11",
+            "sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+            "parse_method": "unparsed",
+            "parse_confidence": 0.2,
+            "distance_ft": 18.0,
+            "arrow": "<->"
+          }
+        ],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3623:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95385,
+              40.7806
+            ],
+            [
+              -73.95275,
+              40.78064
             ]
           ]
         },
         "verdict": "illegal",
-        "reason": "no standing 7:00 AM–10:00 AM Mon–Fri covers part of the window",
+        "reason": "a posted sign prohibits standing during your window",
         "caveats": [
           "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
         ],
-        "walk_min": 2.6,
-        "money": null,
-        "price_known": false,
-        "capacity_cars": 14,
-        "confidence": 0.91,
+        "walk_min": 1.1,
+        "money": "0.00",
+        "money_value": 0.0,
+        "price_known": true,
+        "capacity_cars": 6,
+        "confidence": 0.93,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.3,
+        "score": 9.9,
+        "street_name": "E 85 STREET, north side, LEXINGTON AVE \u2192 3 AVE",
+        "gap_kind": null,
         "signs": [
           {
-            "sign_id": "31c002",
-            "order_number": "1-388210",
-            "sign_code": "NPS-11",
-            "sign_description": "NO STANDING 7AM-10AM MON THRU FRI -->",
+            "sign_id": "55bb0023",
+            "order_number": "1-b0023",
+            "sign_code": "PRK-3",
+            "sign_description": "NO STANDING ANYTIME",
             "parse_method": "grammar",
-            "parse_confidence": 0.97
+            "parse_confidence": 0.98,
+            "distance_ft": 12.0,
+            "arrow": "<--"
           }
         ],
         "charged_minutes": 0,
         "metered": false,
-        "score": 5.9,
-        "rate_label": null,
-        "street_name": "E 86 ST, north side, 3 AVENUE → LEXINGTON AVENUE",
-        "gap_kind": null
+        "rate_label": null
       },
       {
-        "reg_seg_id": "3712:S:0",
+        "reg_seg_id": "3624:S:0",
         "geometry": {
           "type": "LineString",
           "coordinates": [
             [
-              -73.95712,
-              40.77884
+              -73.95225,
+              40.7806
             ],
             [
-              -73.95416,
-              40.77768
+              -73.95115,
+              40.78064
+            ]
+          ]
+        },
+        "verdict": "illegal",
+        "reason": "a posted sign prohibits standing during your window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 1.9,
+        "money": "0.00",
+        "money_value": 0.0,
+        "price_known": true,
+        "capacity_cars": 6,
+        "confidence": 0.93,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.3,
+        "score": 9.9,
+        "street_name": "E 85 STREET, south side, 3 AVE \u2192 2 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "55bb0024",
+            "order_number": "1-b0024",
+            "sign_code": "PRK-3",
+            "sign_description": "NO STANDING ANYTIME",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 12.0,
+            "arrow": "<--"
+          }
+        ],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3625:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95865,
+              40.7762
+            ],
+            [
+              -73.95755,
+              40.77624
+            ]
+          ]
+        },
+        "verdict": "illegal",
+        "reason": "a posted sign prohibits standing during your window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 2.7,
+        "money": "0.00",
+        "money_value": 0.0,
+        "price_known": true,
+        "capacity_cars": 6,
+        "confidence": 0.93,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.3,
+        "score": 9.9,
+        "street_name": "E 86 STREET, north side, 3 AVE \u2192 2 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "55bb0025",
+            "order_number": "1-b0025",
+            "sign_code": "PRK-3",
+            "sign_description": "NO STANDING ANYTIME",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 12.0,
+            "arrow": "<--"
+          }
+        ],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3626:S:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95705,
+              40.7762
+            ],
+            [
+              -73.95595,
+              40.77624
+            ]
+          ]
+        },
+        "verdict": "illegal",
+        "reason": "a posted sign prohibits standing during your window",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 3.5,
+        "money": "0.00",
+        "money_value": 0.0,
+        "price_known": true,
+        "capacity_cars": 6,
+        "confidence": 0.93,
+        "confidence_shown": true,
+        "basis": "posted",
+        "risk": 0.3,
+        "score": 9.9,
+        "street_name": "E 84 STREET, south side, LEXINGTON AVE \u2192 3 AVE",
+        "gap_kind": null,
+        "signs": [
+          {
+            "sign_id": "55bb0026",
+            "order_number": "1-b0026",
+            "sign_code": "PRK-3",
+            "sign_description": "NO STANDING ANYTIME",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 12.0,
+            "arrow": "<--"
+          }
+        ],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3627:W:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95545,
+              40.7762
+            ],
+            [
+              -73.95542,
+              40.7771
             ]
           ]
         },
         "verdict": "no_data",
-        "reason": "no signs matched this blockface",
+        "reason": "no sign data on this block",
         "caveats": [
           "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
         ],
-        "walk_min": 3.1,
+        "walk_min": 4.9,
         "money": null,
+        "money_value": null,
         "price_known": false,
         "capacity_cars": null,
         "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": null,
+        "risk": 3.0,
+        "score": 12.0,
+        "street_name": "2 AVENUE, west side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": "no_signs",
         "signs": [],
         "charged_minutes": 0,
         "metered": false,
-        "score": 60.0,
-        "rate_label": null,
-        "street_name": "E 86 ST, south side, 3 AVENUE → LEXINGTON AVENUE",
-        "gap_kind": "unmatched_signs"
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3628:N:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95385,
+              40.7762
+            ],
+            [
+              -73.95275,
+              40.77624
+            ]
+          ]
+        },
+        "verdict": "no_data",
+        "reason": "no sign data on this block",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 5.0,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": null,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": null,
+        "risk": 3.0,
+        "score": 12.0,
+        "street_name": "E 87 STREET, north side, 3 AVE \u2192 LEXINGTON AVE",
+        "gap_kind": "no_signs",
+        "signs": [],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
+      },
+      {
+        "reg_seg_id": "3629:E:0",
+        "geometry": {
+          "type": "LineString",
+          "coordinates": [
+            [
+              -73.95225,
+              40.7762
+            ],
+            [
+              -73.95222,
+              40.7771
+            ]
+          ]
+        },
+        "verdict": "no_data",
+        "reason": "no sign data on this block",
+        "caveats": [
+          "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
+        ],
+        "walk_min": 5.1,
+        "money": null,
+        "money_value": null,
+        "price_known": false,
+        "capacity_cars": null,
+        "confidence": 0.0,
+        "confidence_shown": false,
+        "basis": null,
+        "risk": 3.0,
+        "score": 12.0,
+        "street_name": "PARK AVENUE, east side, E 85 ST \u2192 E 86 ST",
+        "gap_kind": "unmatched_signs",
+        "signs": [
+          {
+            "sign_id": "33cc0001",
+            "order_number": "1-c0001",
+            "sign_code": "PRK-3",
+            "sign_description": "NO STANDING ANYTIME",
+            "parse_method": "grammar",
+            "parse_confidence": 0.98,
+            "distance_ft": 0.0,
+            "arrow": "none"
+          }
+        ],
+        "charged_minutes": 0,
+        "metered": false,
+        "rate_label": null
       }
     ],
     "counts": {
       "legal": 149,
-      "illegal": 50,
-      "ambiguous": 1,
-      "no_data": 1,
-      "total": 201
+      "illegal": 61,
+      "ambiguous": 6,
+      "no_data": 27,
+      "total": 243
     },
-    "disclaimer": "CurbCheck is advisory only. This tool derives parking legality and price from NYC Open Data (NYC DOT Sign Information Management System) and may be incomplete, out of date, or misread by the software. Parking regulations change and temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation. Always read the posted sign before parking. Sign-free prohibitions — within 15 feet of a fire hydrant (34 RCNY §4-08(e)(2)), crosswalks, bus stops, and driveways — apply even where no sign is shown. CurbCheck does not predict whether a space is physically available. Data © NYC Open Data; basemap © OpenStreetMap contributors.",
+    "disclaimer": "CurbCheck is advisory only. This tool derives parking legality and price from NYC Open Data (NYC DOT Sign Information Management System) and may be incomplete, out of date, or misread by the software.",
     "caveats": [
       "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation.",
       "Emergency ASP suspensions are not reflected. Same-day weather and parade suspensions are only visible if the optional 311 live check is enabled, and it is off by default."
     ],
     "sync": {
-      "last_sync": "2026-09-14T22:05:11-04:00",
-      "sign_count": 74590,
-      "coverage_pct": 83.1
+      "last_sync": "2026-09-15T03:18:02+00:00",
+      "sign_count": 74389,
+      "coverage_pct": 93.78
     }
   },
   "segments": {
-    "3681:W:0": {
+    "3600:W:0": {
       "segment": {
-        "reg_seg_id": "3681:W:0",
-        "segment_id": "3681",
-        "street_name": "3 AVE",
+        "reg_seg_id": "3600:W:0",
+        "segment_id": "3600",
+        "street_name": "3 AVENUE",
         "side": "W",
         "start_ft": 0.0,
         "end_ft": 284.8,
         "length_ft": 284.8,
-        "capacity_cars": 12,
-        "confidence": 0.94,
+        "capacity_cars": 4,
+        "capacity_approximate": true,
+        "confidence": 0.82,
         "derived_from": [
-          "9f2c11"
+          "9f2c0000"
         ]
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -73.95566,
-            40.77818
+            -73.95865,
+            40.7762
           ],
           [
-            -73.95474,
-            40.77941
+            -73.95862,
+            40.7771
           ]
         ]
       },
       "regulations": [
         {
-          "reg_id": "3681:W:0:1",
+          "reg_id": "9f2c0000:1",
+          "sign_id": "9f2c0000",
           "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
           "parse_method": "grammar",
           "parse_confidence": 0.98,
@@ -257,108 +1421,99 @@
             },
             "effective_from": null,
             "effective_to": null,
-            "arrow": "none"
+            "arrow": "-->"
           }
-        }
-      ],
-      "signs": [
-        {
-          "sign_id": "9f2c11",
-          "order_number": "1-411121",
-          "sign_code": "PRK-9",
-          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
-          "on_street": "3 AVENUE",
-          "from_street": "EAST 85 STREET",
-          "to_street": "EAST 86 STREET",
-          "side_of_street": "W",
-          "distance_from_intersection": 44.0,
-          "snap_confidence": 0.94,
-          "snap_notes": ""
         }
       ],
       "meter_rates": [
         {
-          "blockface_id": "1322607130",
+          "blockface_id": "100234:3681",
           "side": "W",
           "rate_label": "Area 1",
           "hour_rates": [
-            "4.50",
-            "5.50"
+            "5.00",
+            "8.25"
           ],
-          "max_session_min": 120
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0000",
+          "order_number": "1-c0000",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
         }
       ]
     },
-    "3681:E:0": {
+    "3601:E:0": {
       "segment": {
-        "reg_seg_id": "3681:E:0",
-        "segment_id": "3681",
-        "street_name": "3 AVE",
+        "reg_seg_id": "3601:E:0",
+        "segment_id": "3601",
+        "street_name": "3 AVENUE",
         "side": "E",
         "start_ft": 0.0,
-        "end_ft": 210.0,
-        "length_ft": 210.0,
-        "capacity_cars": 9,
-        "confidence": 0.88,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 5,
+        "capacity_approximate": true,
+        "confidence": 0.84,
         "derived_from": [
-          "7a01bd",
-          "7a01be"
+          "9f2c0001"
         ]
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -73.95541,
-            40.77812
+            -73.95705,
+            40.7762
           ],
           [
-            -73.95449,
-            40.77935
+            -73.95702,
+            40.7771
           ]
         ]
       },
       "regulations": [
         {
-          "reg_id": "3681:E:0:1",
-          "raw_sign_description": "<script>alert('xss')</script> NO PARKING 11AM-12:30PM TUE & FRI <-->",
-          "parse_method": "unparsed",
-          "parse_confidence": 0.0,
-          "regulation": {
-            "action": "park",
-            "permitted": false,
-            "vehicle_class": "all",
-            "exclusive": false,
-            "days": [
-              0,
-              1,
-              2,
-              3,
-              4,
-              5,
-              6
-            ],
-            "time_from": null,
-            "time_to": null,
-            "metered": false,
-            "max_duration_min": null,
-            "flags": {
-              "street_cleaning": false,
-              "school_days": false,
-              "except_sunday": false,
-              "including_sunday": false,
-              "snow_emergency": false,
-              "holiday_exempt": false,
-              "temporary": false,
-              "meta": false
-            },
-            "effective_from": null,
-            "effective_to": null,
-            "arrow": "none"
-          }
-        },
-        {
-          "reg_id": "3681:E:0:2",
+          "reg_id": "9f2c0001:1",
+          "sign_id": "9f2c0001",
           "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
           "parse_method": "grammar",
           "parse_confidence": 0.98,
@@ -391,98 +1546,105 @@
             },
             "effective_from": null,
             "effective_to": null,
-            "arrow": "none"
+            "arrow": "-->"
           }
-        }
-      ],
-      "signs": [
-        {
-          "sign_id": "7a01bd",
-          "order_number": "1-409887",
-          "sign_code": "PRK-11",
-          "sign_description": "<script>alert('xss')</script> NO PARKING 11AM-12:30PM TUE & FRI <-->",
-          "on_street": "3 AVENUE",
-          "from_street": "EAST 85 STREET",
-          "to_street": "EAST 86 STREET",
-          "side_of_street": "E",
-          "distance_from_intersection": 31.0,
-          "snap_confidence": 0.88,
-          "snap_notes": "two candidate blockfaces within 20 ft"
-        },
-        {
-          "sign_id": "7a01be",
-          "order_number": "1-409887",
-          "sign_code": "PRK-9",
-          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
-          "on_street": "3 AVENUE",
-          "from_street": "EAST 85 STREET",
-          "to_street": "EAST 86 STREET",
-          "side_of_street": "E",
-          "distance_from_intersection": 58.0,
-          "snap_confidence": 0.93,
-          "snap_notes": ""
         }
       ],
       "meter_rates": [
         {
-          "blockface_id": "1322607131",
-          "side": "E",
+          "blockface_id": "100234:3681",
+          "side": "W",
           "rate_label": "Area 1",
           "hour_rates": [
-            "4.50",
-            "5.50"
+            "5.00",
+            "8.25"
           ],
-          "max_session_min": 120
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0001",
+          "order_number": "1-c0001",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
         },
         {
-          "blockface_id": "1322607131",
-          "side": "E",
-          "rate_label": "Area 3 (overlaps)",
-          "hour_rates": [
-            "5.00",
-            "6.00"
-          ],
-          "max_session_min": 120
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
         }
       ]
     },
-    "3712:N:0": {
+    "3602:E:0": {
       "segment": {
-        "reg_seg_id": "3712:N:0",
-        "segment_id": "3712",
-        "street_name": "EAST 85 STREET",
-        "side": "N",
+        "reg_seg_id": "3602:E:0",
+        "segment_id": "3602",
+        "street_name": "LEXINGTON AVENUE",
+        "side": "E",
         "start_ft": 0.0,
-        "end_ft": 322.0,
-        "length_ft": 322.0,
-        "capacity_cars": 14,
-        "confidence": 0.91,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.86,
         "derived_from": [
-          "31c002"
+          "9f2c0002"
         ]
       },
       "geometry": {
         "type": "LineString",
         "coordinates": [
           [
-            -73.957,
-            40.779
+            -73.95545,
+            40.7762
           ],
           [
-            -73.95404,
-            40.77784
+            -73.95542,
+            40.7771
           ]
         ]
       },
       "regulations": [
         {
-          "reg_id": "3712:N:0:1",
-          "raw_sign_description": "NO STANDING 7AM-10AM MON THRU FRI -->",
+          "reg_id": "9f2c0002:1",
+          "sign_id": "9f2c0002",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
           "parse_method": "grammar",
-          "parse_confidence": 0.97,
+          "parse_confidence": 0.98,
           "regulation": {
-            "action": "stand",
-            "permitted": false,
+            "action": "park",
+            "permitted": true,
             "vehicle_class": "all",
             "exclusive": false,
             "days": [
@@ -490,16 +1652,17 @@
               1,
               2,
               3,
-              4
+              4,
+              5
             ],
-            "time_from": "07:00",
-            "time_to": "10:00",
-            "metered": false,
-            "max_duration_min": null,
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
             "flags": {
-              "street_cleaning": true,
+              "street_cleaning": false,
               "school_days": false,
-              "except_sunday": false,
+              "except_sunday": true,
               "including_sunday": false,
               "snow_emergency": false,
               "holiday_exempt": false,
@@ -508,37 +1671,1202 @@
             },
             "effective_from": null,
             "effective_to": null,
-            "arrow": "forward"
+            "arrow": "-->"
           }
         }
       ],
-      "signs": [
+      "meter_rates": [
         {
-          "sign_id": "31c002",
-          "order_number": "1-388210",
-          "sign_code": "NPS-11",
-          "sign_description": "NO STANDING 7AM-10AM MON THRU FRI -->",
-          "on_street": "EAST 85 STREET",
-          "from_street": "3 AVENUE",
-          "to_street": "LEXINGTON AVENUE",
-          "side_of_street": "N",
-          "distance_from_intersection": 112.0,
-          "snap_confidence": 0.91,
-          "snap_notes": ""
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
         }
       ],
-      "meter_rates": []
+      "governing": [
+        {
+          "sign_id": "9f2c0002",
+          "order_number": "1-c0002",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
     },
-    "3712:S:0": {
+    "3603:N:0": {
       "segment": {
-        "reg_seg_id": "3712:S:0",
-        "segment_id": "3712",
-        "street_name": "EAST 85 STREET",
+        "reg_seg_id": "3603:N:0",
+        "segment_id": "3603",
+        "street_name": "E 85 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 7,
+        "capacity_approximate": true,
+        "confidence": 0.88,
+        "derived_from": [
+          "9f2c0003"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95385,
+            40.7762
+          ],
+          [
+            -73.95275,
+            40.77624
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0003:1",
+          "sign_id": "9f2c0003",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0003",
+          "order_number": "1-c0003",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3604:S:0": {
+      "segment": {
+        "reg_seg_id": "3604:S:0",
+        "segment_id": "3604",
+        "street_name": "E 85 STREET",
         "side": "S",
         "start_ft": 0.0,
-        "end_ft": 318.0,
-        "length_ft": 318.0,
-        "capacity_cars": null,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 8,
+        "capacity_approximate": true,
+        "confidence": 0.9,
+        "derived_from": [
+          "9f2c0004"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95225,
+            40.7762
+          ],
+          [
+            -73.95115,
+            40.77624
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0004:1",
+          "sign_id": "9f2c0004",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0004",
+          "order_number": "1-c0004",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3605:N:0": {
+      "segment": {
+        "reg_seg_id": "3605:N:0",
+        "segment_id": "3605",
+        "street_name": "E 86 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 9,
+        "capacity_approximate": true,
+        "confidence": 0.92,
+        "derived_from": [
+          "9f2c0005"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95865,
+            40.7773
+          ],
+          [
+            -73.95755,
+            40.77734
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0005:1",
+          "sign_id": "9f2c0005",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0005",
+          "order_number": "1-c0005",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3606:S:0": {
+      "segment": {
+        "reg_seg_id": "3606:S:0",
+        "segment_id": "3606",
+        "street_name": "E 84 STREET",
+        "side": "S",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 10,
+        "capacity_approximate": true,
+        "confidence": 0.94,
+        "derived_from": [
+          "9f2c0006"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95705,
+            40.7773
+          ],
+          [
+            -73.95595,
+            40.77734
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0006:1",
+          "sign_id": "9f2c0006",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0006",
+          "order_number": "1-c0006",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3607:W:0": {
+      "segment": {
+        "reg_seg_id": "3607:W:0",
+        "segment_id": "3607",
+        "street_name": "2 AVENUE",
+        "side": "W",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 11,
+        "capacity_approximate": true,
+        "confidence": 0.96,
+        "derived_from": [
+          "9f2c0007"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95545,
+            40.7773
+          ],
+          [
+            -73.95542,
+            40.7782
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0007:1",
+          "sign_id": "9f2c0007",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0007",
+          "order_number": "1-c0007",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3608:N:0": {
+      "segment": {
+        "reg_seg_id": "3608:N:0",
+        "segment_id": "3608",
+        "street_name": "E 87 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 12,
+        "capacity_approximate": true,
+        "confidence": 0.82,
+        "derived_from": [
+          "9f2c0008"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95385,
+            40.7773
+          ],
+          [
+            -73.95275,
+            40.77734
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0008:1",
+          "sign_id": "9f2c0008",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0008",
+          "order_number": "1-c0008",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3609:E:0": {
+      "segment": {
+        "reg_seg_id": "3609:E:0",
+        "segment_id": "3609",
+        "street_name": "PARK AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 4,
+        "capacity_approximate": true,
+        "confidence": 0.84,
+        "derived_from": [
+          "9f2c0009"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95225,
+            40.7773
+          ],
+          [
+            -73.95222,
+            40.7782
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0009:1",
+          "sign_id": "9f2c0009",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0009",
+          "order_number": "1-c0009",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3610:W:0": {
+      "segment": {
+        "reg_seg_id": "3610:W:0",
+        "segment_id": "3610",
+        "street_name": "3 AVENUE",
+        "side": "W",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 5,
+        "capacity_approximate": true,
+        "confidence": 0.86,
+        "derived_from": [
+          "9f2c0010"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95865,
+            40.7784
+          ],
+          [
+            -73.95862,
+            40.7793
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0010:1",
+          "sign_id": "9f2c0010",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0010",
+          "order_number": "1-c0010",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3611:E:0": {
+      "segment": {
+        "reg_seg_id": "3611:E:0",
+        "segment_id": "3611",
+        "street_name": "3 AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.88,
+        "derived_from": [
+          "9f2c0011"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95705,
+            40.7784
+          ],
+          [
+            -73.95702,
+            40.7793
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "9f2c0011:1",
+          "sign_id": "9f2c0011",
+          "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [
+        {
+          "blockface_id": "100234:3681",
+          "side": "W",
+          "rate_label": "Area 1",
+          "hour_rates": [
+            "5.00",
+            "8.25"
+          ],
+          "commercial_hour_rates": [
+            "6.00",
+            "9.00",
+            "12.00"
+          ],
+          "max_session_min": 120,
+          "source": "parknyc",
+          "confidence": 1.0
+        }
+      ],
+      "governing": [
+        {
+          "sign_id": "9f2c0011",
+          "order_number": "1-c0011",
+          "sign_code": "PRK-9",
+          "sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 44.0,
+          "arrow": "-->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3612:E:0": {
+      "segment": {
+        "reg_seg_id": "3612:E:0",
+        "segment_id": "3612",
+        "street_name": "LEXINGTON AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 3,
+        "capacity_approximate": true,
         "confidence": 0.0,
         "derived_from": []
       },
@@ -546,49 +2874,1461 @@
         "type": "LineString",
         "coordinates": [
           [
-            -73.95712,
-            40.77884
+            -73.95545,
+            40.7784
           ],
           [
-            -73.95416,
-            40.77768
+            -73.95542,
+            40.7793
           ]
         ]
       },
       "regulations": [],
-      "signs": [],
-      "meter_rates": []
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3613:N:0": {
+      "segment": {
+        "reg_seg_id": "3613:N:0",
+        "segment_id": "3613",
+        "street_name": "E 85 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 4,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95385,
+            40.7784
+          ],
+          [
+            -73.95275,
+            40.77844
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3614:S:0": {
+      "segment": {
+        "reg_seg_id": "3614:S:0",
+        "segment_id": "3614",
+        "street_name": "E 85 STREET",
+        "side": "S",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 5,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95225,
+            40.7784
+          ],
+          [
+            -73.95115,
+            40.77844
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3615:N:0": {
+      "segment": {
+        "reg_seg_id": "3615:N:0",
+        "segment_id": "3615",
+        "street_name": "E 86 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95865,
+            40.7795
+          ],
+          [
+            -73.95755,
+            40.77954
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3616:S:0": {
+      "segment": {
+        "reg_seg_id": "3616:S:0",
+        "segment_id": "3616",
+        "street_name": "E 84 STREET",
+        "side": "S",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 7,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95705,
+            40.7795
+          ],
+          [
+            -73.95595,
+            40.77954
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3617:W:0": {
+      "segment": {
+        "reg_seg_id": "3617:W:0",
+        "segment_id": "3617",
+        "street_name": "2 AVENUE",
+        "side": "W",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 8,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95545,
+            40.7795
+          ],
+          [
+            -73.95542,
+            40.7804
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3618:N:0": {
+      "segment": {
+        "reg_seg_id": "3618:N:0",
+        "segment_id": "3618",
+        "street_name": "E 87 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 3,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95385,
+            40.7795
+          ],
+          [
+            -73.95275,
+            40.77954
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3619:E:0": {
+      "segment": {
+        "reg_seg_id": "3619:E:0",
+        "segment_id": "3619",
+        "street_name": "PARK AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 4,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95225,
+            40.7795
+          ],
+          [
+            -73.95222,
+            40.7804
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3620:W:0": {
+      "segment": {
+        "reg_seg_id": "3620:W:0",
+        "segment_id": "3620",
+        "street_name": "3 AVENUE",
+        "side": "W",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 5,
+        "capacity_approximate": true,
+        "confidence": 0.41,
+        "derived_from": [
+          "77aa0020"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95865,
+            40.7806
+          ],
+          [
+            -73.95862,
+            40.7815
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "77aa0020:1",
+          "sign_id": "77aa0020",
+          "raw_sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+          "parse_method": "unparsed",
+          "parse_confidence": 0.2,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "77aa0020",
+          "order_number": "1-a0020",
+          "sign_code": "PRK-11",
+          "sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+          "parse_method": "unparsed",
+          "parse_confidence": 0.2,
+          "distance_ft": 18.0,
+          "arrow": "<->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3621:E:0": {
+      "segment": {
+        "reg_seg_id": "3621:E:0",
+        "segment_id": "3621",
+        "street_name": "3 AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 5,
+        "capacity_approximate": true,
+        "confidence": 0.41,
+        "derived_from": [
+          "77aa0021"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95705,
+            40.7806
+          ],
+          [
+            -73.95702,
+            40.7815
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "77aa0021:1",
+          "sign_id": "77aa0021",
+          "raw_sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+          "parse_method": "unparsed",
+          "parse_confidence": 0.2,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "77aa0021",
+          "order_number": "1-a0021",
+          "sign_code": "PRK-11",
+          "sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+          "parse_method": "unparsed",
+          "parse_confidence": 0.2,
+          "distance_ft": 18.0,
+          "arrow": "<->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3622:E:0": {
+      "segment": {
+        "reg_seg_id": "3622:E:0",
+        "segment_id": "3622",
+        "street_name": "LEXINGTON AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 5,
+        "capacity_approximate": true,
+        "confidence": 0.41,
+        "derived_from": [
+          "77aa0022"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95545,
+            40.7806
+          ],
+          [
+            -73.95542,
+            40.7815
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "77aa0022:1",
+          "sign_id": "77aa0022",
+          "raw_sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+          "parse_method": "unparsed",
+          "parse_confidence": 0.2,
+          "regulation": {
+            "action": "park",
+            "permitted": true,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": true,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "77aa0022",
+          "order_number": "1-a0022",
+          "sign_code": "PRK-11",
+          "sign_description": "NO PARKING EXCEPT AUTHORIZED VEHICLES W/ NYPD PERMIT <-->",
+          "parse_method": "unparsed",
+          "parse_confidence": 0.2,
+          "distance_ft": 18.0,
+          "arrow": "<->"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3623:N:0": {
+      "segment": {
+        "reg_seg_id": "3623:N:0",
+        "segment_id": "3623",
+        "street_name": "E 85 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.93,
+        "derived_from": [
+          "55bb0023"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95385,
+            40.7806
+          ],
+          [
+            -73.95275,
+            40.78064
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "55bb0023:1",
+          "sign_id": "55bb0023",
+          "raw_sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": false,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": false,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "55bb0023",
+          "order_number": "1-b0023",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 12.0,
+          "arrow": "<--"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3624:S:0": {
+      "segment": {
+        "reg_seg_id": "3624:S:0",
+        "segment_id": "3624",
+        "street_name": "E 85 STREET",
+        "side": "S",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.93,
+        "derived_from": [
+          "55bb0024"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95225,
+            40.7806
+          ],
+          [
+            -73.95115,
+            40.78064
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "55bb0024:1",
+          "sign_id": "55bb0024",
+          "raw_sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": false,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": false,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "55bb0024",
+          "order_number": "1-b0024",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 12.0,
+          "arrow": "<--"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3625:N:0": {
+      "segment": {
+        "reg_seg_id": "3625:N:0",
+        "segment_id": "3625",
+        "street_name": "E 86 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.93,
+        "derived_from": [
+          "55bb0025"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95865,
+            40.7762
+          ],
+          [
+            -73.95755,
+            40.77624
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "55bb0025:1",
+          "sign_id": "55bb0025",
+          "raw_sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": false,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": false,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "55bb0025",
+          "order_number": "1-b0025",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 12.0,
+          "arrow": "<--"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3626:S:0": {
+      "segment": {
+        "reg_seg_id": "3626:S:0",
+        "segment_id": "3626",
+        "street_name": "E 84 STREET",
+        "side": "S",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": 6,
+        "capacity_approximate": true,
+        "confidence": 0.93,
+        "derived_from": [
+          "55bb0026"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95705,
+            40.7762
+          ],
+          [
+            -73.95595,
+            40.77624
+          ]
+        ]
+      },
+      "regulations": [
+        {
+          "reg_id": "55bb0026:1",
+          "sign_id": "55bb0026",
+          "raw_sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "regulation": {
+            "action": "park",
+            "permitted": false,
+            "vehicle_class": "all",
+            "exclusive": false,
+            "days": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5
+            ],
+            "time_from": "08:30",
+            "time_to": "19:00",
+            "metered": false,
+            "max_duration_min": 120,
+            "flags": {
+              "street_cleaning": false,
+              "school_days": false,
+              "except_sunday": true,
+              "including_sunday": false,
+              "snow_emergency": false,
+              "holiday_exempt": false,
+              "temporary": false,
+              "meta": false
+            },
+            "effective_from": null,
+            "effective_to": null,
+            "arrow": "-->"
+          }
+        }
+      ],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "55bb0026",
+          "order_number": "1-b0026",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 12.0,
+          "arrow": "<--"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3627:W:0": {
+      "segment": {
+        "reg_seg_id": "3627:W:0",
+        "segment_id": "3627",
+        "street_name": "2 AVENUE",
+        "side": "W",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": null,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95545,
+            40.7762
+          ],
+          [
+            -73.95542,
+            40.7771
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3628:N:0": {
+      "segment": {
+        "reg_seg_id": "3628:N:0",
+        "segment_id": "3628",
+        "street_name": "E 87 STREET",
+        "side": "N",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": null,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": []
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95385,
+            40.7762
+          ],
+          [
+            -73.95275,
+            40.77624
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        }
+      ]
+    },
+    "3629:E:0": {
+      "segment": {
+        "reg_seg_id": "3629:E:0",
+        "segment_id": "3629",
+        "street_name": "PARK AVENUE",
+        "side": "E",
+        "start_ft": 0.0,
+        "end_ft": 284.8,
+        "length_ft": 284.8,
+        "capacity_cars": null,
+        "capacity_approximate": true,
+        "confidence": 0.0,
+        "derived_from": [
+          "33cc0001"
+        ]
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            -73.95225,
+            40.7762
+          ],
+          [
+            -73.95222,
+            40.7771
+          ]
+        ]
+      },
+      "regulations": [],
+      "meter_rates": [],
+      "governing": [
+        {
+          "sign_id": "33cc0001",
+          "order_number": "1-c0001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 0.0,
+          "arrow": "none"
+        }
+      ],
+      "other_on_block": [
+        {
+          "sign_id": "aa110001",
+          "order_number": "1-10001",
+          "sign_code": "PRK-3",
+          "sign_description": "NO STANDING ANYTIME",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 210.0,
+          "arrow": "<--",
+          "is_regulation": true
+        },
+        {
+          "sign_id": "aa110002",
+          "order_number": "1-10002",
+          "sign_code": "PBC-1",
+          "sign_description": "PAY BY CELL #1234",
+          "parse_method": null,
+          "parse_confidence": null,
+          "distance_ft": 96.0,
+          "arrow": "none",
+          "is_regulation": false
+        },
+        {
+          "sign_id": "33cc0002",
+          "order_number": "1-c0002",
+          "sign_code": "PRK-3",
+          "sign_description": "NO PARKING 8AM-9:30AM TUESDAY THURSDAY (SANITATION BROOM SYMBOL)",
+          "parse_method": "grammar",
+          "parse_confidence": 0.98,
+          "distance_ft": 0.0,
+          "arrow": "none"
+        }
+      ]
     }
   },
-  "geocode": {
-    "query": "3 Ave & E 85 St",
-    "candidates": [
-      {
-        "label": "3 AVE & E 85 ST",
-        "lat": 40.778402,
-        "lon": -73.955249,
-        "kind": "intersection",
-        "confidence": 0.9
-      },
-      {
-        "label": "E 85 ST & LEXINGTON AVE",
-        "lat": 40.778901,
-        "lon": -73.956998,
-        "kind": "intersection",
-        "confidence": 0.5
-      }
-    ]
+  "geocode_index": [
+    {
+      "label": "1519 3 AVE",
+      "secondary": "Upper East Side, Manhattan",
+      "lat": 40.778402,
+      "lon": -73.955249,
+      "kind": "address",
+      "confidence": 0.92
+    },
+    {
+      "label": "1519 3 AVE, APT 4B",
+      "secondary": "Upper East Side, Manhattan",
+      "lat": 40.778402,
+      "lon": -73.955249,
+      "kind": "address",
+      "confidence": 0.6
+    },
+    {
+      "label": "1519 2 AVE",
+      "secondary": "Yorkville, Manhattan",
+      "lat": 40.775702,
+      "lon": -73.951249,
+      "kind": "address",
+      "confidence": 0.58
+    },
+    {
+      "label": "3 AVE & E 85 ST",
+      "secondary": "Intersection, Manhattan",
+      "lat": 40.778402,
+      "lon": -73.955249,
+      "kind": "intersection",
+      "confidence": 0.9
+    },
+    {
+      "label": "3 AVENUE",
+      "secondary": "Street, Manhattan",
+      "lat": 40.7602,
+      "lon": -73.9665,
+      "kind": "street",
+      "confidence": 0.5
+    },
+    {
+      "label": "10028",
+      "secondary": "ZIP code, Manhattan",
+      "lat": 40.7764,
+      "lon": -73.9533,
+      "kind": "zip",
+      "confidence": 0.4
+    },
+    {
+      "label": "The Metropolitan Museum of Art",
+      "secondary": "1000 5 AVE",
+      "lat": 40.7794,
+      "lon": -73.9632,
+      "kind": "place",
+      "confidence": 0.85
+    },
+    {
+      "label": "E 86 ST & LEXINGTON AVE",
+      "secondary": "Intersection, Manhattan",
+      "lat": 40.779401,
+      "lon": -73.956998,
+      "kind": "intersection",
+      "confidence": 0.55
+    }
+  ],
+  "reverse": {
+    "label": "1519 3 AVE",
+    "secondary": "Upper East Side, Manhattan",
+    "kind": "address",
+    "lat": 40.778402,
+    "lon": -73.955249,
+    "distance_m": 12.4
   },
   "health": {
     "status": "ok",
     "db_present": true,
     "db_readonly": true,
-    "sign_count": 74590,
-    "calendar_missing": false
+    "sign_count": 74389,
+    "calendar_missing": false,
+    "coverage": {
+      "area": "Manhattan",
+      "bbox": [
+        -74.0479,
+        40.6829,
+        -73.9067,
+        40.882
+      ]
+    }
   },
   "sync_status": {
-    "last_sync": "2026-09-14T22:05:11-04:00",
-    "sign_count": "74590",
-    "coverage_pct": "83.1"
+    "last_sync_at": "2026-09-15T03:18:02+00:00",
+    "signs_loaded": "74389",
+    "signs_snapped_share": "0.95",
+    "blockface_sides_matched_share": "0.9378",
+    "street_segments": "11102"
   }
 }

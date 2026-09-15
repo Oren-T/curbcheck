@@ -6,7 +6,8 @@ database.** The real API (`curbcheck serve`) needs a synced
 a particular shape; these two files let a page be developed against any response
 the contract allows.
 
-It answers the five routes in docs/API.md from `scripts/dev_mock_data.json`,
+It answers the GET and POST routes in docs/API.md from
+`scripts/dev_mock_data.json`,
 serves the vendored static files, and range-serves the PMTiles archive, which
 pmtiles.js requires. It also sets the same CSP the real server sets, so a
 violation shows up here rather than in production. Bound to 127.0.0.1; never a
@@ -27,6 +28,7 @@ import re
 from functools import partial
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
+from urllib.parse import parse_qs
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WEB_DIR = REPO_ROOT / "web"
@@ -48,6 +50,10 @@ class MockHandler(SimpleHTTPRequestHandler):
         self.send_header("Content-Security-Policy", CSP)
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("Referrer-Policy", "no-referrer")
+        # Dev only: the real server caches static files normally. Here an edited
+        # stylesheet has to reach the next reload, or a UI change gets checked
+        # against the previous build.
+        self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def do_GET(self) -> None:
@@ -63,8 +69,31 @@ class MockHandler(SimpleHTTPRequestHandler):
         if self.path.split("?", 1)[0] != "/api/search":
             self._send_json({"error": {"code": "not_found", "message": "no such route"}}, 404)
             return
-        self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        self._send_json(mock_data()["search"], 200)
+        raw = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        try:
+            body = json.loads(raw or b"{}")
+        except json.JSONDecodeError:
+            body = {}
+        data = mock_data()
+        if _outside_coverage(body, data["health"]["coverage"]["bbox"]):
+            self._send_json(
+                {
+                    "error": {
+                        "code": "outside_coverage",
+                        "message": "CurbCheck has data for Manhattan only.",
+                    }
+                },
+                422,
+            )
+            return
+        search = data["search"]
+        if isinstance(body.get("lat"), (int, float)) and isinstance(body.get("lon"), (int, float)):
+            search["destination"] = {
+                "lat": body["lat"],
+                "lon": body["lon"],
+                "label": search["destination"]["label"],
+            }
+        self._send_json(search, 200)
 
     def _api_get(self, path: str) -> tuple[dict, int]:
         data = mock_data()
@@ -73,7 +102,9 @@ class MockHandler(SimpleHTTPRequestHandler):
         if path == "/api/sync-status":
             return data["sync_status"], 200
         if path == "/api/geocode":
-            return data["geocode"], 200
+            return _geocode(data, self._query("q")), 200
+        if path == "/api/reverse":
+            return data["reverse"], 200
         match = SEGMENT_PATH.match(path)
         if match:
             reg_seg_id = match.group("reg_seg_id").replace("%3A", ":")
@@ -81,14 +112,20 @@ class MockHandler(SimpleHTTPRequestHandler):
             if segment is None:
                 return {"error": {"code": "not_found", "message": "no such segment"}}, 404
             return segment, 200
+        if path == "/api/coverage":
+            return data["health"]["coverage"], 200
         return {"error": {"code": "not_found", "message": "no such route"}}, 404
+
+    def _query(self, name: str) -> str:
+        """One query parameter, or the empty string. No parsing beyond urllib's."""
+        _, _, query = self.path.partition("?")
+        return parse_qs(query).get(name, [""])[0]
 
     def _send_json(self, payload: dict, status: int) -> None:
         body = json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
         self.end_headers()
         self.wfile.write(body)
 
@@ -109,6 +146,30 @@ class MockHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Range", f"bytes {start}-{end}/{total}")
         self.end_headers()
         self.wfile.write(body)
+
+
+def _geocode(data: dict, query: str) -> dict:
+    """Substring-match the canned index so the autocomplete has something to narrow.
+
+    The real endpoint ranks and interpolates; this only has to return plausible
+    candidates in a plausible order for UI work.
+    """
+    needle = query.strip().lower()
+    candidates = [
+        candidate
+        for candidate in data["geocode_index"]
+        if needle and needle in f"{candidate['label']} {candidate['secondary']}".lower()
+    ]
+    return {"query": query, "candidates": candidates[:8]}
+
+
+def _outside_coverage(body: dict, bbox: list[float]) -> bool:
+    """True for a lat/lon search outside the covered box (the 422 the UI must show)."""
+    lat, lon = body.get("lat"), body.get("lon")
+    if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
+        return False
+    west, south, east, north = bbox
+    return not (west <= lon <= east and south <= lat <= north)
 
 
 def parse_range(header: str | None, total: int) -> tuple[int, int]:
