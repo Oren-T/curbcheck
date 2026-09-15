@@ -33,25 +33,71 @@ const M_PER_DEG_LAT = 111132.0;
 const M_PER_DEG_LON_AT_EQUATOR = 111320.0;
 
 /**
- * Verdict colour, dash pattern, and width ramp — the light-scheme values from
- * tokens.css, repeated here because MapLibre paint properties cannot read CSS
- * custom properties.
+ * Verdict colour, dash pattern, width ramp, and emphasis — the light-scheme
+ * values from tokens.css, repeated here because MapLibre paint properties
+ * cannot read CSS custom properties.
  *
  * They are the *light* values in both colour schemes on purpose: the vendored
  * basemap is a light Protomaps style and there is no dark one in the repo, so a
  * dark verdict palette would be drawn over a light map and lose its measured
  * contrast (DESIGN_DIRECTION §6, tokens.css dark block).
  *
- * `dash` is in line-width units. `no_data` is the widest of the four and is
- * dotted rather than dashed: UX_AUDIT P0-6 measured the old grey at 0.7 px
- * marks on a grey basemap, which made the one verdict a driver must not
- * overlook the one they could not see.
+ * The hues are untouched — they carry the contrast and colour-vision
+ * guarantees. What changed is everything around them, because drawing all four
+ * at full weight with a white casing turned a 600-span answer into noise:
+ *
+ *  - `legal` is the hero: solid, opaque, the widest ramp, and the only verdict
+ *    with an outer glow. It is what the user came for.
+ *  - `illegal` is thin, muted to 0.65, and has **no casing**. There are more
+ *    illegal spans than anything else and a white-cased candy stripe on every
+ *    one of them is what buried the map. It stays legible because the scrim
+ *    below lifts the basemap away from it.
+ *  - `ambiguous` keeps a faint casing: amber measures 2.56:1 on the grey road
+ *    fill and is the one verdict that cannot hold its own edge (tokens.css).
+ *  - `no_data` is never thinner than `legal` at any zoom and never under 3 px
+ *    (UX_AUDIT (f) 3 — the fix for P0-6 makes grey *more* visible, not less).
+ *    It is softened by opacity and by being dotted, never by width.
+ *
+ * `dash` and `halo.extra` are in line-width units. `glow` and `halo` widths are
+ * absolute pixel ramps over the same zoom stops as `widths`.
  */
 const VERDICT_STYLE = {
-  legal: { color: "#15855a", dash: null, cap: "round", widths: [2, 3.5, 5.5, 8] },
-  ambiguous: { color: "#c78700", dash: [2, 1.25], cap: "butt", widths: [2, 3.5, 5.5, 8] },
-  illegal: { color: "#a01b12", dash: [0.9, 0.7], cap: "butt", widths: [2, 3.5, 5.5, 8] },
-  no_data: { color: "#4c525d", dash: [0, 2.2], cap: "round", widths: [3, 4, 6, 9] },
+  legal: {
+    color: "#15855a",
+    dash: null,
+    cap: "round",
+    widths: [4, 4.75, 5.5, 6],
+    opacity: 1,
+    halo: null,
+    glow: { widths: [9, 11, 13, 15], blur: 6, opacity: 0.2 },
+  },
+  ambiguous: {
+    color: "#c78700",
+    dash: [2, 1.25],
+    cap: "butt",
+    widths: [2.5, 3, 3.5, 4],
+    opacity: 0.9,
+    halo: { extra: 2, opacity: 0.5 },
+    glow: null,
+  },
+  illegal: {
+    color: "#a01b12",
+    dash: [0.9, 0.7],
+    cap: "butt",
+    widths: [2, 2.4, 2.8, 3],
+    opacity: 0.65,
+    halo: null,
+    glow: null,
+  },
+  no_data: {
+    color: "#4c525d",
+    dash: [0, 2.2],
+    cap: "round",
+    widths: [4, 4.75, 5.5, 6],
+    opacity: 0.55,
+    halo: { extra: 1.5, opacity: 0.4 },
+    glow: null,
+  },
 };
 
 // Drawn bottom to top: a legal span must not hide an illegal one, and grey has
@@ -59,8 +105,55 @@ const VERDICT_STYLE = {
 const VERDICT_ORDER = ["legal", "ambiguous", "illegal", "no_data"];
 
 const MAP_HALO = "#ffffff";
-const SELECT_HALO = "#1a1917";
 const ACCENT = "#1a56b0";
+
+/**
+ * The wash that turns the basemap into ground.
+ *
+ * DESIGN_DIRECTION §6 asked for a desaturating scrim; a vector style has no
+ * `raster-saturation` to reach for, so this is a full-extent `background` layer
+ * inserted directly under the result lines. It lifts roads, buildings, water
+ * and parks toward the paper tone in one step, which leaves the four verdict
+ * hues as the most saturated thing on screen. It exists only while results do.
+ */
+const SCRIM_COLOR = "#f6f5f3";
+const SCRIM_OPACITY = 0.42;
+
+/**
+ * Basemap symbol layers dimmed while results are drawn, and how far.
+ *
+ * The audit screenshot had ~40 restaurant pins competing with the answer. The
+ * street-name layers are dimmed least: they are how a driver reads *where* a
+ * green line is, so they stay legible while the pins recede.
+ */
+const LABEL_DIMMING = [
+  { id: "pois", opacity: 0.3 },
+  { id: "address_label", opacity: 0.25 },
+  { id: "roads_oneway", opacity: 0.2 },
+  { id: "roads_shields", opacity: 0.35 },
+  { id: "water_waterway_label", opacity: 0.4 },
+  { id: "roads_labels_minor", opacity: 0.7 },
+  { id: "roads_labels_major", opacity: 0.75 },
+  { id: "places_subplace", opacity: 0.5 },
+];
+const DIMMED_PROPERTIES = ["text-opacity", "icon-opacity"];
+
+/**
+ * Emphasis multiplier on a line's width, driven by `feature-state`.
+ *
+ * The source carries `promoteId: "reg_seg_id"`, so hover and selection are two
+ * booleans on the feature rather than three duplicate overlay layers — which is
+ * also the only way a bump can keep the span's own dash pattern, since
+ * `line-dasharray` is not data-driven.
+ */
+const EMPHASIS_WIDTH = [
+  "case",
+  ["boolean", ["feature-state", "selected"], false],
+  1.6,
+  ["boolean", ["feature-state", "hover"], false],
+  1.35,
+  1,
+];
 
 const ZOOM_STOPS = [13, 15, 16.5, 18];
 
@@ -117,10 +210,21 @@ const EMPTY_COLLECTION = { type: "FeatureCollection", features: [] };
 // there is just nothing underneath it.
 const BLANK_STYLE = { version: 8, sources: {}, layers: [] };
 
-/** A width ramp in the design's zoom stops (DESIGN_DIRECTION §6). */
-function widthExpression(widths, extra = 0) {
+/**
+ * A width ramp in the design's zoom stops (DESIGN_DIRECTION §6), optionally
+ * scaled by the hover/selection multiplier.
+ *
+ * The multiplier goes *inside* each stop rather than around the whole ramp:
+ * MapLibre rejects `["*", ["interpolate", ["zoom"], …], …]` with `"zoom"
+ * expression may only be used as input to a top-level "step" or "interpolate"
+ * expression`, so zoom has to stay the outermost input.
+ */
+function widthExpression(widths, { extra = 0, emphasis = null } = {}) {
   const stops = [];
-  ZOOM_STOPS.forEach((zoom, index) => stops.push(zoom, widths[index] + extra));
+  ZOOM_STOPS.forEach((zoom, index) => {
+    const width = widths[index] + extra;
+    stops.push(zoom, emphasis ? ["*", width, emphasis] : width);
+  });
   return ["interpolate", ["exponential", 1.4], ["zoom"], ...stops];
 }
 
@@ -176,6 +280,7 @@ export class CurbMap {
     this.marker = null;
     this.ringLabel = null;
     this.ring = null;
+    this.labelPaint = new Map();
     this.reportedErrors = new Set();
     this.padding = { top: 40, right: 40, bottom: 40, left: 40 };
 
@@ -225,10 +330,12 @@ export class CurbMap {
       .filter((result) => result.geometry)
       .map((result) => ({
         type: "Feature",
+        id: result.reg_seg_id,
         geometry: result.geometry,
         properties: { reg_seg_id: result.reg_seg_id, verdict: result.verdict },
       }));
     this.#setData("segments", { type: "FeatureCollection", features });
+    this.#setBasemapToned(features.length > 0);
   }
 
   clearResults() {
@@ -236,20 +343,48 @@ export class CurbMap {
     this.selectedId = null;
     this.hoverId = null;
     this.#setData("segments", EMPTY_COLLECTION);
-    this.#applyFilters();
+    this.#setBasemapToned(false);
+  }
+
+  /**
+   * Show or hide one verdict on the map.
+   *
+   * This is the only thing that ever removes a span from the map, it is always
+   * a press the user made, and the count pill that made it stays on screen
+   * saying so — UX_AUDIT (f) 3 forbids curb quietly disappearing, not a filter.
+   */
+  setVisibleVerdicts(verdicts) {
+    for (const verdict of VERDICT_ORDER) {
+      const visibility = verdicts.has(verdict) ? "visible" : "none";
+      for (const id of [
+        `segments-casing-${verdict}`,
+        `segments-glow-${verdict}`,
+        `segments-${verdict}`,
+      ]) {
+        if (this.map.getLayer(id)) {
+          this.map.setLayoutProperty(id, "visibility", visibility);
+        }
+      }
+    }
   }
 
   setSelected(regSegId) {
+    this.#setFeatureFlag(this.selectedId, "selected", false);
     this.selectedId = regSegId;
-    this.#applyFilters();
+    this.#setFeatureFlag(regSegId, "selected", true);
+    const filter = ["==", ["get", "reg_seg_id"], regSegId === null ? "" : regSegId];
+    if (this.map.getLayer("segments-select-glow")) {
+      this.map.setFilter("segments-select-glow", filter);
+    }
   }
 
   setHover(regSegId) {
     if (this.hoverId === regSegId) {
       return;
     }
+    this.#setFeatureFlag(this.hoverId, "hover", false);
     this.hoverId = regSegId;
-    this.#applyFilters();
+    this.#setFeatureFlag(regSegId, "hover", true);
   }
 
   /**
@@ -386,6 +521,29 @@ export class CurbMap {
     });
   }
 
+  /**
+   * Put the destination and its walk ring back in frame (UX_AUDIT P1-8).
+   *
+   * Framing the ring rather than the point is deliberate: the radius is the
+   * question the answer was computed for, and a recentre that shows the pin but
+   * not its circle leaves the user without the scale of what they are looking
+   * at.
+   */
+  recentre(lonlat) {
+    if (!lonlat) {
+      return;
+    }
+    if (!this.ring) {
+      this.centerOn(lonlat, 15);
+      return;
+    }
+    const bounds = new maplibregl.LngLatBounds();
+    for (const position of this.ring.coordinates[0]) {
+      bounds.extend(position);
+    }
+    this.map.fitBounds(bounds, { padding: this.padding, duration: this.#duration(600) });
+  }
+
   setPinMode(enabled) {
     this.pinMode = enabled;
     this.map.getCanvas().style.cursor = enabled ? "crosshair" : "";
@@ -401,9 +559,27 @@ export class CurbMap {
   }
 
   #addLayers() {
-    for (const id of ["walk-radius", "coverage", "segments"]) {
+    for (const id of ["walk-radius", "coverage"]) {
       this.map.addSource(id, { type: "geojson", data: EMPTY_COLLECTION });
     }
+    // `promoteId` makes `reg_seg_id` the feature id, which is what lets hover
+    // and selection be feature-state rather than duplicate overlay layers.
+    this.map.addSource("segments", {
+      type: "geojson",
+      data: EMPTY_COLLECTION,
+      promoteId: "reg_seg_id",
+    });
+
+    this.#rememberLabelPaint();
+    this.map.addLayer({
+      id: "results-scrim",
+      type: "background",
+      paint: {
+        "background-color": SCRIM_COLOR,
+        "background-opacity": 0,
+        "background-opacity-transition": { duration: this.#duration(280) },
+      },
+    });
 
     this.map.addLayer({
       id: "walk-radius-fill",
@@ -435,8 +611,9 @@ export class CurbMap {
       },
     });
 
-    // Selection: a dark halo and a soft accent glow under the line, so the span
-    // keeps its own verdict colour and dash while being unmistakably picked.
+    // Selection is a soft accent glow under the span, not a hard casing over
+    // it: the line keeps its own hue and dash — which are what say what the
+    // verdict is — and gains a halo plus the width bump in EMPHASIS_WIDTH.
     this.map.addLayer({
       id: "segments-select-glow",
       type: "line",
@@ -445,53 +622,49 @@ export class CurbMap {
       layout: { "line-cap": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-width": widthExpression([10, 14, 20, 26]),
-        "line-blur": 8,
-        "line-opacity": 0.45,
-      },
-    });
-    this.map.addLayer({
-      id: "segments-select-halo",
-      type: "line",
-      source: "segments",
-      filter: ["==", ["get", "reg_seg_id"], ""],
-      layout: { "line-cap": "round" },
-      paint: {
-        "line-color": SELECT_HALO,
-        "line-width": widthExpression([6, 8, 12, 17]),
-        "line-opacity": 0.9,
-      },
-    });
-    this.map.addLayer({
-      id: "segments-hover",
-      type: "line",
-      source: "segments",
-      filter: ["==", ["get", "reg_seg_id"], ""],
-      layout: { "line-cap": "round" },
-      paint: {
-        "line-color": MAP_HALO,
-        "line-width": widthExpression([6, 8, 11, 15]),
-        "line-opacity": 0.95,
+        "line-width": widthExpression([14, 18, 24, 30]),
+        "line-blur": 10,
+        "line-opacity": 0.5,
       },
     });
 
-    // Casing first, then the line, one pair per verdict. The white casing is
-    // what makes a dark red line legible over #e2dfda earth and a grey dotted
-    // line legible over #ebebeb road fill.
+    // Bottom to top, per verdict: glow, then casing, then the line itself.
+    // Only `legal` has a glow and only `ambiguous`/`no_data` have a casing —
+    // see VERDICT_STYLE for why each one does or does not.
     for (const verdict of VERDICT_ORDER) {
       const style = VERDICT_STYLE[verdict];
-      this.map.addLayer({
-        id: `segments-casing-${verdict}`,
-        type: "line",
-        source: "segments",
-        filter: ["==", ["get", "verdict"], verdict],
-        layout: { "line-cap": "round", "line-join": "round" },
-        paint: {
-          "line-color": MAP_HALO,
-          "line-width": widthExpression(style.widths, 3),
-          "line-opacity": 0.9,
-        },
-      });
+      if (style.glow) {
+        this.map.addLayer({
+          id: `segments-glow-${verdict}`,
+          type: "line",
+          source: "segments",
+          filter: ["==", ["get", "verdict"], verdict],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": style.color,
+            "line-width": widthExpression(style.glow.widths, { emphasis: EMPHASIS_WIDTH }),
+            "line-blur": style.glow.blur,
+            "line-opacity": style.glow.opacity,
+          },
+        });
+      }
+      if (style.halo) {
+        this.map.addLayer({
+          id: `segments-casing-${verdict}`,
+          type: "line",
+          source: "segments",
+          filter: ["==", ["get", "verdict"], verdict],
+          layout: { "line-cap": "round", "line-join": "round" },
+          paint: {
+            "line-color": MAP_HALO,
+            "line-width": widthExpression(style.widths, {
+              extra: style.halo.extra,
+              emphasis: EMPHASIS_WIDTH,
+            }),
+            "line-opacity": style.halo.opacity,
+          },
+        });
+      }
     }
     for (const verdict of VERDICT_ORDER) {
       const style = VERDICT_STYLE[verdict];
@@ -503,7 +676,8 @@ export class CurbMap {
         layout: { "line-cap": style.cap, "line-join": "round" },
         paint: {
           "line-color": style.color,
-          "line-width": widthExpression(style.widths),
+          "line-width": widthExpression(style.widths, { emphasis: EMPHASIS_WIDTH }),
+          "line-opacity": style.opacity,
           ...(style.dash ? { "line-dasharray": dashExpression(style.dash) } : {}),
         },
       });
@@ -536,18 +710,44 @@ export class CurbMap {
     });
   }
 
-  #applyFilters() {
-    const match = (id) => ["==", ["get", "reg_seg_id"], id === null ? "" : id];
-    for (const layer of ["segments-select-glow", "segments-select-halo"]) {
-      if (this.map.getLayer(layer)) {
-        this.map.setFilter(layer, match(this.selectedId));
+  #setFeatureFlag(regSegId, flag, value) {
+    if (regSegId === null || regSegId === undefined || !this.map.getSource("segments")) {
+      return;
+    }
+    this.map.setFeatureState({ source: "segments", id: regSegId }, { [flag]: value });
+  }
+
+  /** The symbol layers' own opacity values, so the dimming can be undone exactly. */
+  #rememberLabelPaint() {
+    for (const { id } of LABEL_DIMMING) {
+      if (!this.map.getLayer(id)) {
+        continue;
+      }
+      for (const property of DIMMED_PROPERTIES) {
+        this.labelPaint.set(`${id}/${property}`, this.map.getPaintProperty(id, property) ?? 1);
       }
     }
-    if (this.map.getLayer("segments-hover")) {
-      this.map.setFilter(
-        "segments-hover",
-        match(this.hoverId === this.selectedId ? null : this.hoverId),
-      );
+  }
+
+  /**
+   * Push the basemap back while results are on it, and restore it when they go.
+   *
+   * Without this the answer is the least visible thing on its own map: 40 POI
+   * pins, every building outline and a cyan river all read louder than a 4 px
+   * green line (DESIGN_DIRECTION §6).
+   */
+  #setBasemapToned(toned) {
+    if (this.map.getLayer("results-scrim")) {
+      this.map.setPaintProperty("results-scrim", "background-opacity", toned ? SCRIM_OPACITY : 0);
+    }
+    for (const { id, opacity } of LABEL_DIMMING) {
+      if (!this.map.getLayer(id)) {
+        continue;
+      }
+      for (const property of DIMMED_PROPERTIES) {
+        const original = this.labelPaint.get(`${id}/${property}`);
+        this.map.setPaintProperty(id, property, toned ? opacity : original);
+      }
     }
   }
 

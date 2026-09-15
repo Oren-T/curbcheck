@@ -362,31 +362,49 @@ def test_legality_by_absence_is_never_worded_as_a_permission() -> None:
 def test_the_map_draws_every_verdict_with_its_own_pattern_and_the_list_does_not_cap_it() -> None:
     """SPEC §11 and UX_AUDIT P0-6, P1-2.
 
-    Four verdicts, four dash patterns, and the widest, most visible line is the
-    grey one. The list caps at a shortlist; the map gets everything the server
-    sent, because the U1 fix depends on the red and grey spans being drawn.
+    Four verdicts, four dash patterns, and the grey line is never the thinnest
+    or the easiest to miss. The list caps at a shortlist; the map gets
+    everything the server sent, because the U1 fix depends on the red and grey
+    spans being drawn.
+
+    The polish pass moved `illegal` to a thin, 0.65-opacity line with no white
+    casing, which is what stopped 400 red candy stripes from burying the answer.
+    That is a weight change and nothing else: the four hues, the four dash
+    patterns and the grey floor below are all still the audited values.
     """
     map_js = (WEB_DIR / "map.js").read_text(encoding="utf-8")
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
     style = map_js.split("const VERDICT_STYLE = {")[1].split("\n};")[0]
-    for verdict in ("legal", "ambiguous", "illegal", "no_data"):
-        assert f"{verdict}:" in style, f"VERDICT_STYLE lost {verdict}"
-    assert "dash: [0, 2.2]" in style, "the no_data line lost its dot pattern"
-    # Grey starts at 3 px and is the widest of the four at every zoom stop.
-    widths = {
-        line.split(":")[0].strip(): line.split("widths: [")[1].split("]")[0]
-        for line in style.strip().splitlines()
+    blocks = {
+        verdict: style.split(f"{verdict}: {{")[1].split("},\n")[0]
+        for verdict in ("legal", "ambiguous", "illegal", "no_data")
+        if f"{verdict}: {{" in style
     }
-    grey = [float(value) for value in widths["no_data"].split(",")]
-    legal = [float(value) for value in widths["legal"].split(",")]
-    assert min(grey) >= 3.0, "the no_data line can be drawn under 3 px"
-    assert all(wide >= thin for wide, thin in zip(grey, legal, strict=True)), (
-        "grey is thinner than green"
-    )
+    assert set(blocks) == {"legal", "ambiguous", "illegal", "no_data"}, "VERDICT_STYLE lost a verdict"
+    assert "dash: [0, 2.2]" in blocks["no_data"], "the no_data line lost its dot pattern"
+    assert "dash: null" in blocks["legal"], "the legal line stopped being solid"
 
-    # Casing under every line: this is what keeps dark red legible on earth fill.
+    widths = {
+        verdict: [float(value) for value in block.split("widths: [")[1].split("]")[0].split(",")]
+        for verdict, block in blocks.items()
+    }
+    # Grey is never under 3 px and never thinner than green at any zoom stop:
+    # the fix for P0-6 has to make absence more visible, not less.
+    assert min(widths["no_data"]) >= 3.0, "the no_data line can be drawn under 3 px"
+    assert all(
+        grey >= green for grey, green in zip(widths["no_data"], widths["legal"], strict=True)
+    ), "grey is thinner than green"
+    # Grey is softened by opacity, never by width, and green stays fully opaque.
+    assert "opacity: 1," in blocks["legal"]
+    assert float(blocks["no_data"].split("opacity: ")[1].split(",")[0]) < 1.0
+
+    # The casing is now selective. Amber keeps one (2.56:1 on the grey road
+    # fill); red deliberately has none, and green has a glow instead.
     assert "segments-casing-" in map_js and "MAP_HALO" in map_js
+    assert "halo: null" in blocks["illegal"], "the illegal line got its white casing back"
+    assert "glow: {" in blocks["legal"], "the legal line lost its glow"
+    assert "halo: {" in blocks["ambiguous"], "the ambiguous line lost the casing amber needs"
 
     setter = app.split("curbMap.setResults(")[1].split(")")[0]
     assert setter == "state.results", "the map is fed something other than every result"
