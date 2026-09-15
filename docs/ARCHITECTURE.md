@@ -107,10 +107,19 @@ therefore imports nothing else in `etl/`.
    do "meters are not in effect above times" meta panels, which force every
    span carrying a sign from the same post to AMBIGUOUS (D17).
 6. **segments** turns the posts on each blockface-side into regulation
-   segments: an arrow extends a rule from its post to the next post or the
-   corner; no arrow means the whole blockface. Posts are grouped into families
-   by the action step 5 read; the same cache then fills `regulation` once the
-   spans exist.
+   segments. Posts are grouped into families by the action step 5 read, and each
+   arrow is extended by arity: a single arrow runs from its post to the next
+   post of its own family or to the corner; a `<->` runs each way to the nearest
+   same-family post, failing that to the nearest post of *any* family, and
+   reaches the corner only where a direction holds no post at all (D20); no
+   arrow means the whole blockface-side (34 RCNY 4-08). Then two passes: spans
+   whose posts state an identical rule and that touch or overlap are unioned
+   into one (16,113 merged, D5 in `docs/VALIDATION.md` §4), and every `rw_type`
+   1 street side still uncovered gets a placeholder (D23). Because a `<->` stops
+   at the next post of *another* family, two adjacent posts of different
+   families each claim the gap between them, so spans of different families
+   overlap by design; `engine.search` resolves that at query time, not here.
+   The parse cache then fills `regulation` once the spans exist.
 7. **meters** joins ParkNYC rates by normalized street names and side, with
    geometry as a check and the rate-zone polygon as the fallback. One row per
    *centerline segment* a blockface covers, not one per blockface, because
@@ -124,8 +133,8 @@ therefore imports nothing else in `etl/`.
 Geometry is stored as GeoJSON text in EPSG:4326 plus `min_lon, min_lat,
 max_lon, max_lat` columns. Radius queries filter on the bbox in SQL and refine
 with shapely in Python. At Manhattan scale — 11,102 street segments, 74,389
-signs and 36,518 curb spans on the 2026-09-15 snapshot — this is instant and
-needs no spatial extension. `db.create_schema` writes every column up front;
+signs and 34,016 curb spans (28,360 real plus 5,656 grey placeholders) on the
+2026-09-15 snapshot — this is instant and needs no spatial extension. `db.create_schema` writes every column up front;
 there is no migration path and none is needed, because `curbcheck sync` always
 builds a fresh file and `db.swap_in` renames it over the old one.
 
@@ -134,7 +143,8 @@ builds a fresh file and `db.swap_in` renames it over the old one.
 | `sign` | source sign row (active Manhattan) | `sign_id` (truncated SHA-256 of the row, D5), `order_number`, streets, side, `distance_from_intersection`, `sign_code`, `sign_description`, published x/y, `derived_lon/lat`, `segment_id`, `snap_confidence`, `snap_notes`, `is_regulation`, `panel_class` (the parser's `regulation` / `panel:*` labels, D19) |
 | `street_segment` | centerline segment | `segment_id`, `street_name`, `street_norm`, `from_node`, `to_node`, `width_ft`, `length_ft`, geom, address ranges |
 | `street_node` | intersection | `node_id`, lon/lat, street names meeting there |
-| `regulation_segment` | resolved curb span | `reg_seg_id`, `segment_id`, `side`, `start_ft`, `end_ft`, geom, bbox, `length_ft`, `capacity_cars`, `capacity_approximate`, `confidence`, `derived_from` (JSON list of sign_ids) |
+| `regulation_segment` | resolved curb span, real or placeholder | `reg_seg_id`, `segment_id`, `side`, `start_ft`, `end_ft`, geom, bbox, `length_ft`, `capacity_cars`, `capacity_approximate`, `confidence`, `derived_from` (JSON list of sign_ids), `gap_kind` |
+| — placeholder rows | `rw_type` 1 street side no span covers (D23) | `derived_from='[]'`, `confidence=0`, `capacity_cars` NULL, the whole side's curb line, and `gap_kind` — `no_signs` where the source lists no active sign for that blockface-side (5,298), `unmatched_signs` where it lists some and none snapped (358). NULL on a real span. An empty rule stack is always `no_data`, never `legal` |
 | `regulation` | one parsed rule on one span | `reg_id`, `reg_seg_id`, the `Regulation` fields (`action`, `permitted`, `vehicle_class`, `exclusive`, `days_mask`, `time_from/to`, `metered`, `max_duration_min`, `flags`, `effective_from/to`, `arrow`), `raw_sign_description`, `parse_method`, `parse_confidence`, `parse_notes` |
 | `meter_rate` | ParkNYC blockface × centerline segment | `blockface_id`, `segment_id`, `side`, `rate_label`, `hour_rates` (JSON), `commercial_hour_rates`, `max_session_min`, `source`, `confidence`, geom |
 | `asp_suspension` | calendar date | `date`, `is_major_legal_holiday`, `meters_suspended`, `label` |
@@ -144,13 +154,19 @@ builds a fresh file and `db.swap_in` renames it over the old one.
 
 `POST /api/search` → geocode or accept lat/lon → bbox prefilter on
 `regulation_segment` → shapely distance filter within the walk radius → for
-each candidate, load its rule stack → `window.expand(T1, T2)` → for each
-sub-interval `resolve.verdict(stack, interval, calendar)` → segment is legal
-only if every sub-interval permits parking and `max_duration_min` covers the
-window → `cost.score` → sort → return with raw sign text attached.
+each candidate, load its rule stack → `window.expand_window(T1, T2)` → for each
+sub-interval `resolve.resolve_interval(stack, interval, calendar)` → segment is
+legal only if every sub-interval permits parking and any posted
+`max_duration_min` covers the minutes it is itself in force for (D12(b), as
+corrected) → `search._demote_contested_spans` turns a legal span that a
+prohibitive span on the same centerline side geometrically overlaps into
+`ambiguous`, because the two spans are separate rows and `resolve` cannot see
+across them → `cost.score` → sort → return with raw sign text attached.
 
 Verdict states are `legal`, `illegal`, `ambiguous`, `no_data`. The UI never
-collapses these into two colors.
+collapses these into two colors. A span with no rules at all — every
+placeholder, and the 303 real spans whose only signs state no curb rule — is
+`no_data`; nothing reaches `legal` on an empty stack.
 
 **Geocoding is local and degrades in steps.** `geocode.py` reads only
 `street_segment` and `street_node`, so a destination address never leaves the

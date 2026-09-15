@@ -25,7 +25,8 @@ largely absent from the source dataset) can override everything shown here.
 That is why the UI never collapses its answer into "yes/no": **green** means
 parking is permitted for every minute of your window, **red** means it is
 prohibited for at least part of it, **amber** means the machine could not
-confidently read the rules here, and **grey** means there is no sign data on
+confidently read the rules here or the signs on the stretch conflict, and
+**grey** means there is no sign data on
 that blockface at all — and every verdict, in every colour, is shown next to the
 raw sign text that produced it so you can audit the reading yourself.
 
@@ -46,8 +47,8 @@ make serve          # http://127.0.0.1:8765
 
 It pulls five Socrata datasets plus the DOT calendar ICS into `data/raw/`
 (about 96 MB), records each download's URL, row count and SHA-256 in
-`data/raw/manifest.jsonl`, and builds a 71 MB SQLite file. On the 2026-09-15
-snapshot the build spent 36 s resolving geometry and 24 s parsing sign text
+`data/raw/manifest.jsonl`, and builds a 70 MB SQLite file. On the 2026-09-15
+snapshot the build spent 55 s resolving geometry and 20 s parsing sign text
 after the downloads; budget a few minutes end to end on a home connection.
 Re-running reuses snapshots younger than `--max-age-days`; `curbcheck sync
 --offline` rebuilds from `data/raw/` with no network at all.
@@ -93,16 +94,27 @@ Full module map, schema and query path: **[docs/ARCHITECTURE.md](docs/ARCHITECTU
 
 ## Accuracy and limitations
 
-Measured on the 2026-09-15 snapshot (75,865 source sign rows, 74,590 active):
+Measured on the 2026-09-15 snapshot (75,865 source sign rows, 74,590 active,
+74,389 loaded after dropping 201 duplicates):
 
 | Measure | Result |
 |---|---|
-| Signs snapped to a blockface-side | **95.0%** (70,671) |
-| Blockface-sides with signs that got at least one | **93.8%** (10,891 of 11,613) |
+| Signs snapped to a blockface-side | **96.4%** (71,689 of 74,389) |
+| Blockface-sides with signs that got at least one | **95.8%** (11,119 of 11,613) |
 | Sign rows the grammar fully parses | **99.83%** (1,698 of 1,790 distinct strings; residue 24 strings / 98 rows) |
 | Gold set (520 hand-labeled descriptions, labeled blind) | **100% semantic match, 97.0% exact, zero false-permitted** |
-| Curb spans produced | 36,518, of which 799 are forced ambiguous by a meta sign |
-| Metered segments left without a price | **0** of 6,539 |
+| Curb spans produced | 34,016: **28,360** real plus **5,656** grey placeholders for street sides with no rule at all; 920 real spans are forced ambiguous by a meta sign |
+| Metered segments left without a price | **0** of 5,356 |
+| Sampled blockface-sides agreeing with DOT's own sign viewer | **26 of 30** |
+
+The 26-of-30 figure needs its caveat stated plainly: both references used —
+[nycdotsigns.net](https://nycdotsigns.net) and
+[parkingregulations.nyc](https://parkingregulations.nyc) — are rendered from the
+**same DOT SIMS export** that CurbCheck reads. That comparison validates this
+pipeline against its own source: snapping, side assignment, span extents,
+stacking and the window evaluation. It cannot detect a sign that is on the
+street and missing from SIMS, one changed since the export, or temporary
+signage. No physical survey has been done.
 
 **What is not modeled at all:**
 

@@ -4,9 +4,8 @@ Local, offline-capable web app that answers: "Where can I legally park a
 passenger car near address X in Manhattan from T1 to T2, ranked by walk time
 and money?" Built from NYC Open Data. Single user, server bound to 127.0.0.1.
 
-This file is a snapshot of the current state of the project, kept as short as
-possible. It is not a history; git holds the history. Update it when the state
-changes, and delete anything that is no longer true.
+A snapshot of the current state, kept short. Not a history; git holds that.
+Update it when the state changes; delete anything no longer true.
 
 ## Read first
 
@@ -18,11 +17,10 @@ changes, and delete anything that is no longer true.
 - `docs/ARCHITECTURE.md` — module map, schema, data flow.
 - `docs/DATA.md` — measured facts about the source datasets.
 - `docs/VALIDATION.md` — the ground-truth run against NYC DOT's own sign
-  viewer: what agrees, what does not, and why the tool still needs a
-  louder advisory than SPEC §17's.
+  viewer: what agrees, what does not, and why the tool still needs a louder
+  advisory than SPEC §17's. §9 supersedes §8's numbers.
 - `docs/API.md` — the local HTTP contract. `docs/SECURITY.md` — where each
-  control lives. `docs/VALIDATION.md` — ground-truth accuracy.
-- `README.md` — the outside view: quick start, limitations, data sources.
+  control lives. `README.md` — the outside view.
 
 ## Layout
 
@@ -53,11 +51,12 @@ curbcheck parse-report   Grammar coverage over the description corpus
 
 ## Where it stands (2026-09-15 snapshot)
 
-74,590 active Manhattan signs → 96.4% snapped, 95.8% of blockface-sides
-covered, 28,360 curb spans plus 5,656 grey placeholders for the street sides
-with no rule at all, 99.94% of regulation rows parsed by the grammar, 100%
-semantic / zero false-permitted on the 520-description gold set, 0 of 5,356
-metered segments unpriced.
+74,590 active signs (74,389 after duplicates) → 96.4% snapped, 95.8% of
+blockface-sides covered, 28,360 curb spans plus 5,656 grey placeholders for the
+street sides with no rule at all, 99.83% of rows parsed, 100% semantic / zero
+false-permitted on the 520-description gold set, 0 of 5,356 metered segments
+unpriced, 26 of 30 sampled sides agreeing with DOT's viewer — which renders the
+same SIMS export we read, so that is a check against our source, not a survey.
 
 ## Non-negotiables
 
@@ -75,6 +74,6 @@ metered segments unpriced.
 
 ## Environment
 
-Conda env `curbcheck` (Python 3.12) is active in every shell. Application
-packages are installed with pip from `requirements*.txt`. Data lives on the
-mounted drive at `data/`; `CURBCHECK_DATA_DIR` points it elsewhere.
+Conda env `curbcheck` (Python 3.12) is active in every shell; application
+packages come from `requirements*.txt` via pip. Data lives at `data/`;
+`CURBCHECK_DATA_DIR` points it elsewhere.

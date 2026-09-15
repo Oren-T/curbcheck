@@ -395,6 +395,14 @@ apply.
 
 ## 8. Judgement against the SPEC §13.3 trust bar
 
+**Status after fixes (2026-09-15):** §9 re-measures everything below against the
+rebuilt database and supersedes its numbers. Of the five items in the numbered
+list, D1–D4 are fixed, U1 is fixed, and the coverage figure moved from 84.0% to
+95.8% of blockface-sides. Point 1's banner requirement stands and is met: the
+grey placeholder state (D23) now draws every side with no rule and says which
+kind of gap it is. The original findings below are left exactly as they were
+measured; do not read them as current.
+
 **Where CurbCheck answers, it is trustworthy.** 21 of 21 verifiable
 blockface-sides matched DOT's sign set, its side, and its post distances exactly;
 95.2% of issued window verdicts were right; every single-arrow extent was exact; zero

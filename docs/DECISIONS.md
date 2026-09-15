@@ -273,12 +273,12 @@ form of the string says it is "TO BE USED ONLY FOR CONFLICTING STREET CLEANING
 AND METERED PARKING REGULATIONS" — so the honest answer is that the combination
 is unreadable, not a recomputed price. The placeholder is prohibitive for the
 same reason D13's is: a reader that somehow missed `flags.meta` must still err
-towards keeping the spot off the legal list. 799 of 36,518 segments are
+towards keeping the spot off the legal list. 920 of 34,016 segments are
 affected.
 
 **Would reverse it:** reading the meter hours off the sibling panel reliably
 enough to compute "meters off during the times above", which would turn these
-799 segments from ambiguous into priced.
+920 segments from ambiguous into priced.
 
 ## D18. The meter join writes one row per centerline segment, and falls back on the passenger rate
 
@@ -399,3 +399,34 @@ visible per side rather than only in a citywide histogram: 5,298 `no_signs` and
 
 **Would reverse it:** a curb-edge dataset that says where parking is physically
 possible, which would let a side be left out honestly instead of drawn grey.
+
+## D24. A legal span a prohibition overlaps is ambiguous, not legal
+
+**Decided:** 2026-09-15. `engine.search._demote_contested_spans` turns a span
+the window reads LEGAL into AMBIGUOUS when another span on the same
+`(segment_id, side)` reads ILLEGAL and its curb line overlaps by more than a
+foot. The span geometry is not moved and D20 is unchanged.
+
+**Why:** D20 has a `<->` post extend to the next post of *any* family, so two
+adjacent posts of different families each claim the whole gap between them and
+the spans overlap by design (`tests/test_etl_segments.py`
+`test_a_different_rule_keeps_its_own_span_however_much_it_overlaps`). Each span
+is a separate `regulation_segment` row with its own rule stack, so
+`resolve.evaluate_segment` — which stacks most-restrictive-wins *within* one
+stack — never sees the other post's rule. A `2 HMP <->` reaching back over a
+`NO STANDING ANYTIME <->` therefore read LEGAL over curb that is not: measured
+on the 2026-09-15 snapshot for a Wednesday 10:00–12:00 window, 234 of 9,164
+legal spans, about 44,500 ft of curb. SPEC §8.6 makes a false "legal" the P0
+defect, so this is the one class of bug that cannot be left for a later sync.
+
+The contest is resolved as "unknown" rather than by moving a boundary because
+the two posts genuinely disagree about where the boundary is; SPEC §11's
+ambiguous state is defined as "could not read the signs **or the signs
+conflict**", and the frontend already words it that way. Doing it at query time
+rather than in `segments` keeps D20's measured span output — and every figure
+derived from it — intact.
+
+**Would reverse it:** a span model that holds overlapping rules in one stack, so
+the prohibition and the permission could be resolved most-restrictive-wins per
+foot of curb and the uncontested remainder stay legal. That is the right fix and
+is more than a query-time guard; this is the safe reading until then.
