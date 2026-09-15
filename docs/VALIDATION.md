@@ -426,3 +426,97 @@ and the failing strata flagged, not as-is.** Specifically —
 
 None of this discharges SPEC §11's temporary-signage caveat or the physical
 survey §13.3 asks for. Both remain outstanding.
+
+---
+
+## 9. Re-validation after fixes (2026-09-15)
+
+Everything above measures the sync of 2026-09-15T04:12:40Z. D1–D5 and the §5
+coverage hazard have since been fixed in the ETL and the database rebuilt
+(`curbcheck sync --offline`, 88 s). This section is the re-measure. Nothing
+above has been rewritten: the numbers there are what was seen, and these are
+what is seen now.
+
+### 9.1 Before and after
+
+| Measure | Before | After |
+|---|---|---|
+| Sign rows snapped | 70,671 / 74,389 (95.0%) | **71,689 / 74,389 (96.4%)** |
+| Blockface-sides with a sign, matched | 10,891 / 11,613 (93.8%) | **11,119 / 11,613 (95.8%)** |
+| Unmatched: `cross_street_is_dead_end` | 604 | **22** |
+| Unmatched: `cross_street_not_in_centerline` | 739 | **265** |
+| Unmatched: other reasons | 2,375 | 2,413 |
+| Mean snap confidence | 0.9837 | 0.9809 |
+| `regulation_segment` rows | 36,518, all real | **34,016: 28,360 real + 5,656 placeholders** |
+| — placeholders by kind | — | **5,298 `no_signs`, 358 `unmatched_signs`** |
+| Whole-side spans | 23,234 | **1,964** |
+| Arrow-extended spans | 31,438 | **53,622** |
+| Repeated-rule spans merged (D5) | — | **16,113** |
+| `regulation` rows | 49,405 | 38,604 |
+| Street sides (`rw_type` 1) carrying a rule | 11,996 of 22,204 centerline sides | **12,938 of 18,594 street sides; the other 5,656 draw grey** |
+| Verdict spot checks (§7) | 6 / 6 | **6 / 6** |
+
+New `sync_meta` keys: `coverage.sides_with_rules` 13,114 (centerline
+`(segment, side)` pairs a span covers, all road types),
+`coverage.no_signs_sides` 5,298, `coverage.unmatched_sides` 358.
+
+The unmatched residue is now almost entirely `cross_street_does_not_meet_on_street`
+(1,702) and `no_chain_between_nodes` (635): descriptions whose two cross streets
+are both real but do not bound one run of the named street. That is a different
+problem from the four fixed here and is not addressed.
+
+### 9.2 The 30 sampled sides
+
+`python scripts/validation_regress.py --baseline data/curbcheck.sqlite.prev`
+re-evaluates the §1 sample — parsed out of §1's own table, because the fixes
+changed the population `scripts/validation_sample.py` draws from and
+`--seed 20260915` no longer yields the same 30 sides — over the three §13.3
+windows, with no server. **26 of 30 agree; 4 are listed for a human.**
+
+| # | §2 said | Now | Reading |
+|---|---|---|---|
+| 9 | ✗ in all three windows (D1) | legal / legal / legal | **fixed.** 8 AVE side E carries the 2 HMP rule on 0–104 ft, the bus stop on 104–214 and 104–313. The metered curb DOT posts is legal again |
+| 10 | gap in all three (D2) | 6 real spans, legal | **fixed.** All 7 of DOT's posts on E 5 ST side S, at 92/171/278/380/467 ft, snapped |
+| 15 | gap in all three (D3) | 2 real spans, illegal / legal / legal | **fixed.** PARK AVE side W is on segment 2372, the west carriageway |
+| 20 | gap in all three (D4) | 2 real spans, legal | **fixed.** W 64 ST side S carries both posts at 82 and 227 ft, at snap confidence 0.71 |
+| 5, 30 | gap (data gap) | `no_data` on a placeholder | unchanged and correct: DOT lists no signs there either. The side now draws grey instead of nothing |
+| 25 | sampling artefact | `no_data` on a placeholder | unchanged. LENOX AVE side E on segment 19368 is the median of the west carriageway; the signs are on 19332, where they belong |
+| 4 | ✓ 4/4, illegal ×3 | `no_data` on a placeholder | **moved, and correctly.** PECK SLIP is divided too. D21's tie-break put the `Side: S` signs on segment 166373, the south carriageway, where they read illegal on 0–143 ft; the sampled 166357 is the north carriageway, whose S curb is the median. The same artefact as #25 |
+| 13, 24 | n/v — DOT's viewer gave no answer | illegal ×3 / legal ×3 | still unverifiable against DOT; no change of ours moved them |
+| the other 21 | ✓ | unchanged from the pre-fix database | |
+
+Across the 11,695 centerline sides both databases hold, the Wednesday-window
+verdict moved on 708 (6.1%): **110 illegal→legal** and 9 ambiguous→legal, which
+is D20 letting a prohibition stop where the next regime starts; 99 legal→illegal
+and 1 ambiguous→illegal, the same rule in the other direction; 108
+legal→ambiguous; and 381 to `no_data`, where the side's spans moved to another
+centerline segment — the sibling carriageway under D21, or another segment of a
+re-resolved chain — and what is left behind is a placeholder. A further 301 sides
+that had a span have none at all: same cause, on segments that are not `rw_type`
+1 and so get no placeholder either.
+
+The 110 illegal→legal sides are the number to watch, because SPEC §8.6 makes a
+false "legal" the P0 defect. They are the sides where a `<->` prohibition used to
+cover curb past the next post of another family and now does not. On the sample
+this shows once, at #4: the stretch of PECK SLIP side S that only a
+street-cleaning sign governs reads legal outside the sweeping window, which is
+what DOT's posts say. There is no independent survey behind the other 109.
+
+### 9.3 What this does not fix
+
+- **D5's overlap is reduced, not gone.** Spans merge only where the posts state
+  an identical rule. 8 AVE side E still carries a 104–214 ft bus-stop span
+  inside a 104–313 ft one, because DOT writes the two posts differently
+  (`<----->` versus `W/ SINGLE ARROW`) and two different texts are two rules
+  until something proves otherwise.
+- **A span is still filed under the segment covering its midpoint**, so a span
+  that runs across a chain is invisible to a query that asks for one segment's
+  rows (`scripts/validation_dossier.py` does exactly that, and reports "no span
+  at all" for sides that a neighbour's span covers geometrically). The radius
+  search is geometric and is not affected. Placeholders are suppressed for every
+  segment a span crosses, so no grey curb is drawn over a governed one.
+- **The physical survey SPEC §13.3 asks for is still not done**, and SPEC §11's
+  temporary-signage caveat is still not discharged by anything here. Both
+  remain outstanding.
+- **`cross_street_does_not_meet_on_street` (1,702 rows) is untouched** and is now
+  the largest single matching gap.

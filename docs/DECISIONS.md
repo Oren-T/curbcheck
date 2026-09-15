@@ -309,3 +309,83 @@ row, so the coverage percentages and the row counts described different sets.
 One classifier cannot disagree with itself. The cost is a wider `panel_class`
 vocabulary in the API's `/api/segment/{id}` response, which is audit
 information the UI shows verbatim.
+
+## D20. A two-way arrow stops at the next sign, not at the corner
+
+**Decided:** 2026-09-15. A `<->` post extends in each direction independently:
+to the nearest post of the same family, failing that to the nearest post of any
+other regulation family, and only where a direction holds no post at all to the
+corner. The single-arrow rule is unchanged.
+
+**Why:** the old rule fell back to the whole blockface-side as soon as one
+direction had no same-family post, and on 8 AVE side E that put a bus stop over
+the whole face and made a metered curb read illegal in all three validation
+windows — the only verdict error in the 30-side ground-truth sample
+(`docs/VALIDATION.md` §4 D1). A new sign is where a new regime starts, which is
+the reading a traffic agent takes and the one DOT's own posts support. Measured
+over the 2026-09-15 snapshot: whole-side spans 23,234 -> 1,964, arrow-extended
+spans 31,438 -> 53,622, and 110 of 11,695 centerline sides that were illegal for
+the Wednesday window read legal afterwards (99 went the other way).
+
+**Would reverse it:** evidence that DOT intends a lone `<->` to govern past the
+next sign of another kind, which would make the old whole-side fallback right
+and this a source of false "legal" verdicts.
+
+## D21. Divided roadways pick a carriageway by which way the curb faces
+
+**Decided:** 2026-09-15. Where two equally short chains span a block, the snap
+keeps the one for which offsetting towards `side_of_street` moves *away* from
+the sibling chain. The published x/y is the secondary tiebreaker and
+`snap_notes` records which of the two decided.
+
+**Why:** CSCL models Park Ave, Lenox Ave and Peck Slip as two parallel
+centerlines, and the breadth-first walk took whichever it reached first: 5,109
+of 70,671 snapped rows sat on a block where two chains competed, and on PARK AVE
+E 50->E 51 all seven `Side: W` signs landed on the east carriageway, 77 ft into
+the avenue (`docs/VALIDATION.md` §4 D3). "The outer curb of a divided roadway"
+is a geometric statement, so it is computed from the offset direction relative
+to the sibling rather than from the compass, and holds on the tilted grid.
+
+**Would reverse it:** a CSCL release carrying a roadway-type or blockface id that
+names the carriageway outright, which would beat any inference from geometry.
+
+## D22. `DEAD END` resolves to the street's own terminal node
+
+**Decided:** 2026-09-15. When exactly one of `from_street`/`to_street` is a
+non-street token, the chain is walked away from the named corner until the
+street stops — a dangling endpoint, a name change, or a fork, where it refuses —
+and that node is the other end of the block. The resolved end scores 0.85 on
+name quality instead of 1.0.
+
+**Why:** DOT writes `DEAD END` on 610 name references, and none of them
+resolved, so 604 sign rows over 147 blockface-sides were dropped whole,
+including a blockface DOT posts `NO STANDING ANYTIME` on
+(`docs/VALIDATION.md` §4 D2). A dead end is a fact about the street's own
+geometry, which the centerline graph already holds. A fork is refused because
+which branch dead-ends cannot be told from the names, and a guess would put the
+signs on the wrong block half the time. Dead-end misses fell 604 -> 22.
+
+**Would reverse it:** a DOT clarification that `DEAD END` can mean a physical
+barrier mid-block rather than the end of the street's run.
+
+## D23. A side with no rules gets a placeholder span, not silence
+
+**Decided:** 2026-09-15. After the spans are resolved, every `rw_type` 1
+centerline side that no span covers gets a `regulation_segment` with
+`derived_from=[]`, `confidence=0`, `capacity_cars=NULL`, the offset curb line
+for the whole side, and `gap_kind` — `no_signs` where the source lists no active
+sign for that blockface-side, `unmatched_signs` where it lists some and none
+could be snapped. Highways, bridges and connectors get none: signs are posted
+along them, but there is no parkable curb to leave grey.
+
+**Why:** SPEC §11 makes "no sign data on this block" a non-negotiable state, and
+it was reaching only the 32 spans that had a span and no rules. 10,208 of
+Manhattan's 22,204 centerline sides drew nothing at all, and a blank map is read
+by a driver as "nothing here", not as "unknown" — the same hazard SPEC §11
+exists to prevent, arriving through a different door (`docs/VALIDATION.md` §5).
+The placeholder also makes the data-gap/matching-gap split SPEC §11 asks for
+visible per side rather than only in a citywide histogram: 5,298 `no_signs` and
+358 `unmatched_signs` on the 2026-09-15 snapshot.
+
+**Would reverse it:** a curb-edge dataset that says where parking is physically
+possible, which would let a side be left out honestly instead of drawn grey.
