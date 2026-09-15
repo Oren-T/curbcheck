@@ -692,3 +692,62 @@ short strip is the only §17 anyone reads, the compaction has replaced the
 notice rather than fronting it, and the full text goes back to being expanded
 on the first load of a session — the cost the audit measured, paid once per
 session instead of once per visit.
+
+## D31. A name is found by any word in it, and ranked by where the words landed
+
+**Decided:** 2026-09-15. The suggester no longer matches a place or a street
+only from the start of its name. Every non-stopword a person types must
+prefix-match some word of some *spelling* of the name, in any order, and the
+answer is scored by where those words landed: the name typed whole, then the
+names the query starts, then the names one of its words starts, then the names
+that merely contain them. A second index — `place_token` and `street_token`,
+one row per (word, position, spelling) — is what makes that a range scan
+rather than a `LIKE '%…%'` over 24,000 names.
+
+**Why:** the old rule matched the words in typed order and treated only the
+last one as a prefix, so `high school of fashion` autocompleted and `fashion`
+returned nothing at all, which is the one word anybody remembers about the High
+School of Fashion Industries. The same rule hid Avenue of the Americas behind
+its first word (`ave`), the Guggenheim behind `solomon`, and every school
+behind the honorific in front of its name. Requiring the typed order buys
+nothing: a person types the word they remember, not the word the city filed the
+name under.
+
+**Why a spelling and not a synonym list.** A name has several spellings and
+they are all real: `E 86 ST` is also `86 ST`, `W 125 ST` is also
+`DR M L KING JR BLVD`, `HIGH SCHOOL OF FASHION INDUSTRIES` is also
+`HS FASHION INDUSTRIES`. Indexing each spelling as its own word sequence means
+the position of a word is the position it has *in the spelling the user typed*,
+so "HOUSTON" is the first word of a name rather than the second, and the
+`streets.NAME_ALIASES` keys put `KING` and `MALCOLM` in the index without a
+single new alias being invented. Six landmark aliases are hand-written
+(`etl.addresses.PLACE_ALIASES`) and they are the only invented text in the
+index: each one is a name whose colloquial form shares no word with the legal
+one (`MOMA`, `MSG`) or whose legal form belongs to a neighbouring building
+(`PORT AUTHORITY` is the bus terminal, not the post office).
+
+**What it costs.** `place_token` carries the spelling's word sequence on every
+row, which is 1.2 MB rather than 0.4 MB, and `street_token` is 0.2 MB more:
+**+1.1 MB on 93.5 MB**. It is bought deliberately. Scoring a candidate from the
+row means the scan is covering, and on this container's 9p data mount reading
+the 200 matching `place` rows instead cost 55 ms warm and 2.5 s cold against
+1.5 ms for the scan — the same trade as the `ix_sign_unmatched` covering index
+in `db.py`.
+
+**Why streets still outrank places.** The two bands of the ladder do not
+overlap: a street matched by a word scores 0.69–0.67 and a place 0.66–0.64, so
+`lex` is Lexington Avenue and not the Lex Hotel, and `americas` is the avenue
+and not the Americas Society. A street is a destination this app can search
+both sides of for its whole length; a place is one point. The one rung above
+that is a place named *exactly* what was typed (0.85), which cannot collide
+with a street because `etl.addresses.stage_places` drops a place whose name
+repeats a spelling of a street the centerline actually carries — 31 of them
+(`MADISON`, `PARK`, `HIGH`), against 10 under the old whole-name rule.
+
+**Would reverse it:** a popularity signal. Three of the 33 ranking cases in
+`tests/test_geocode_real.py` are satisfied at rank 3 rather than rank 1 —
+`fashion` puts the Fashion Institute above the High School of Fashion
+Industries, `guggenheim` the bandshell above the museum — because the index has
+no way to know which name a New Yorker means and will not invent one. Anything
+that did (a visit count, an OSM `wikidata` tag) would replace the
+shorter-name tie-break, not the word matching.

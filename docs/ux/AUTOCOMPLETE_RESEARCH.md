@@ -310,3 +310,160 @@ coverage. Bounds validated like `POST /api/search` (40.68–40.90, -74.05–-73.
 - An accuracy regression: over a fixed sample of address points, the median
   error of the new ladder stays under 50 ft.
 - `tests/test_boundaries.py` needs nothing new — no module gains a socket.
+
+---
+
+## 6. Follow-up: matching a name by any word in it
+
+Written 2026-09-15, after the index above shipped. Everything measured on
+`data/curbcheck.sqlite` (94.5 MB) on the same 9p mount as §2.4, on a machine
+with another build competing for it.
+
+### 6.1 What was wrong
+
+Typing **`fashion`** returned nothing. Typing **`High School of Fashion`**
+autocompleted. That is the signature of start-of-name matching, and §2's index
+had it twice over: a place was matched word by word *in the typed order* with
+only the last word treated as a prefix, and a street was matched by a prefix of
+a whole spelling. So the index knew `HIGH SCHOOL OF FASHION INDUSTRIES` and
+could not find it from the one word anybody remembers about it. The same rule
+hid `AVE OF THE AMERICAS` behind `ave`, `SOLOMON R GUGGENHEIM MUSEUM` behind
+`solomon`, and `PORT AUTHORITY BUS TERMINAL` behind nothing at all — it was
+reachable, but three sibling buildings outranked it.
+
+### 6.2 The rule now
+
+1. The query is folded by `etl.addresses.name_words`, the same function the
+   index is built with: upper case, punctuation and digit ordinals folded,
+   spoken cardinals to digits (`ONE` → `1`), and the stopwords `THE OF AND AT A`
+   dropped. Stopwords are dropped on **both** sides, so they can neither be
+   required nor get in the way: `high school of fashion` and `fashion high` ask
+   the same question.
+2. Every remaining word must prefix-match some word of the name, **in any
+   order**. `trade center` finds `1 WORLD TRADE CENTER`; `hs fashion` finds the
+   High School of Fashion Industries.
+3. A name has more than one *spelling*, and each is indexed as its own word
+   sequence: the canonical name, the street variants (`86 ST` for `E 86 ST`),
+   the `streets.NAME_ALIASES` keys unfolded (`DR M L KING JR BLVD` for
+   `W 125 ST`, which is what puts `KING` and `MALCOLM` in the index), the
+   nicknames (`CPW`, `FDR`), the school shorthands (`HS` for `HIGH SCHOOL`,
+   `PS`, `MS`), and six hand-written landmark aliases.
+
+The six aliases — `MOMA`, `THE MET`, `MET MUSEUM`, `PORT AUTHORITY`,
+`GRAND CENTRAL`, `MSG` — are the only invented text in the index. Each is a
+name whose spoken form shares no word with the legal one, or whose legal form
+belongs to a neighbouring building; each target was read out of the
+`feature_name` snapshot and `tests/test_geocode_real.py` fails if one stops
+naming a place the data still carries. Everything else people call these
+buildings already prefix-matches: `met museum` reaches `METROPOLITAN MUSEUM OF
+ART` because `MET` is a prefix of `METROPOLITAN`.
+
+### 6.3 Why a word table and not FTS5, `LIKE '%…%'`, or a join
+
+§2.1 rejected FTS5 and that still holds — it matches literal text, so every
+spelling would have to be pre-expanded into the indexed string anyway, and it
+adds a query language the user types into. `LIKE '%fashion%'` over 5,796 names
+is a full scan with no index to stop it. So: one row per (word, position,
+spelling), keyed `(token, position, …)` so a half-typed word is a range scan
+and `ORDER BY token, position LIMIT 200` stops inside the index — the plan is
+`SEARCH … USING PRIMARY KEY`, with no temp b-tree for the sort.
+
+Two measurements shaped the rest:
+
+- **The spelling rides along in the token row.** Scoring a candidate needs its
+  whole word sequence. Fetching it from `place` instead — 200 rowid lookups
+  over a 0.31 MB table — cost **55 ms warm and 2.5 s cold** on this mount
+  against **1.5 ms** for the covering scan. That denormalization is the whole
+  of the +1.04 MB the change costs.
+- **One word drives, the rest are checked in Python.** The words are looked up
+  longest first (a longer prefix is usually the rarer one) and the scan stops
+  as soon as one comes back with ≤ 40 rows; the remaining words are checked
+  against the spelling each candidate arrived with. `CENTER` leads 407 rows and
+  `TRADE` 15, so `trade center` is scored over 15 candidates, and a common word
+  can never truncate an answer a rare one already found.
+
+### 6.4 The ranking, and the 33 queries it was fixed against
+
+Four rungs, by where the typed words landed: the name typed **whole**, the name
+the query is the **start** of, a name whose **first word** one of them starts,
+and a name that merely **contains** them. Ties go to the shorter name, then
+alphabetically — no popularity signal exists in this data and none is invented.
+Streets sit one band above places at every rung (0.69–0.67 against 0.66–0.64)
+because a street is a destination this app can search both sides of for its
+whole length and a place is one point, and both bands sit below the 0.70 of a
+street named whole. Addresses (0.98) and corners (0.95) are untouched, and a
+query with a house number or an `&` still takes those readings first.
+
+`tests/test_geocode_real.py::MATRIX` is the regression, printed by
+`pytest tests/test_geocode_real.py -s -k matrix`:
+
+```
+fashion                  #2  FASHION INSTITUTE…, HIGH SCHOOL OF FASHION INDUSTRIES
+fashion high             #1  HIGH SCHOOL OF FASHION INDUSTRIES
+high fashion             #1  HIGH SCHOOL OF FASHION INDUSTRIES
+hs fashion               #1  HIGH SCHOOL OF FASHION INDUSTRIES
+high school of fashion   #1  HIGH SCHOOL OF FASHION INDUSTRIES
+trade center             #1  1 WORLD TRADE CENTER, 2 WORLD…, 3 WORLD…
+one world trade          #1  1 WORLD TRADE CENTER
+guggenheim               #2  GUGGENHEIM BANDSHELL, SOLOMON R GUGGENHEIM MUSEUM
+port authority           #1  PORT AUTHORITY BUS TERMINAL
+grand central            #1  GRAND CENTRAL TERMINAL
+moma                     #1  MUSEUM OF MODERN ART (MOMA), MOMA GARDEN
+met museum               #1  METROPOLITAN MUSEUM OF ART
+bryant park              #1  BRYANT PARK, BRYANT PARK HOTEL
+penn station             #1  PENN STATION
+empire state             #1  EMPIRE STATE BUILDING
+carnegie                 #1  CARNEGIE HALL
+radio city               #1  RADIO CITY MUSIC HALL
+art and design           #1  ART & DESIGN HIGH SCHOOL
+americas                 #1  AVE OF THE AMERICAS, AMERICAS SOCIETY ART GALLERY
+riverside                #1  RIVERSIDE DR, RIVERSIDE BLVD, RIVERSIDE DR E
+riverside blvd           #1  RIVERSIDE BLVD
+king                     #3  KING ST, KING AVE, W 125 ST
+lex                      #1  LEXINGTON AVE, LEX HOTEL
+broad                    #1  BROAD ST, BROADWAY
+broadwa                  #1  BROADWAY, BROADWAY ALY
+madison                  #2  MADISON ST, MADISON AVE
+central park             #3  CENTRAL PARK N, CENTRAL PARK S, CENTRAL PARK W
+86th st                  #1  E 86 ST, W 86 ST
+5 ave                    #1  5 AVE, 5 AVE SYNAGOGUE
+1519 3rd ave             #1  1519 3 AVE
+lex & 86                 #1  E 86 ST & LEXINGTON AVE
+1 police plaza           #1  1 POLICE PLZ
+10021                    #1  10021
+```
+
+Three sit at #2 or #3 on purpose. `fashion` puts the Fashion Institute first
+because that name *starts* with the word; `guggenheim` puts the bandshell above
+the museum for the same reason; `king` is two real King Streets before it is
+the boulevard CSCL files as `W 125 ST`. Ranking them any other way needs a
+popularity signal this data does not have. The fifteen §2.3 demo queries and
+the 400-door accuracy regression are unchanged.
+
+### 6.5 Latency
+
+`suggest` p50 over 60 runs on a warm connection, and `/api/geocode` through the
+real ASGI stack (`scripts/bench_api.py`, median of five runs of 25). The
+machine had a load average of 3–5 throughout; `/api/health`, which reads one
+row, measured a p50 of 87–247 ms on the same runs, so treat the endpoint
+column as an upper bound with the mount's noise in it.
+
+| query | `/api/geocode` p50 before | after | cold before | cold after | `suggest` p50 after |
+|---|---|---|---|---|---|
+| `fashion` | 22.5 ms | 18.6 ms | 43.1 ms | 35.4 ms | **9.1 ms** |
+| `high school of f` | 35.6 ms | 21.5 ms | 104.2 ms | 60.8 ms | **7.6 ms** |
+| `w` | 16.5 ms | 15.8 ms | 37.7 ms | 20.3 ms | **9.7 ms** |
+| `lex` | 18.8 ms | 22.4 ms | 31.5 ms | 62.0 ms | **4.6 ms** |
+| `1519 3` | 29.7 ms | 19.2 ms | 151.6 ms | 88.1 ms | **4.5 ms** |
+
+`lex` is the one that got slower, and not in the suggester: it used to answer
+with one candidate and now answers with eight, and every candidate that is not
+on a centerline pays a `within_coverage` probe — ~1.5 ms each on this mount.
+That filter is the D28 guarantee and it has never rejected a candidate; making
+it cheaper (or making it a build-time property of the `place` row) is the next
+thing worth measuring, and it is not in `curbcheck/geocode/`.
+
+**The one-letter query is bounded.** `C` leads 2,722 of the 24,361 place-token
+rows; `LIMIT 200` stops the scan there, and because the key is ordered by word
+and then by position, the 200 rows it stops at are the ones where the word is
+the whole name or the start of it.

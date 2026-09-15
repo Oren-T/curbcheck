@@ -546,22 +546,48 @@ point. `1519 3 AVE` is absent while 1517 and 1529 are present, which is why
 ### 5.2 CommonPlace (`t95h-5fsr`)
 
 5,827 Manhattan rows, 2.8 MB, every one with a `feature_name` and a point:
-`BRYANT PARK`, `1 WORLD TRADE CENTER`, `ONE POLICE PLAZA HELIPORT`. 10 names
-only repeat a street the centerline already carries (a bare `BROADWAY`, a
-`BLEECKER ST`) and are dropped at build time, because the street entry has real
-geometry behind it and the place point does not.
+`BRYANT PARK`, `1 WORLD TRADE CENTER`, `ONE POLICE PLAZA HELIPORT`. 31 names
+only repeat a spelling of a street the centerline already carries (a bare
+`BROADWAY`, a `BLEECKER ST`, a `MADISON`, a `PARK`) and are dropped at build
+time, because the street entry has real geometry behind it and the place point
+does not, and because a place named exactly what was typed is the one rung of
+the ladder that outranks a street (`docs/DECISIONS.md` D31). The comparison is
+against the *spellings* of the streets the centerline carries, not their
+canonical names: `BRYANT PARK` and `LINCOLN CENTER PLZ` are names AddressPoint
+files doors on and CSCL has no segment for, so the street rung has no point to
+offer for them and the CommonPlace entry is kept.
+
+**Names are typed by any word in them.** The word a person remembers is rarely
+the one the name starts with — `fashion` for the High School of Fashion
+Industries, `americas` for Avenue of the Americas, `king` for the boulevard
+CSCL files as `W 125 ST` — so every name is indexed word by word as well as
+whole. 91 `feature_name` values spell out `HIGH SCHOOL` and 121 abbreviate the
+kind (`PS 158`), so each school is indexed under both spellings; six landmarks
+whose spoken name shares no word with the legal one (`MOMA`, `MSG`,
+`PORT AUTHORITY` for the bus terminal rather than its post office) carry a
+hand-written alias, and they are the only invented text in the index.
 
 ### 5.3 What the index costs
 
 `etl/addresses.py` writes 63,245 `address_point` rows, 5,645 `intersection`
 pairs (stored both ways round) over the multi-name `street_node` rows, 1,017
-`street` rows, 2,814 `street_variant` spellings, 5,817 `place` names with
-23,659 tokens, and 91 `zip_centroid` rows. With its three covering indexes that
-is **+13.2 MB** on a 79.0 MB database, and 54 s of a 143 s sync on an idle
-machine (169 s of 490 s when another process was competing for the same mount).
-The database is 93.9 MB in total, the other 1.6 MB being the centerline and
-unsnapped-sign indexes the suggestion path needs to stay inside its latency
-budget.
+`street` rows, 2,815 `street_variant` spellings, 5,796 `place` names, 91
+`zip_centroid` rows, and the word index: 24,361 `place_token` rows and 5,644
+`street_token` rows, one per (word, position, spelling).
+
+| Table | Rows | Pages |
+|---|---|---|
+| `place_token` | 24,361 | 1.21 MB |
+| `place` | 5,796 | 0.31 MB |
+| `street_token` | 5,644 | 0.21 MB |
+| `street_variant` | 2,815 | 0.08 MB |
+
+With its three covering indexes the suggester is **+14.2 MB** on a 79.0 MB
+database, and 106 s of a 309 s sync on a machine with something else competing
+for the same mount (54 s of 143 s idle). The database is 94.5 MB in total, of
+which the word index is 1.04 MB: a token row carries its whole spelling so
+that scoring a candidate never leaves the index, which is worth eight times its
+size on this data mount (`docs/ux/AUTOCOMPLETE_RESEARCH.md` §6.3).
 
 ---
 
