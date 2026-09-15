@@ -13,6 +13,8 @@ crash somewhere in the ETL.
 from __future__ import annotations
 
 import json
+import logging
+import re
 import sqlite3
 import warnings
 from pathlib import Path
@@ -370,3 +372,42 @@ def test_error_messages_never_carry_a_path_a_traceback_or_sql(client):
         assert "/workspace" not in message and "\\" not in message
         assert "SELECT" not in message.upper()
         assert ".py" not in message
+
+
+# --- the request log never carries a destination (T6) ----------------------
+
+
+def test_the_typed_address_never_reaches_the_request_log(client, caplog):
+    """docs/SECURITY.md residual 2: the autocomplete is a GET, so its `q` was logged.
+
+    uvicorn's access log writes the whole request line. `curbcheck serve` turns
+    it off and `AccessLogMiddleware` logs method, path, status and duration
+    instead; nothing in the chain ever holds the query string.
+    """
+    address = "350 W UNIQUESTREETNAME ST"
+    # The test client is httpx, and httpx logs the URL it just requested at
+    # INFO. That is this test's own plumbing, not the server, so it is quieted
+    # rather than filtered out of the assertion afterwards.
+    caplog.set_level(logging.WARNING, logger="httpx")
+
+    with caplog.at_level(logging.INFO):
+        response = client.get("/api/geocode", params={"q": address})
+
+    assert response.status_code == 200
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "UNIQUESTREETNAME" not in logged
+    assert "q=" not in logged
+    assert "GET /api/geocode 200" in logged
+
+
+def test_the_request_log_records_method_path_status_and_duration(client, caplog):
+    with caplog.at_level(logging.INFO):
+        client.post("/api/search", json={**DESTINATION, **WINDOW})
+
+    lines = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "curbcheck.access"
+    ]
+    assert len(lines) == 1
+    assert re.fullmatch(r"POST /api/search 200 \d+\.\dms", lines[0]), lines[0]

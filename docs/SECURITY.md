@@ -78,6 +78,9 @@ actually lives, how to check it yourself, and what is knowingly left open.
   with a 400 before any query is built.
 - `curbcheck/api/errors.py` — one error shape; messages never carry a path, a
   traceback, or SQL. Tracebacks go to the log.
+- `curbcheck/api/app.py:AccessLogMiddleware` — the only request log. Method,
+  path, status, duration; never a query string, so the addresses typed into the
+  autocomplete stay inside the process (T6).
 - `curbcheck/db.py:connect` — the server opens `mode=ro`, so a bug in a handler
   cannot write to the database.
 
@@ -116,12 +119,14 @@ and pan the map: there should be zero requests off `127.0.0.1`.
    `application/json` content type, the CSP, and `web/dom.js` each have to hold
    for that to be safe. Three of the four are tested; the trade buys the raw
    sign text being visible next to every verdict, which `CLAUDE.md` requires.
-2. **`GET /api/geocode?q=…` puts a typed address in uvicorn's access log.**
-   Search is a POST and its body is never logged, but the autocomplete is a GET,
-   and uvicorn writes the full request line at INFO. Nothing leaves the machine
-   and nothing is written to disk by default, but the address is on the terminal.
-   Pass `access_log=False` in `curbcheck/cli.py:_serve`, or make the geocoder a
-   POST, if that matters to you.
+2. **Closed.** `GET /api/geocode?q=…` used to put the typed address in
+   uvicorn's access log, which wrote the full request line at INFO.
+   `curbcheck/cli.py:_serve` now passes `access_log=False`, and
+   `curbcheck/api/app.py:AccessLogMiddleware` logs `method path status
+   duration_ms` in its place. It reads `scope["path"]`, which by ASGI definition
+   excludes the query string, so the query bytes are never in hand rather than
+   being stripped. `tests/test_api_security.py::test_the_typed_address_never_reaches_the_request_log`
+   pins it.
 3. **No request-body size limit.** The fields are bounded (`extra="forbid"` plus
    `max_length`), so an oversized body is a 422, but Starlette buffers it first.
    A local process could make the server hold a very large body in memory.

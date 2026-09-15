@@ -9,6 +9,7 @@ a page on any other origin from reading these answers.
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -23,6 +24,7 @@ from curbcheck.api import routes
 from curbcheck.api.errors import ApiError, error_payload
 
 LOGGER = logging.getLogger(__name__)
+ACCESS_LOGGER = logging.getLogger("curbcheck.access")
 
 # SPEC §3.4 verbatim, plus `worker-src 'self' blob:`. The vendored
 # web/vendor/maplibre-gl/maplibre-gl.mjs starts its worker from
@@ -80,6 +82,50 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
+class AccessLogMiddleware:
+    """One INFO line per request: method, path, status, duration. Never the query.
+
+    uvicorn's own access log writes the whole request line, so
+    `GET /api/geocode?q=123+E+85+St` would put the address the user typed on the
+    terminal — the one place a destination leaked out of the process (threat T6,
+    docs/SECURITY.md residual 2). `curbcheck serve` now passes
+    `access_log=False` and this takes its place. It reads `scope["path"]`, which
+    by ASGI definition excludes the query string, so there is no stripping step
+    that could be forgotten: the query bytes are never in hand.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        started = time.perf_counter()
+        # An exception on the way out never reaches a response start message,
+        # and what the client sees in that case is the 500 the handler produces.
+        status = 500
+
+        async def send_with_status(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = int(message["status"])
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_with_status)
+        finally:
+            elapsed_ms = (time.perf_counter() - started) * 1000
+            ACCESS_LOGGER.info(
+                "%s %s %d %.1fms",
+                scope.get("method", "?"),
+                scope.get("path", ""),
+                status,
+                elapsed_ms,
+            )
+
+
 def create_app(db_path: Path, *, web_dir: Path, basemap_path: Path | None) -> FastAPI:
     """Build the server that reads `db_path` and serves `web_dir`.
 
@@ -100,6 +146,8 @@ def create_app(db_path: Path, *, web_dir: Path, basemap_path: Path | None) -> Fa
     app.state.basemap_path = None if basemap_path is None else Path(basemap_path)
 
     app.add_middleware(SecurityHeadersMiddleware)
+    # Added last, so it wraps everything and sees the status actually sent.
+    app.add_middleware(AccessLogMiddleware)
     _install_exception_handlers(app)
     app.include_router(routes.router, prefix="/api")
 

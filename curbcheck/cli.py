@@ -136,7 +136,11 @@ def _serve(*, port: int, db_path: Path) -> int:
 
     app = create_app(db_path, web_dir=WEB_DIR, basemap_path=BASEMAP_PATH)
     print(f"CurbCheck on http://{BIND_HOST}:{port}")
-    uvicorn.run(app, host=BIND_HOST, port=port, workers=1, log_level="info", access_log=True)
+    # access_log=False: uvicorn logs the full request line, which puts the
+    # address typed into the autocomplete (`GET /api/geocode?q=...`) on the
+    # terminal. `api.app.AccessLogMiddleware` logs the same request without its
+    # query string instead (docs/SECURITY.md, threat T6).
+    uvicorn.run(app, host=BIND_HOST, port=port, workers=1, log_level="info", access_log=False)
     return 0
 
 
