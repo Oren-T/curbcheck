@@ -85,6 +85,10 @@ DATASETS: tuple[Dataset, ...] = (
     Dataset("parknyc_blockfaces", "e7yp-wx55", None),
     Dataset("meter_rate_zones", "f72k-2u3b", None),
     Dataset("meters_manhattan", "693u-uax6", "borough='Manhattan'"),
+    # The two OTI datasets behind the address suggester. `boroughcode` 1 is
+    # Manhattan in both, the same code the centerline uses (docs/DATA.md §2.1).
+    Dataset("address_points_manhattan", "uf93-f8nk", "boroughcode='1'"),
+    Dataset("common_places_manhattan", "t95h-5fsr", "boroughcode='1'"),
 )
 
 DATASETS_BY_STEM: dict[str, Dataset] = {dataset.stem: dataset for dataset in DATASETS}
