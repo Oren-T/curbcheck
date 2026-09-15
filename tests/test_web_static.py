@@ -171,3 +171,21 @@ def test_the_glyph_ranges_the_validation_run_404ed_on_are_vendored() -> None:
     for stack in stacks:
         for glyph_range in ("768-1023", "7680-7935", "8192-8447"):
             assert (stack / f"{glyph_range}.pbf").is_file(), f"{stack.name} lacks {glyph_range}"
+
+
+def test_a_failed_search_clears_the_previous_answer() -> None:
+    """Results for the old destination left under an error banner read as the answer.
+
+    There is no JS test runner here (STYLE_GUIDE §4: no bundler, no framework),
+    so this checks the wiring by reading the source: the error path has to call
+    `clearResults`, and `clearResults` has to empty both the list and the map.
+    """
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    map_js = (WEB_DIR / "map.js").read_text(encoding="utf-8")
+
+    error_handler = app.split("function handleSearchError")[1].split("\n}")[0]
+    assert "clearResults()" in error_handler, "a failed search keeps the previous results"
+    clear_results = app.split("function clearResults()")[1].split("\n}")[0]
+    for expected in ("state.results = []", "clear(dom.results)", "curbMap.clearResults()"):
+        assert expected in clear_results, f"clearResults no longer does {expected}"
+    assert "clearResults()" in map_js

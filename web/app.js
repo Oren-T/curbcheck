@@ -228,10 +228,26 @@ function showResponse(response, walkMinutes) {
 }
 
 function handleSearchError(error, where) {
+  // The previous search's results describe a different destination, a different
+  // window, or both. Leaving them on the map and in the list under an error
+  // banner reads as "here is the answer", which is the false confidence
+  // CLAUDE.md bans; an empty list next to the error is the honest state.
+  clearResults();
   setStatus(error.message, "error");
   if (error.code === "address_not_found" && where.address) {
     offerSuggestions(where.address);
   }
+}
+
+function clearResults() {
+  state.results = [];
+  state.resultsById = new Map();
+  state.details = new Map();
+  closeDetail();
+  state.cardsById = new Map();
+  clear(dom.results);
+  dom.resultsHeading.textContent = "Results";
+  curbMap.clearResults();
 }
 
 async function offerSuggestions(query) {
