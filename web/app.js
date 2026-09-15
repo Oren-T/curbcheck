@@ -91,6 +91,7 @@ const dom = {
   fullNotice: byId("full-notice"),
   rail: document.querySelector(".rail"),
   railScroll: byId("rail-scroll"),
+  railProgress: byId("rail-progress"),
   drawerHandle: byId("drawer-handle"),
   drawerSummary: byId("drawer-summary"),
   mapContainer: byId("map"),
@@ -177,7 +178,14 @@ async function runSearch(where, window_) {
   state.walkMinutes = walkMinutes;
   setSearching(true);
   renderNotice(dom.notices, null);
-  renderSkeleton(dom.results);
+  // UX_AUDIT P1-9: a second search used to replace the answer with skeletons
+  // before the server had said anything, so the screen went blank for 2.6 s and
+  // the user could not compare the two. The previous answer stays and dims.
+  if (state.results.length > 0) {
+    setStale(true);
+  } else {
+    renderSkeleton(dom.results);
+  }
   dom.resultsHeading.hidden = false;
   try {
     const response = await api.search({
@@ -511,6 +519,17 @@ function setSearching(searching) {
   state.searching = searching;
   dom.searchButton.disabled = searching;
   dom.searchButton.textContent = searching ? "Searching…" : "Search";
+  dom.railProgress.hidden = !searching;
+  if (!searching) {
+    setStale(false);
+  }
+}
+
+/** Dim the answer on screen — in the rail and on the map — but keep it. */
+function setStale(stale) {
+  dom.results.classList.toggle("is-stale", stale);
+  dom.stats.classList.toggle("is-stale", stale);
+  curbMap.setStale(stale);
 }
 
 function setPinMode(enabled) {

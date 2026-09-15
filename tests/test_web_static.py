@@ -524,3 +524,25 @@ def test_collapsed_verdict_groups_render_their_cards_on_expand() -> None:
     assert "view.onGroupFilled()" in group
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     assert "onGroupFilled: () => markSelected" in app
+
+
+def test_a_new_search_dims_the_previous_answer_instead_of_clearing_it() -> None:
+    """UX_AUDIT P1-9, and the other half of (f) 8.
+
+    An *error* clears the previous answer, because stale results under a new
+    destination read as the answer to the new question. A search in flight is
+    the opposite case: nothing has failed, and a screen that empties for 2.6 s
+    looks exactly like one that found nothing.
+    """
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    map_js = (WEB_DIR / "map.js").read_text(encoding="utf-8")
+
+    run = app.split("async function runSearch")[1].split("\n}")[0]
+    assert "setStale(true)" in run, "a second search no longer dims the first answer"
+    assert "renderSkeleton" in run, "the first search lost its skeletons"
+    assert run.index("state.results.length > 0") < run.index("renderSkeleton")
+
+    # The map fades the spans; it must not drop them.
+    stale = map_js.split("  setStale(stale) {")[1].split("\n  }")[0]
+    assert "STALE_FADE" in stale and "clearResults" not in stale
+    assert "const STALE_FADE = 0.35" in map_js, "the fade went to zero"

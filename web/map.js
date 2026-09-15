@@ -86,6 +86,11 @@ const EMPHASIS_WIDTH = [
 
 const ZOOM_STOPS = [13, 15, 16.5, 18];
 
+// How far the previous answer fades while a new one is being fetched. Not zero:
+// an answer that vanishes and an answer that is being replaced look the same,
+// and only one of them is happening (UX_AUDIT P1-9).
+const STALE_FADE = 0.35;
+
 export function walkRadiusMeters(walkMinutes) {
   return (walkMinutes * 60 * WALK_SPEED_M_PER_S) / WALK_DETOUR_FACTOR;
 }
@@ -265,6 +270,33 @@ export class CurbMap {
       }));
     this.#setData("segments", { type: "FeatureCollection", features });
     this.#setBasemapToned(features.length > 0);
+    this.setStale(false);
+  }
+
+  /**
+   * Fade the answer that is on the map while the next one is fetched.
+   *
+   * The spans stay drawn. Clearing them first makes the map flash empty, and an
+   * empty map is the one thing this UI must never show by accident (SPEC §11).
+   */
+  setStale(stale) {
+    const fade = stale ? STALE_FADE : 1;
+    for (const verdict of VERDICT_ORDER) {
+      const style = VERDICT_STYLE[verdict];
+      this.#fade(`segments-${verdict}`, style.opacity * fade);
+      if (style.halo) {
+        this.#fade(`segments-casing-${verdict}`, style.halo.opacity * fade);
+      }
+      if (style.glow) {
+        this.#fade(`segments-glow-${verdict}`, style.glow.opacity * fade);
+      }
+    }
+  }
+
+  #fade(layerId, opacity) {
+    if (this.map.getLayer(layerId)) {
+      this.map.setPaintProperty(layerId, "line-opacity", opacity);
+    }
   }
 
   clearResults() {

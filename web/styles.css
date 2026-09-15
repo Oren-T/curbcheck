@@ -442,6 +442,58 @@ h4 {
   transform: rotate(45deg);
 }
 
+/* An indeterminate bar, not a spinner: the search takes 2-6 s and there is no
+   percentage to report. Under reduced motion it stops travelling and sits
+   still as a full-width accent line, which still says "working". */
+.rail-progress {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 2;
+  height: 2px;
+  overflow: hidden;
+  background: var(--c-accent-soft);
+}
+
+.rail-progress[hidden] {
+  display: none;
+}
+
+.rail-progress::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--c-accent);
+  animation: rail-progress 1.1s var(--ease-in-out) infinite;
+}
+
+@keyframes rail-progress {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-progress::after {
+    width: 100%;
+    animation: none;
+    opacity: 0.55;
+  }
+}
+
+/* The previous answer while the next one is being fetched. Dimmed and inert,
+   never removed: a screen that empties and a screen that is being replaced look
+   identical, and only one of them is what happened. */
+.results-region.is-stale,
+.stats.is-stale {
+  opacity: 0.4;
+  pointer-events: none;
+  transition: opacity var(--m-base) var(--ease-out);
+}
+
 /* The drag handle is the phone drawer's detent control; on desktop the rail is
    always open and the handle would be noise. */
 .drawer-handle {
