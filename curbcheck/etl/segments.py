@@ -290,12 +290,15 @@ def coverage_placeholders(
     posted along them, but they have no parkable curb to leave grey.
     """
     unmatched = _unmatched_faces(graph, snaps)
+    sides_used: dict[str, set[str]] = {}
+    for segment_id, side in covered:
+        sides_used.setdefault(segment_id, set()).add(side)
     placeholders = []
     for segment in graph.segments.values():
         if segment.rw_type != PLACEHOLDER_RW_TYPE:
             continue
         crossing = graph.node_streets(segment.from_node) | graph.node_streets(segment.to_node)
-        for side in _sides_of(segment.line_ft):
+        for side in _sides_for(segment, sides_used.get(segment.segment_id)):
             if (segment.segment_id, side) in covered:
                 continue
             placeholders.append(
@@ -324,6 +327,28 @@ def _placeholder(segment: StreetSegment, side: str, gap_kind: str) -> Regulation
         derived_from=(),
         gap_kind=gap_kind,
     )
+
+
+_SIDE_AXIS: dict[str, tuple[str, str]] = {
+    "N": ("N", "S"),
+    "S": ("N", "S"),
+    "E": ("E", "W"),
+    "W": ("E", "W"),
+}
+
+
+def _sides_for(segment: StreetSegment, used: set[str] | None) -> tuple[str, str]:
+    """The two curb letters a segment can carry.
+
+    A letter one of its own spans already uses settles it. DOT sides a run by
+    the axis it happens to be closest to and does not always agree with the
+    bearing — PECK SLIP runs more north than east and DOT sides it N/S — and
+    taking the bearing's answer there would draw a second, differently-lettered
+    placeholder over a side that already has rules.
+    """
+    if used:
+        return _SIDE_AXIS[min(used)]
+    return _sides_of(segment.line_ft)
 
 
 def _sides_of(line_ft: LineString) -> tuple[str, str]:
@@ -421,7 +446,11 @@ def _resolve_face(
     for post in posts:
         others = [other.distance_ft for other in posts if other.family != post.family]
         span = _span_for(post, by_family[post.family], others, length_ft, counts)
-        spans.setdefault(span, []).append(post)
+        # Quantized because the chain length reaches a span two ways — the line's
+        # own length and a post clamped to it — which differ by an ULP, and two
+        # spans a hundredth of a foot apart are one span, not two rows sharing a
+        # `reg_seg_id`.
+        spans.setdefault((round(span[0], 2), round(span[1], 2)), []).append(post)
         counts["signs"] += 1
     spans = _merge_repeated_spans(spans, counts)
 

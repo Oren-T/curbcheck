@@ -155,6 +155,15 @@ class SnapReport:
         return self.blockface_sides_matched / self.blockface_sides if self.blockface_sides else 0.0
 
 
+def name_quality(match: NameMatch) -> float:
+    """How much a street-name match is worth to a confidence score, in [0, 1].
+
+    The one table, shared with the meter join, so a new `NameMatch` value cannot
+    be scored two ways or forgotten by one of them.
+    """
+    return _NAME_QUALITY[match]
+
+
 def side_offset_sign(line_ft: LineString, side: str) -> tuple[int, bool]:
     """Which side of the directed chain the compass letter names.
 

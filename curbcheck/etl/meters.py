@@ -24,7 +24,8 @@ from shapely.geometry import LineString, MultiLineString, Point, shape
 from shapely.ops import linemerge
 
 from curbcheck.etl import fetch
-from curbcheck.etl.streets import BlockLookup, NameMatch, StreetGraph, to_feet
+from curbcheck.etl.snap import name_quality
+from curbcheck.etl.streets import BlockLookup, StreetGraph, to_feet
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,13 +51,6 @@ RATE_ZONE_CONFIDENCE = 0.6
 SOURCE_PARKNYC = "parknyc"
 SOURCE_RATE_ZONE = "rate_zone"
 
-_NAME_QUALITY: dict[NameMatch, float] = {
-    NameMatch.EXACT: 1.0,
-    NameMatch.ALIAS: 0.95,
-    NameMatch.FUZZY: 0.75,
-    NameMatch.NOT_A_STREET: 0.0,
-    NameMatch.MISSING: 0.0,
-}
 
 # "$5.00 1st Hour / $8.25 2nd Hour / $5.00 Add'l Hours", "$1.50 per Hour".
 # Anything else (ParkNYC also writes "$7.00 per 30 Minutes") is left unread.
@@ -317,9 +311,9 @@ def _rates_for_blockface(
 def _join_confidence(lookup: BlockLookup, geometry: LineString | None, counts: _Counts) -> float:
     """How much to trust a name join, checked against the published geometry."""
     quality = min(
-        _NAME_QUALITY[lookup.on.match],
-        _NAME_QUALITY[lookup.from_.match],
-        _NAME_QUALITY[lookup.to.match],
+        name_quality(lookup.on.match),
+        name_quality(lookup.from_.match),
+        name_quality(lookup.to.match),
     )
     if geometry is None or lookup.match is None:
         return round(quality, 4)

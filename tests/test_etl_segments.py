@@ -441,3 +441,17 @@ def test_a_worded_arrow_the_glyph_misses_still_bounds_its_span():
 
     assert (100, 500) in spans(with_grammar)
     assert (100, 500) not in spans(with_glyph_only)
+
+
+def test_a_placeholder_uses_the_side_letters_the_blocks_own_signs_use():
+    # PECK SLIP runs more north than east and DOT sides it N/S anyway. Reading
+    # the letters off the bearing there would draw an E and a W placeholder over
+    # a side that already has rules.
+    segments, _ = resolve_with_placeholders(
+        staged_sign("n", to_street="E 2 STREET", description=NO_PARKING, side="N")
+    )
+
+    sides = placeholder_sides(segments)
+    assert ("avenue-0", "S") in sides
+    assert ("avenue-0", "E") not in sides
+    assert ("avenue-0", "W") not in sides

@@ -9,6 +9,10 @@ would turn into a false "legal". Not a unit test: it needs a synced database.
     python scripts/verdict_spot_checks.py [--db data/curbcheck.sqlite]
 
 Exit status is the number of checks that disagreed with the expected answer.
+
+A `reg_seg_id` is a hash of the span's extent, so every id here moves when the
+span rules change; the signs the cases are about do not. After a rule change,
+re-resolve each id by looking for the span that carries the same `sign_id`.
 """
 
 from __future__ import annotations
@@ -54,7 +58,7 @@ CASES = (
     # plain two-hour meter, so the window is legal and the meter charges nothing.
     Case(
         "metered block on Thanksgiving: meters off, still legal",
-        "3dc27dd9e77b6179",
+        "a5ee535885f35682",
         40.727174,
         -73.984167,
         *at(2026, 11, 26, 10, 12),
@@ -96,7 +100,7 @@ CASES = (
     # string has to name the limit, not the vehicle class.
     Case(
         "3-hour window on a 2-hour passenger meter",
-        "3dc27dd9e77b6179",
+        "a5ee535885f35682",
         40.727174,
         -73.984167,
         *at(2026, 9, 16, 10, 13),
@@ -108,7 +112,7 @@ CASES = (
     # two independent reasons to refuse, and the verdict must still be illegal.
     Case(
         "3-hour window on a 1-hour (commercial) meter",
-        "cc02e52e071c8824",
+        "f9a954a8d4a87130",
         40.753260,
         -73.999962,
         *at(2026, 9, 16, 10, 13),
@@ -119,7 +123,7 @@ CASES = (
     # A holiday suspends alternate-side and the meters, never a standing ban.
     Case(
         "NO STANDING ANYTIME on Christmas Day",
-        "46ff88541bc0a44d",
+        "8a24e1d198ec603f",
         40.748170,
         -73.988841,
         *at(2026, 12, 25, 10, 12),
