@@ -1,2 +1,6 @@
 web/vendor/
 data/
+
+# Vendored and generated basemap assets; their SHA-256s are recorded in
+# web/basemap/MANIFEST.md, so reformatting them would break the manifest.
+web/basemap/

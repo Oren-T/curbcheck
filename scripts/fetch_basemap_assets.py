@@ -66,9 +66,10 @@ TILES_URL = "pmtiles:///basemap/manhattan.pmtiles"
 GLYPHS_URL = "/basemap/fonts/{fontstack}/{range}.pbf"
 SPRITE_URL = f"/basemap/sprites/{SPRITE_VERSION}/{FLAVOR}"
 
-# Basic Latin + Latin-1 Supplement, then Latin Extended-A/B and Greek/Cyrillic.
-# Everything NYC place names need; see the manifest for what is missing.
-GLYPH_RANGES = ("0-255", "256-511")
+# Basic Latin + Latin-1 Supplement, then Latin Extended-A/B and Greek/Cyrillic,
+# then General Punctuation: MapLibre asks for 8192-8447 as soon as a label
+# contains an en dash (U+2013), which Manhattan street labels do.
+GLYPH_RANGES = ("0-255", "256-511", "8192-8447")
 
 SPRITE_FILES = (
     f"{FLAVOR}.json",

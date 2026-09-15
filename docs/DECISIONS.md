@@ -198,3 +198,26 @@ first-time user with a terminal message and no app; booting leaves them with a
 loaded UI that says what to run next. It also keeps `/api/health` honest,
 which is the endpoint whose whole job is to answer questions about the
 database.
+
+## D16. Three basemap wiring facts the vendored libraries forced
+
+**Decided:** 2026-09-15, refining D11. (a) `web/map.js` imports MapLibre as a
+namespace (`import * as maplibregl`), not as a default: the vendored v6 build
+exports named bindings only, and a default import fails the module load with
+"does not provide an export named 'default'". The wiring snippet in
+`web/vendor/MANIFEST.md` still shows the default form and is wrong. (b) The
+style file keeps the host-free `sprite: "/basemap/sprites/v4/light"`, and
+`loadStyle()` prefixes the origin at load time, because MapLibre 6 parses the
+sprite URL with `new URL(value)` and throws "Invalid sprite URL …, must be
+absolute" for a root-relative path. Glyph URLs have no such requirement. (c)
+Only glyph ranges `0-255`, `256-511`, and `8192-8447` are vendored, per
+fontstack. The third is not optional: Manhattan labels contain U+2013 and
+MapLibre 404s without it.
+
+**Why:** all three were measured in the browser against the running server, not
+inferred. (b) matters beyond convenience — putting an absolute URL in the style
+file would bake a host and port into a committed artifact and would break the
+"nothing in `web/` points off-host" test in `tests/test_web_static.py`.
+
+**Would reverse it:** a MapLibre release that resolves sprite URLs against the
+style URL, or a revendored build with a default export.

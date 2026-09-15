@@ -35,7 +35,7 @@ archive exactly.
 
 ## Glyph coverage (a deliberate limitation)
 
-Only the ranges `0-255`, `256-511` are vendored, for the
+Only the ranges `0-255`, `256-511`, `8192-8447` are vendored, for the
 fontstacks the style actually uses (`Noto Sans Italic`, `Noto Sans Medium`, `Noto Sans Regular`).
 The full 256-range set is about 6.2 MB per fontstack, which would put this
 directory over 18 MB for labels no Manhattan basemap draws. Consequence: a label
@@ -45,16 +45,19 @@ it, add the range to `GLYPH_RANGES` and re-run the script. The style also names 
 
 ## Files
 
-Total 948021 bytes.
+Total 1130233 bytes.
 
 | File | Bytes | SHA-256 |
 |---|---|---|
 | `fonts/Noto Sans Italic/0-255.pbf` | 79344 | `43edfca91c285ba1226f09d5e74d68e1473a088c517f02a5212ff6ccb10037dc` |
 | `fonts/Noto Sans Italic/256-511.pbf` | 132976 | `a6f9f6574c86a4a28aba630ca1017857ceadd2370ed32a1293c35f819ab9bd60` |
+| `fonts/Noto Sans Italic/8192-8447.pbf` | 52891 | `5dc4e6680116fef01be024e272859d130262613c7e634409a590e5d50ad124ae` |
 | `fonts/Noto Sans Medium/0-255.pbf` | 77628 | `ba2f0118dd024e3041b158e5f9eb49bc0a658019f53f458e9f5c0b8efcd79b91` |
 | `fonts/Noto Sans Medium/256-511.pbf` | 129635 | `d5e801a1a5b1d409d3298c3a1e1ca76328e2314a751078833a618620e8e66e4d` |
+| `fonts/Noto Sans Medium/8192-8447.pbf` | 65101 | `cc38e4956207f0edba1aaf749b61e8f6f1678ef1ad443d32ee285b21d0eb67aa` |
 | `fonts/Noto Sans Regular/0-255.pbf` | 76044 | `62c6d49b15fa836eb6aa45e259c7ca6762f44b011b09e47776efbe4a6db1b397` |
 | `fonts/Noto Sans Regular/256-511.pbf` | 127726 | `2eca7561f9f566bcacfda5dd04fb5880baec1328ec0f5484678289a13994de8a` |
+| `fonts/Noto Sans Regular/8192-8447.pbf` | 64220 | `8ea977a587352fe31b4159ffdbc9a40be79056f2472017c742ea1e4a931864b9` |
 | `fonts/OFL.txt` | 4374 | `7713cfc8e3c36d5ec4aa3d6cffe7500a1b3310f8a86d914b8ea09c2a9dee7c2d` |
 | `sprites/v4/light.json` | 3549 | `bfac76cf7ed5c2aa2992695904056a1c6b07785b7fd20e6c640cb44fd6244a2e` |
 | `sprites/v4/light.png` | 16174 | `b6a34640917bdc57d0bd080836db33376371a3312ebe7b849045268015de3481` |
