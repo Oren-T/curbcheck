@@ -20,10 +20,28 @@ jobs:
 
       # `make setup` installs with --require-hashes, so a tampered or
       # unexpected artifact fails the build rather than the test suite
-      # (SPEC §3.1, threat T1). The frontend needs no npm step: MapLibre and
-      # PMTiles are checked in under web/vendor/.
+      # (SPEC §3.1, threat T1). Nothing is installed for the frontend here:
+      # MapLibre and PMTiles are checked in under web/vendor/ and the lint job
+      # below fetches its two tools on its own.
       - run: make setup
       - run: make check
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # STYLE_GUIDE §4 says the frontend passes Prettier and ESLint under the
+      # same CI gate as Python, and until this job existed that was not true.
+      # The repo has no package.json on purpose (no bundler, vendored libs), so
+      # the versions are pinned in the command rather than in a lockfile; both
+      # were run against this tree before being written down.
+      - run: npx --yes prettier@3.9.6 --check web
+      - run: npx --yes eslint@10.10.0 web
 
   docker:
     runs-on: ubuntu-latest
