@@ -659,7 +659,7 @@ def _price(
     if not verdict.metered or verdict.charged_minutes == 0:
         return (Decimal("0.00"), True, None)
     if not rates:
-        caveats.append("metered, but no published rate for this blockface")
+        caveats.append("Metered, but no published rate for this blockface.")
         return (None, False, None)
 
     priced = [
@@ -669,7 +669,7 @@ def _price(
     if len({price for price, _ in priced}) > 1:
         # SPEC §13.1(b): a few blockfaces carry several zones. Quote the dearest
         # and tell the user to confirm rather than guessing which one applies.
-        caveats.append("more than one meter zone covers this blockface; confirm at the meter")
+        caveats.append("More than one meter zone covers this blockface; confirm at the meter.")
         return (highest[0], False, highest[1])
     return (highest[0], True, highest[1])
 

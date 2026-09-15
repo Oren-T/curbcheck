@@ -272,7 +272,7 @@ def test_street_cleaning_on_a_suspension_date_leaves_the_block_parkable() -> Non
     )
 
     assert verdict.verdict is Verdict.LEGAL
-    assert "street cleaning is suspended on this date" in verdict.caveats
+    assert "Street cleaning is suspended on this date." in verdict.caveats
 
 
 def test_a_midnight_wrapping_prohibition_catches_the_early_morning_side() -> None:
@@ -377,7 +377,7 @@ def test_an_authorized_vehicles_only_school_sign_prohibits_us_when_school_may_be
     )
 
     assert verdict.verdict is Verdict.ILLEGAL
-    assert "school-day rule assumed active" in verdict.caveats
+    assert "School-day rule assumed active." in verdict.caveats
 
 
 def test_a_school_day_rule_lifts_on_a_known_non_school_day() -> None:
@@ -396,7 +396,7 @@ def test_a_school_day_rule_lifts_on_a_known_non_school_day() -> None:
     )
 
     assert verdict.verdict is Verdict.LEGAL
-    assert "school-day rule assumed active" not in verdict.caveats
+    assert "School-day rule assumed active." not in verdict.caveats
 
 
 def test_a_snow_emergency_rule_only_bites_when_one_is_declared() -> None:
@@ -414,7 +414,7 @@ def test_a_snow_emergency_rule_only_bites_when_one_is_declared() -> None:
     )
 
     assert quiet.verdict is Verdict.LEGAL
-    assert any("snow emergency" in caveat for caveat in quiet.caveats)
+    assert any("snow emergency" in caveat.lower() for caveat in quiet.caveats)
     assert declared.verdict is Verdict.ILLEGAL
 
 
@@ -439,7 +439,7 @@ def test_a_sunday_meter_permits_parking_without_charging() -> None:
     assert verdict.verdict is Verdict.LEGAL
     assert verdict.metered
     assert verdict.charged_minutes == 0
-    assert "meters are not in effect for part of this window" in verdict.caveats
+    assert "Meters are not in effect for part of this window." in verdict.caveats
 
 
 def test_an_including_sunday_meter_charges_on_sunday() -> None:
@@ -609,7 +609,7 @@ def test_a_temporary_sign_adds_a_caveat() -> None:
         stacked(temporary), moment("2026-09-14T10:00"), moment("2026-09-14T11:00"), EMPTY_CALENDAR
     )
 
-    assert "a sign here marks itself temporary" in verdict.caveats
+    assert "A sign here marks itself temporary." in verdict.caveats
 
 
 def test_a_rule_for_another_class_that_is_not_exclusive_is_ignored() -> None:

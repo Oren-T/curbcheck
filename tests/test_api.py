@@ -415,6 +415,22 @@ def test_a_verdict_legal_only_by_absence_hides_its_confidence(client):
     assert result["confidence_shown"] is False
 
 
+def test_every_caveat_is_a_sentence(client):
+    """They are printed verbatim under a sentence-case heading (UX verification item 13)."""
+    # The 20:00 window is legal by absence, which is the caveat the audit caught
+    # lower-cased at the head of "Before you park".
+    body = client.post(
+        "/api/search",
+        json={**DESTINATION, "t1": "2026-09-15T20:00:00", "t2": "2026-09-15T22:00:00"},
+    ).json()
+    caveats = [caveat for result in body["results"] for caveat in result["caveats"]]
+
+    assert "Part of this window has no posted rule; read the curb." in caveats
+    for caveat in [*caveats, *body["caveats"]]:
+        assert caveat[0].isupper(), caveat
+        assert caveat.endswith("."), caveat
+
+
 def test_a_no_data_span_reports_no_price_and_no_confidence(client, tmp_path):
     """Never "$0.00" and never "no meter" on curb the app knows nothing about (P0-5)."""
     conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")

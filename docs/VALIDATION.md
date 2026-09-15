@@ -379,9 +379,9 @@ the posted sign and the published calendar. All six pass.
 
 | Case | Segment / sign | Window | Expected | Got |
 |---|---|---|---|---|
-| Meters off on a Major Legal Holiday (SPEC §5.6, §13.2) | `3dc27dd9e77b6179` · `2 HMP 9AM-MIDNIGHT EXCEPT SUNDAY` | Thu 2026-11-26 10:00–12:00 | legal, $0.00 | legal, $0.00, caveat "meters are not in effect for part of this window" |
+| Meters off on a Major Legal Holiday (SPEC §5.6, §13.2) | `3dc27dd9e77b6179` · `2 HMP 9AM-MIDNIGHT EXCEPT SUNDAY` | Thu 2026-11-26 10:00–12:00 | legal, $0.00 | legal, $0.00, caveat "Meters are not in effect for part of this window." |
 | Overnight ban, all days | `267900ccaef7f809` · `MOON & STARS (SYMBOLS) NO STANDING 11PM-7AM ALL DAYS -->` | Mon 2026-09-21 00:00–03:00 | illegal | illegal, "no standing Mon 00:00-03:00" |
-| ASP suspension lifts street cleaning (SPEC §9.3c) | `64a79e8c0273121e` · `NO PARKING (SANITATION BROOM SYMBOL) MONDAY THURSDAY 11AM-12:30PM -->` | Thu 2026-04-02 (Holy Thursday) 11:00–12:00 | legal + suspension caveat | legal, $0.00, caveat "street cleaning is suspended on this date" |
+| ASP suspension lifts street cleaning (SPEC §9.3c) | `64a79e8c0273121e` · `NO PARKING (SANITATION BROOM SYMBOL) MONDAY THURSDAY 11AM-12:30PM -->` | Thu 2026-04-02 (Holy Thursday) 11:00–12:00 | legal + suspension caveat | legal, $0.00, caveat "Street cleaning is suspended on this date." |
 | Window longer than the posted limit (SPEC §9.2) | `3dc27dd9e77b6179` · `2 HMP 9AM-MIDNIGHT EXCEPT SUNDAY` | Wed 2026-09-16 10:00–13:00 | illegal, duration reason | illegal, "posted limit of 120 min is shorter than the 180 min window" |
 | Same, on a 1-hour meter | `cc02e52e071c8824` · `1 HMP COMMERCIAL VEHICLES ONLY 7AM-10PM EXCEPT SUNDAY` | Wed 2026-09-16 10:00–13:00 | illegal | illegal, "reserved for commercial vehicles" |
 | A holiday does not lift a standing ban | `46ff88541bc0a44d` · `NO STANDING ANYTIME <->` | Fri 2026-12-25 10:00–12:00 | illegal | illegal, "no standing Fri 10:00-12:00" |

@@ -566,8 +566,8 @@ a span with a sign the driver can go and read, among spans that cost the same,
 spends nothing the user could perceive. It never reorders spans whose cost
 differs by more than the band.
 
-**What it does not reach:** the caveat "part of this window has no posted rule;
-read the curb" still fires on a `posted` verdict whose window is only partly
+**What it does not reach:** the caveat "Part of this window has no posted rule;
+read the curb." still fires on a `posted` verdict whose window is only partly
 covered, and that mixed case is one word in a caveat list rather than a state of
 its own. `basis` answers "was anything posted at all", not "how much of the
 window did it cover"; `intervals` already carries the latter and nothing renders

@@ -34,7 +34,7 @@ AMBIGUITY_THRESHOLD = 0.8
 # every holiday and street-cleaning verdict silently becomes a guess without it.
 CALENDAR_MISSING_CAVEAT = (
     "Holiday and street-cleaning suspension calendar is missing; holiday and ASP verdicts "
-    "may be wrong"
+    "may be wrong."
 )
 
 # The reason on a span that is legal only because nothing is posted. Written as
@@ -288,24 +288,24 @@ def _caveats(
 
     if any(reg.flags.snow_emergency for reg in regulations):
         caveats.append(
-            "snow emergency rule present; in force only when the city declares one"
+            "Snow emergency rule present; in force only when the city declares one."
             if not calendar.snow_emergency
-            else "snow emergency declared; snow rules are in force"
+            else "Snow emergency declared; snow rules are in force."
         )
     if any(reg.flags.school_days for reg in regulations) and any(
         not calendar.is_known_non_school_day(day) for day in dates
     ):
-        caveats.append("school-day rule assumed active")
+        caveats.append("School-day rule assumed active.")
     if any(reg.flags.temporary for reg in regulations):
-        caveats.append("a sign here marks itself temporary")
+        caveats.append("A sign here marks itself temporary.")
     if any(reg.flags.street_cleaning for reg in regulations) and any(
         calendar.is_asp_suspended(day) for day in dates
     ):
-        caveats.append("street cleaning is suspended on this date")
+        caveats.append("Street cleaning is suspended on this date.")
     if any(outcome.metered and not outcome.meter_charged for outcome in outcomes):
-        caveats.append("meters are not in effect for part of this window")
+        caveats.append("Meters are not in effect for part of this window.")
     if any(outcome.by_absence for outcome in outcomes):
-        caveats.append("part of this window has no posted rule; read the curb")
+        caveats.append("Part of this window has no posted rule; read the curb.")
     return caveats
 
 
