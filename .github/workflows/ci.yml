@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # `make setup` installs with --require-hashes, so a tampered or
+      # unexpected artifact fails the build rather than the test suite
+      # (SPEC §3.1, threat T1). The frontend needs no npm step: MapLibre and
+      # PMTiles are checked in under web/vendor/.
+      - run: make setup
+      - run: make check

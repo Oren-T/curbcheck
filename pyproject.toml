@@ -1,0 +1,80 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "curbcheck"
+version = "0.1.0"
+description = "Where can I legally park near an address in Manhattan, ranked by walk time and money"
+readme = "CLAUDE.md"
+requires-python = ">=3.12,<3.13"
+license = "MIT"
+# Floors only. The installed versions are pinned with hashes in
+# requirements.txt; that file is what CI and `make setup` install from.
+dependencies = [
+    "fastapi>=0.141",
+    "h11>=0.16",
+    "httpx>=0.28",
+    "pydantic>=2.13",
+    "pyproj>=3.8",
+    "shapely>=2.1",
+    "uvicorn>=0.53",
+]
+
+[project.scripts]
+curbcheck = "curbcheck.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["curbcheck"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# web/vendor is third-party JS; scripts/ holds throwaway data-exploration code.
+extend-exclude = ["web/vendor", "scripts"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle
+    "W",
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "PTH",  # flake8-use-pathlib; STYLE_GUIDE §2 requires pathlib
+    "S",    # flake8-bandit; the threat model (SPEC §3) is binding
+    "RET",
+    "ARG",
+    "TID",
+    "RUF",
+]
+ignore = [
+    "S101",  # pytest needs bare asserts
+    "E501",  # ruff format owns line length; E501 only fires on strings it cannot split
+]
+
+[tool.ruff.lint.per-file-ignores]
+# SIM300 reads an UPPER_CASE config attribute as a literal and demands it on
+# the right; asserting `config.X == expected` is the clearer order here.
+"tests/*" = ["ARG001", "S105", "S106", "SIM300"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["curbcheck"]
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers --strict-config"
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["curbcheck"]
