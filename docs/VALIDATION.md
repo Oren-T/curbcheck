@@ -528,3 +528,108 @@ what DOT's posts say. There is no independent survey behind the other 109.
   remain outstanding.
 - **`cross_street_does_not_meet_on_street` (1,702 rows) is untouched** and is now
   the largest single matching gap.
+
+## 10. Re-validation after the span flatten (2026-09-15)
+
+§9 measured the sync that still wrote one `regulation_segment` per post-span,
+with overlapping spans resolved at query time (D24). `docs/DECISIONS.md` D25
+replaced that with a flatten in the ETL: the spans on a blockface-side are cut
+at every boundary and each stretch carries the union of the signs governing it.
+This section is the re-measure after `curbcheck sync --offline` (104.6 s, of
+which 52.7 s is the geometry step). Nothing above is rewritten.
+
+### 10.1 Before and after
+
+| Measure | §9 (pre-flatten) | After the flatten |
+|---|---|---|
+| Real `regulation_segment` rows | 28,360 | **28,436** |
+| Placeholders (D23) | 5,656 | **5,656** (5,298 `no_signs`, 358 `unmatched_signs`) |
+| `regulation_segment` rows in all | 34,016 | **34,092** |
+| `regulation` rows | 38,604 | **54,750** |
+| Curb covered by a real span, counted per row | 6,270,750 ft | **4,733,456 ft** |
+| Mean real span length | 221.1 ft | **166.5 ft** |
+| Real spans carrying more than one sign | 13,124 | **21,168** |
+| Overlapping span pairs (`--overlaps`) | 14,814 | **175** |
+| Legal spans a prohibition overlaps, Wed 10:00–12:00 | 2,267 | **59** |
+| Street sides carrying a rule (`coverage.sides_with_rules`) | 13,114 | **13,114** |
+| Whole-side / arrow-extended / D5-merged spans | 1,964 / 53,622 / 16,113 | unchanged |
+| Verdict spot checks (§7) | 6 / 6 | **6 / 6** |
+| Sync runtime | 88 s | **104.6 s** |
+
+The curb figure is the one to read: 1,537,294 ft — 291 miles — of Manhattan curb
+was being counted twice, once under a permission and once under the prohibition
+that overlapped it. `regulation` rows rise because a sign whose span is cut into
+three now has a row on each stretch; that is the point, and it is what lets
+`resolve` see a ban and a meter in one stack.
+
+Real spans rise by only 76 because the flatten both splits and joins: it cuts
+spans at boundaries, and it collapses the stretches where two posts state the
+same set of rules into one row.
+
+40 real spans are shorter than 5 ft and 5 are shorter than 1 ft, where two posts
+stand within a few feet of each other. They are honest — that really is a
+distinct stack — but they hold zero cars and are not worth ranking; nothing
+treats them specially yet.
+
+### 10.2 The overlap check
+
+`python scripts/validation_regress.py --overlaps` compares the curb geometry of
+every pair of real spans that share a curb side, borough-wide. It reports **175
+overlapping pairs over 204 spans**, down from 14,814 over the pre-flatten
+database. Every one of the 175 is the same shape: DOT writes some signs against
+`1 AVENUE, E 16 ST -> E 18 ST` and others against `1 AVENUE, E 16 ST -> E 17 ST`,
+which are two blockface-sides and two chains here, flattened independently over
+the same physical curb. 1 AVE, E 82 ST and E 84 ST account for 136 of the 204
+spans. D25 is per blockface-side and does not reach this; it is a second
+problem, recorded rather than fixed.
+
+That is why `engine.search._demote_contested_spans` stays. In the Wednesday
+window it has 59 legal spans to demote instead of 2,267, and it now logs a
+warning when it fires, so a rebuild that reintroduces overlap is loud.
+
+### 10.3 The 30 sampled sides
+
+`python scripts/validation_regress.py --baseline data/curbcheck.sqlite.prev`,
+where `.prev` is the §9 database: **27 of 30 agree; 3 are listed for a human**,
+and all three are the `n/v` rows — 13 and 24, which DOT's viewer never answered,
+and 25, the §9.2 sampling artefact on LENOX AVE. No sampled side's verdict moved
+in any of the three windows; every `✓` row reads `ok (unchanged)` against the
+pre-flatten database. §9's count was 26 of 30 with 4 to review because its
+baseline was the *pre-D20* database, in which side 4 still had spans; against
+the §9 database side 4 is unchanged and now reads `ok`. Neither number is a
+change in agreement with DOT.
+
+Side 9 — 8 AVE side E, the D1 disagreement — now carries 3 real spans that tile
+the face instead of 3 that overlap, and still reads legal in all three windows.
+
+### 10.4 The live query the flatten was asked about
+
+Pin 40.7784 / -73.9557 (E 79 ST at 3 AVE), Wednesday 2026-09-16 10:00–12:00,
+5-minute walk:
+
+| | legal | illegal | ambiguous | no_data | total |
+|---|---|---|---|---|---|
+| Pre-flatten (§9 database) | 104 | 110 | 0 | 25 | 239 |
+| After the flatten | **97** | **122** | **0** | **22** | **241** |
+
+The rows are not the same rows — cutting changes both how many spans are in
+radius and where their midpoints fall — so these are counts of curb states, not
+a per-span diff. The direction is the expected one: seven fewer legal and twelve
+more illegal, because permissions that reached back over a ban now carry the ban
+in their stack, and three fewer `no_data` because stretches that held no rule of
+their own inherit one from a span that covers them. **Ambiguous is
+0 both before and after**: D24's demotion never fired inside this radius, so the
+premise that it had turned some of these legal spans amber does not hold here —
+the 2,267 spans it did demote are elsewhere in the borough.
+
+`CHERRY ST, north side` is not within a 5-minute walk of that pin — it is 7.5 km
+south, on the Lower East Side — so it cannot be read off this query. Taken on
+its own it is a clean example of what D25 does. Before, segment 68502 carried a
+`NO STANDING ANYTIME` span over 0–460 ft and a street-cleaning span over
+0–633 ft, and the second read **legal** for the Wednesday window over curb the
+first bans; D24 would have demoted it whole to ambiguous. After, that face is
+0–203 (ban + broom, illegal), 203–337 (ban + two brooms, illegal), 337–460 (ban +
+broom, illegal) and 460–633 (broom alone, **legal**). The split, not an amber
+stripe over the whole block, and the 173 ft DOT actually leaves parkable stays
+green.
+

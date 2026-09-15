@@ -103,11 +103,11 @@ Measured on the 2026-09-15 snapshot (75,865 source sign rows, 74,590 active,
 | Blockface-sides with signs that got at least one | **95.8%** (11,119 of 11,613) |
 | Sign rows the grammar fully parses | **99.83%** (1,698 of 1,790 distinct strings; residue 24 strings / 98 rows) |
 | Gold set (520 hand-labeled descriptions, labeled blind) | **100% semantic match, 97.0% exact, zero false-permitted** |
-| Curb spans produced | 34,016: **28,360** real plus **5,656** grey placeholders for street sides with no rule at all; 920 real spans are forced ambiguous by a meta sign |
-| Metered segments left without a price | **0** of 5,356 |
-| Sampled blockface-sides agreeing with DOT's own sign viewer | **26 of 30** |
+| Curb spans produced | 34,092: **28,436** real plus **5,656** grey placeholders for street sides with no rule at all; 1,207 real spans are forced ambiguous by a meta sign. Real spans on one blockface-side tile it and never overlap |
+| Metered segments left without a price | **0** of 6,317 |
+| Sampled blockface-sides agreeing with DOT's own sign viewer | **27 of 30** (the other 3 are sides DOT's viewer gave no answer for) |
 
-The 26-of-30 figure needs its caveat stated plainly: both references used —
+The 27-of-30 figure needs its caveat stated plainly: both references used —
 [nycdotsigns.net](https://nycdotsigns.net) and
 [parkingregulations.nyc](https://parkingregulations.nyc) — are rendered from the
 **same DOT SIMS export** that CurbCheck reads. That comparison validates this

@@ -273,8 +273,8 @@ form of the string says it is "TO BE USED ONLY FOR CONFLICTING STREET CLEANING
 AND METERED PARKING REGULATIONS" — so the honest answer is that the combination
 is unreadable, not a recomputed price. The placeholder is prohibitive for the
 same reason D13's is: a reader that somehow missed `flags.meta` must still err
-towards keeping the spot off the legal list. 920 of 34,016 segments are
-affected.
+towards keeping the spot off the legal list. 1,207 of 34,092 segments are
+affected (920 before D25 cut the spans a meta sign's post reaches).
 
 **Would reverse it:** reading the meter hours off the sibling panel reliably
 enough to compute "meters off during the times above", which would turn these
@@ -402,6 +402,15 @@ possible, which would let a side be left out honestly instead of drawn grey.
 
 ## D24. A legal span a prohibition overlaps is ambiguous, not legal
 
+**Superseded in practice by D25, kept as a guard.** D25 flattens the spans on a
+blockface-side so the prohibition and the permission arrive in one stack and
+`resolve` settles them per foot of curb, which is the reversal this entry names
+below. `_demote_contested_spans` stays because the engine opens whatever
+database file it is pointed at, `curbcheck.sqlite.prev` is a pre-D25 one, and
+D25 does not reach the 175 pairs of spans that overlap across two *different*
+chains through one segment (docs/VALIDATION.md §10). It now logs a warning
+whenever it fires. Everything below is the reasoning as it was written.
+
 **Decided:** 2026-09-15. `engine.search._demote_contested_spans` turns a span
 the window reads LEGAL into AMBIGUOUS when another span on the same
 `(segment_id, side)` reads ILLEGAL and its curb line overlaps by more than a
@@ -430,3 +439,48 @@ derived from it — intact.
 the prohibition and the permission could be resolved most-restrictive-wins per
 foot of curb and the uncontested remainder stay legal. That is the right fix and
 is more than a query-time guard; this is the safe reading until then.
+
+## D25. A blockface-side is stored as one non-overlapping stack, not as overlapping spans
+
+**Decided:** 2026-09-15. After the D5 merge, `etl.segments` cuts every span on a
+blockface-side at every other span's boundary and writes one `regulation_segment`
+per resulting stretch, carrying the union of the signs that cover it. The
+pre-flatten per-post spans stay in memory only; `derived_from` is the provenance,
+and `regulation` rows are per (span, sign) as before.
+
+**Why:** D20 has a `<->` post extend to the next post of *any* family, so a
+permission and a prohibition each claim the curb between them and their spans
+overlap by design. Each span was its own row with its own rule stack, and
+`resolve.evaluate_segment` stacks most-restrictive-wins only *within* one stack,
+so a `2 HMP <->` reaching back over a `NO STANDING ANYTIME <->` read LEGAL over
+curb that is not. D24 answered that at query time by demoting the whole
+permissive span to AMBIGUOUS, which is safe but throws away the legal remainder
+— the curb past the ban, which DOT's own posts say is parkable — and leaves the
+model saying something false while the query patches over it. Cutting at the
+boundaries says the true thing once: 0–50 ft the ban alone, 50–150 ft both rules
+in one stack, 150–364 ft the meter alone. Measured on the 2026-09-15 snapshot:
+overlapping span pairs 14,814 -> 175 (the residue is cross-chain, below), legal
+spans a prohibition overlaps in the Wednesday window 2,267 -> 59, real spans
+28,360 -> 28,436, `regulation` rows 38,604 -> 54,750, and the curb counted twice
+falls from 6,270,750 ft to 4,733,456 ft. No sampled side's verdict moved
+(`scripts/validation_regress.py`), and the six spot checks still pass — two of
+them on new blocks, one because the block it used to test was itself a false
+legal this fixes.
+
+A stretch no span covers is dropped rather than turned into a placeholder. The
+flatten does not change which curb is covered — `coverage.sides_with_rules` is
+13,114 before and after — so a gap inside a side with rules is not new here, and
+D23's placeholder stays one row per side, which is what makes "a side with a
+real span never draws grey" a checkable invariant. Painting partial gaps is a
+separate change with its own count to measure.
+
+**What it does not reach:** two *chains* through one centerline segment. DOT
+writes some signs against `E 16 ST -> E 18 ST` and others against
+`E 16 ST -> E 17 ST`, which are two blockface-sides here and are flattened
+independently, so 175 pairs of spans still cover the same curb from different
+chains. That is why D24's guard stays, and why it now logs.
+
+**Would reverse it:** a finding that one `regulation_segment` row per stretch is
+too coarse for provenance — that a user needs to see which post a rule came from
+per stretch, rather than the set of signs on it. `regulation` rows are already
+per (span, sign), so this would be a display change, not a model change.
