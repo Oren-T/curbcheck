@@ -144,3 +144,15 @@ def test_the_status_line_is_built_from_the_server_counts() -> None:
 
     assert "statusLine(response.counts" in app, "app.js no longer uses the server counts"
     assert "export function statusLine" in formats
+
+
+def test_the_grey_state_distinguishes_a_data_gap_from_a_matching_gap() -> None:
+    """docs/VALIDATION.md §5: "no signs here" is a false statement about unmatched curb."""
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    index = INDEX_HTML.read_text(encoding="utf-8")
+
+    assert "no_signs:" in copy and "unmatched_signs:" in copy
+    assert "could not place them" in copy
+    assert detail.count("noDataExplanation") >= 2, "detail.js no longer branches on gap_kind"
+    assert "means no data, not no restriction" in index, "the legend lost the no-data sentence"

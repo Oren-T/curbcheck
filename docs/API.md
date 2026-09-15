@@ -158,7 +158,8 @@ point in the Bronx corner of the box simply returns no results.
       "charged_minutes": 120,
       "metered": true,
       "score": 10.4,
-      "rate_label": "Area 1"
+      "rate_label": "Area 1",
+      "gap_kind": null
     }
   ],
   "counts": { "legal": 150, "illegal": 50, "ambiguous": 0, "no_data": 3, "total": 203 },
@@ -209,6 +210,7 @@ rows you did not get are the farthest ones.
 | `metered` | boolean | Whether any governing rule is metered. |
 | `score` | number | Ranking score: the weighted sum of walk, money, and risk. |
 | `rate_label` | string \| null | Meter zone label, when known. |
+| `gap_kind` | `"no_signs"` \| `"unmatched_signs"` \| null | Only on a `no_data` span, and only when the database records why it is empty. `no_signs`: DOT's inventory lists no sign on this centerline side. `unmatched_signs`: DOT does publish signs here and none could be placed on the centerline. The two need different words — 520 of the 722 unmatched blockface-sides carry a NO STANDING/PARKING/STOPPING ANYTIME sign, so "no signs here" would be false about them (`docs/VALIDATION.md` §5). `null` on a real span, and on any database built before the column existed. |
 
 #### `SignRef` fields
 
