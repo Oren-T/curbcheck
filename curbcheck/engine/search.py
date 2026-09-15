@@ -255,14 +255,21 @@ def _demote_contested_spans(
 ) -> None:
     """Turn a legal span that a prohibition also covers into AMBIGUOUS, in place.
 
-    Since docs/DECISIONS.md D25 this should never fire: `etl.segments` cuts the
-    spans on a blockface-side at every boundary, so a prohibition and a
-    permission that overlap arrive as one row with both rules in its stack and
-    `resolve` settles them most-restrictive-wins per foot of curb. It is kept as
-    defence in depth against a database built before D25 — `curbcheck.sqlite.prev`
+    Since docs/DECISIONS.md D25 and D26 this should never fire: `etl.segments`
+    stacks every span that reaches one centerline segment-side, from whatever
+    chain, and cuts them at every boundary, so a prohibition and a permission
+    that overlap arrive as one row with both rules in its stack and `resolve`
+    settles them most-restrictive-wins per foot of curb. There are zero such
+    pairs on the 2026-09-15 database (docs/VALIDATION.md §11). It is kept as
+    defence in depth against a database built before them — `curbcheck.sqlite.prev`
     is one, and the engine will open whatever file it is pointed at — where a
     permissive span reaching back over a `NO STANDING ANYTIME` span would read
     LEGAL over curb that is not, which is SPEC §8.6's P0 defect.
+
+    Its key is `(segment_id, side)`, so it does not reach the one residue left:
+    the RIVERSIDE DR viaduct, which CSCL draws twice under two names and two
+    `physicalid`s. `scripts/validation_regress.py --overlaps` compares geometry
+    and does catch it.
 
     An overlap here means the ETL's invariant has broken, so it is logged: the
     demotion is honest (SPEC §11's "the signs conflict") but it loses the legal

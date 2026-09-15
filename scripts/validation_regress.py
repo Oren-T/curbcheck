@@ -17,9 +17,10 @@ baseline database is where "the same way" comes from, because §2 records
 agreement rather than the verdict itself. Exit status is the number of sides
 that need a human to look at them.
 
-`--overlaps` checks docs/DECISIONS.md D25's invariant instead: no two real
-spans on one blockface-side may cover the same foot of curb. Exit status is the
-number of overlapping pairs, which has to be zero.
+`--overlaps` checks docs/DECISIONS.md D25 and D26's invariant instead: no two
+real spans may cover the same foot of curb. Exit status is the number of
+overlapping pairs; 16 of them are left, all on the one roadway CSCL draws twice
+(docs/VALIDATION.md §11).
 """
 
 from __future__ import annotations
@@ -211,12 +212,13 @@ def status(
 def overlapping_pairs(conn: sqlite3.Connection) -> list[tuple[str, str, float]]:
     """Every pair of real spans on one curb side that cover the same stretch of it.
 
-    docs/DECISIONS.md D25 makes this empty: `etl.segments` cuts a blockface-
-    side's spans at every boundary before writing them. Compared on the curb
-    geometry rather than on `start_ft`/`end_ft`, for two reasons: feet are
-    measured along a chain, and two spans can reach one stretch of curb from
-    different chains or be filed under different segments of the same chain.
-    That also makes this the test `engine.search._demote_contested_spans`
+    docs/DECISIONS.md D25 and D26 make this all but empty: `etl.segments` stacks
+    every span that reaches one centerline segment-side and cuts them at every
+    boundary before writing them. Compared on the curb geometry rather than on
+    `start_ft`/`end_ft`, because two spans can reach one stretch of curb without
+    sharing a `segment_id` at all — which is what the 16 remaining pairs are,
+    the RIVERSIDE DR viaduct that CSCL carries a second time as 12 AVE. That
+    also makes this a stricter test than `engine.search._demote_contested_spans`
     applies at query time, run over the whole borough instead of one radius.
 
     Pairs are found through a grid hash on the bounding box, because comparing
