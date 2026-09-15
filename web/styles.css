@@ -255,50 +255,102 @@ h4 {
   color: inherit;
 }
 
-/* The legend is a floating control, not a panel: four swatch rows plus the
-   sentence that stops an empty curb reading as a safe one (SPEC §11). */
+/* The legend is a compact glass pill group at the bottom-left of the map, clear
+   of the rail: four swatches, and the sentence that stops an empty curb reading
+   as a safe one (SPEC §11), which is never a tooltip. */
 .legend {
   position: absolute;
-  right: var(--s-6);
-  top: var(--s-6);
+  left: calc(var(--panel-w) + var(--s-6) * 2);
+  bottom: var(--s-6);
   z-index: 4;
-  width: 216px;
-  padding: var(--s-5) var(--s-6);
-  border-radius: var(--r-lg);
+  max-width: 420px;
+  padding: var(--s-4) var(--s-6);
+  border-radius: var(--r-pill);
   border: 1px solid var(--c-glass-border);
   background: var(--c-glass);
   backdrop-filter: var(--blur-panel);
   -webkit-backdrop-filter: var(--blur-panel);
   box-shadow: var(--e-lift);
-  font-size: var(--t-caption);
+  font-size: var(--t-micro);
+}
+
+.legend-rows {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-6);
 }
 
 .legend-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: var(--s-4);
-  padding: var(--s-1) 0;
-  color: var(--c-text-secondary);
+  gap: var(--s-3);
 }
 
 .legend-row .legend-word {
   color: var(--c-text);
   font-weight: var(--w-medium);
+  letter-spacing: 0.01em;
 }
 
 .legend-swatch {
   flex: 0 0 auto;
-  width: 30px;
+  width: 22px;
   height: 0;
 }
 
 .legend-note {
-  margin: var(--s-3) 0 0;
-  padding-top: var(--s-3);
-  border-top: 1px solid var(--c-glass-border);
-  font-size: var(--t-micro);
+  margin: var(--s-2) 0 0;
   line-height: var(--lh-normal);
+  color: var(--c-text-muted);
+}
+
+/* The one map button that is ours rather than MapLibre's. */
+.map-control {
+  position: absolute;
+  right: var(--s-6);
+  top: var(--s-6);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 34px;
+  padding: 0 var(--s-6) 0 var(--s-5);
+  border: 1px solid var(--c-glass-border);
+  border-radius: var(--r-pill);
+  background: var(--c-glass);
+  backdrop-filter: var(--blur-chip);
+  -webkit-backdrop-filter: var(--blur-chip);
+  box-shadow: var(--e-lift);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
   color: var(--c-text-secondary);
+  transition: color var(--m-fast) var(--ease-out);
+}
+
+.map-control[hidden] {
+  display: none;
+}
+
+.map-control:hover {
+  color: var(--c-text);
+}
+
+.map-control-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 2px solid var(--c-marker);
+}
+
+/* A button that reads as a link: the attribution line is prose. */
+.link-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--c-accent);
+  font-size: inherit;
+  text-decoration: underline;
 }
 
 /* ---- The rail: a floating glass panel with its own scroll -------------- */
@@ -519,9 +571,10 @@ h4 {
   }
 
   .legend {
-    width: 196px;
+    left: calc(340px + var(--s-5) * 2);
     right: var(--s-5);
-    top: var(--s-5);
+    bottom: var(--s-5);
+    max-width: none;
   }
 }
 
@@ -540,16 +593,19 @@ h4 {
     margin-left: var(--s-3);
   }
 
-  /* The legend is a compact wrapped row on a phone: four swatches and the
-     no-data sentence, which SPEC §11 requires wherever curb is drawn. */
+  /* Phone: the legend moves to the top-left — the bottom belongs to the
+     drawer — and stays a wrapped pill group with its sentence attached. */
   .legend {
+    left: var(--s-4);
     right: var(--s-4);
+    bottom: auto;
     top: var(--s-4);
-    width: auto;
-    max-width: 66vw;
+    max-width: none;
     padding: var(--s-3) var(--s-5);
-    display: flex;
-    flex-wrap: wrap;
+    border-radius: var(--r-lg);
+  }
+
+  .legend-rows {
     gap: var(--s-1) var(--s-5);
   }
 
@@ -557,10 +613,10 @@ h4 {
     width: 18px;
   }
 
-  .legend-note {
-    flex-basis: 100%;
-    margin-top: var(--s-2);
-    padding-top: var(--s-2);
+  .map-control {
+    top: auto;
+    bottom: calc(var(--drawer-peek) + var(--s-8));
+    right: var(--s-4);
   }
 
   .map-attribution {

@@ -20,13 +20,15 @@ export function renderLegend(container) {
     swatch.style.height = `${height}px`;
     swatch.style.borderRadius = `${height}px`;
     swatch.style.background = swatchBackground(verdict, height);
-    return el("div", { className: "legend-row" }, [
+    return el("span", { className: "legend-row" }, [
       swatch,
       el("span", { className: "legend-word", text: verdictInfo(verdict).label }),
     ]);
   });
   replaceChildren(container, [
-    ...rows,
+    el("div", { className: "legend-rows" }, rows),
+    // Never a tooltip: this is the sentence that stops an empty curb reading as
+    // a safe one, so it lives inside the legend at all times (SPEC §11).
     el("p", { className: "legend-note", text: NO_DATA_LEGEND_NOTE }),
   ]);
 }

@@ -199,6 +199,14 @@
 
       <section class="map-area" aria-label="Map">
         <div id="map" class="map" tabindex="-1" aria-label="Map of curb verdicts"></div>
+
+        <!-- Shown once a destination is set: the map is pannable, and the
+             answer's own radius is the easiest thing to lose (UX_AUDIT P1-8). -->
+        <button type="button" id="recentre" class="map-control" hidden>
+          <span class="map-control-dot" aria-hidden="true"></span>
+          Recentre
+        </button>
+
         <div id="legend" class="legend" role="group" aria-label="Verdict legend"></div>
         <p class="map-attribution">
           ©
@@ -208,13 +216,24 @@
             rel="noopener noreferrer"
             >OpenStreetMap contributors</a
           >
-          · Protomaps · Data: NYC Open Data (DOT, DCP)
+          · Protomaps · Data: NYC Open Data (DOT, DCP) ·
+          <button type="button" id="about-open" class="link-button">About &amp; data</button>
         </p>
         <div
           id="detail"
           class="detail"
           role="dialog"
           aria-labelledby="detail-title"
+          aria-modal="false"
+          hidden
+        ></div>
+
+        <!-- Sources, snapshot date, credit, and the whole of SPEC §17 again. -->
+        <div
+          id="about"
+          class="detail detail-about"
+          role="dialog"
+          aria-labelledby="about-title"
           aria-modal="false"
           hidden
         ></div>

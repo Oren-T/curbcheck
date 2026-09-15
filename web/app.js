@@ -9,6 +9,7 @@
  */
 
 import * as api from "./api.js";
+import { hideAbout, renderAbout } from "./about.js";
 import { createAutocomplete } from "./autocomplete.js";
 import {
   CALENDAR_MISSING_CAVEAT,
@@ -82,6 +83,8 @@ const dom = {
   results: byId("results"),
   resultsHeading: byId("results-heading"),
   detail: byId("detail"),
+  about: byId("about"),
+  aboutOpen: byId("about-open"),
   legend: byId("legend"),
   toasts: byId("toasts"),
   noticeToggle: byId("notice-toggle"),
@@ -90,6 +93,7 @@ const dom = {
   drawerHandle: byId("drawer-handle"),
   drawerSummary: byId("drawer-summary"),
   mapContainer: byId("map"),
+  recentre: byId("recentre"),
 };
 
 dom.resultsHeading.hidden = true;
@@ -112,6 +116,7 @@ const state = {
   selectedId: null,
   hoverId: null,
   lastFocused: null,
+  aboutOpener: null,
   searching: false,
   coverage: null,
 };
@@ -209,6 +214,8 @@ function showResponse(response, walkMinutes) {
     state.resolved = { lat: destination.lat, lon: destination.lon, label };
     curbMap.setDestination([destination.lon, destination.lat], state.resolved.label);
     curbMap.setWalkRadius([destination.lon, destination.lat], walkMinutes);
+    dom.recentre.hidden = false;
+    dom.recentre.setAttribute("aria-label", `Recentre on ${state.resolved.label || "destination"}`);
   }
   curbMap.setCoverage(null);
   curbMap.setResults(state.results);
@@ -447,6 +454,24 @@ function closeDetail({ restoreFocus }) {
   }
 }
 
+/* ---- The About & data sheet -------------------------------------------- */
+
+function openAbout() {
+  state.aboutOpener = document.activeElement;
+  const close = renderAbout(dom.about, { onClose: () => closeAbout() });
+  updatePadding();
+  close.focus();
+}
+
+function closeAbout() {
+  hideAbout(dom.about);
+  updatePadding();
+  if (state.aboutOpener && state.aboutOpener.isConnected) {
+    state.aboutOpener.focus();
+  }
+  state.aboutOpener = null;
+}
+
 /* ---- Chrome ------------------------------------------------------------ */
 
 /**
@@ -537,7 +562,8 @@ function pickCandidate(candidate) {
 function updatePadding() {
   const phone = drawer.isPhone();
   const railWidth = phone ? 0 : dom.rail.getBoundingClientRect().width + 32;
-  const sheetWidth = dom.detail.hidden || phone ? 0 : dom.detail.getBoundingClientRect().width + 32;
+  const sheet = dom.detail.hidden ? dom.about : dom.detail;
+  const sheetWidth = sheet.hidden || phone ? 0 : sheet.getBoundingClientRect().width + 32;
   curbMap.setPadding({
     top: 40,
     bottom: phone ? dom.rail.getBoundingClientRect().height + 24 : 40,
@@ -640,6 +666,14 @@ createAutocomplete({
 
 renderLegend(dom.legend);
 
+dom.aboutOpen.addEventListener("click", () => openAbout());
+
+dom.recentre.addEventListener("click", () => {
+  if (state.resolved) {
+    curbMap.recentre([state.resolved.lon, state.resolved.lat]);
+  }
+});
+
 dom.form.addEventListener("submit", onSubmit);
 dom.summaryEdit.addEventListener("click", () => searchCard.expand());
 dom.destination.addEventListener("input", () => {
@@ -659,7 +693,14 @@ dom.noticeToggle.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && state.selectedId !== null) {
+  if (event.key !== "Escape") {
+    return;
+  }
+  if (!dom.about.hidden) {
+    closeAbout();
+    return;
+  }
+  if (state.selectedId !== null) {
     closeDetail({ restoreFocus: true });
   }
 });

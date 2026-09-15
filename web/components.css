@@ -1128,6 +1128,67 @@ input[type="range"] {
   color: var(--c-text-secondary);
 }
 
+/* ---- About & data ------------------------------------------------------ */
+
+.detail-about .detail-scroll > section + section {
+  margin-top: var(--s-8);
+}
+
+.detail-about p {
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+  color: var(--c-text-secondary);
+}
+
+.about-lede {
+  margin: 0 0 var(--s-5);
+  font-size: var(--t-small);
+  color: var(--c-text-secondary);
+}
+
+.source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.source-list li {
+  display: grid;
+  gap: var(--s-1);
+}
+
+.source-name {
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+}
+
+.source-id {
+  font-family: var(--font-mono);
+  font-size: var(--t-micro);
+  color: var(--c-text-muted);
+}
+
+.source-role {
+  font-size: var(--t-caption);
+  color: var(--c-text-secondary);
+}
+
+/* SPEC §17 in full. Loose leading because it is 121 words of legal text and
+   nobody reads a wall set at 1.45. */
+.about-disclaimer {
+  margin: 0;
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--v-ambiguous-soft);
+  box-shadow: inset 3px 0 0 var(--v-ambiguous);
+  color: var(--v-ambiguous-ink);
+  font-size: var(--t-small);
+  line-height: var(--lh-loose);
+}
+
 /* ---- Phone: the sheet is a second drawer layer over the rail ----------- */
 
 @media (max-width: 1099px) {

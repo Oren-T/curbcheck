@@ -224,7 +224,9 @@ export class CurbMap {
       maxZoom: 19,
     });
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "bottom-right");
-    this.map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-left");
+    // Both stacked on the right: the bottom-left corner is the legend's, and
+    // the legend is the only map furniture that carries a safety sentence.
+    this.map.addControl(new maplibregl.ScaleControl({ unit: "imperial" }), "bottom-right");
 
     this.ready = new Promise((resolve) => {
       this.map.on("load", () => {

@@ -30,6 +30,7 @@ STYLE_JSON = WEB_DIR / "basemap" / "style.json"
 # Every module the page loads, as index.html and the imports expect them. A new
 # module is fine; a missing one means the page 404s a script and renders blank.
 EXPECTED_MODULES = {
+    "about.js",
     "api.js",
     "app.js",
     "autocomplete.js",
@@ -437,7 +438,7 @@ def test_the_detail_sheet_is_a_labelled_dialog_that_leads_with_the_governing_sig
     # Focus moves in on open and back to the card on close (UX_AUDIT (e) 4).
     assert "close.focus()" in app
     assert "state.lastFocused.focus()" in app
-    assert 'event.key === "Escape"' in app
+    assert 'event.key !== "Escape"' in app, "Escape no longer closes a sheet"
 
 
 def test_every_scroll_region_owns_its_own_container() -> None:
