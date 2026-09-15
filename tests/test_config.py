@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -53,3 +54,12 @@ def test_allowlist_holds_exactly_the_hosts_the_threat_model_names() -> None:
         }
     )
     assert config.ALLOWED_HOSTS == expected
+
+
+def test_the_package_declares_no_licence_the_owner_has_not_chosen() -> None:
+    """README.md: "License: TBD by the owner". pyproject used to say MIT."""
+    root = Path(__file__).resolve().parents[1]
+    pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+
+    assert "license" not in pyproject["project"]
+    assert "license-files" not in pyproject["project"]

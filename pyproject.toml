@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Where can I legally park near an address in Manhattan, ranked by walk time and money"
 readme = "CLAUDE.md"
 requires-python = ">=3.12,<3.13"
-license = "MIT"
+# No `license` field: README.md says the licence is the owner's to choose and
+# has not been chosen. Declaring one here would answer that question in the
+# package metadata instead of in the repository.
 # Floors only. The installed versions are pinned with hashes in
 # requirements.txt; that file is what CI and `make setup` install from.
 dependencies = [
