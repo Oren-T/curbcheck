@@ -1,0 +1,1125 @@
+/*
+ * CurbCheck — components: the search card, the result list, the detail sheet.
+ * Shell and layout live in styles.css; every value comes from tokens.css.
+ *
+ * Two rules here are safety rules, not taste:
+ *  - A verdict is never carried by colour alone (SPEC §11): every chip holds a
+ *    word, a symbol, and the same dash pattern the map draws.
+ *  - The caveat block is never a disclosure (UX_AUDIT (f) 5), so it has no
+ *    collapsed state to style.
+ */
+
+/* ---- Search card ------------------------------------------------------- */
+
+.search-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-7);
+}
+
+.search-card[hidden] {
+  display: none;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  min-width: 0;
+}
+
+.advanced .field {
+  gap: var(--s-2);
+}
+
+label,
+.field-label {
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.text-input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tap-min);
+  padding: 0 var(--s-6);
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow:
+    inset 0 0 0 1px var(--c-border-strong),
+    var(--e-1);
+  font-size: var(--t-body);
+  font-variant-numeric: tabular-nums;
+  transition:
+    box-shadow var(--m-fast) var(--ease-out),
+    background var(--m-fast) var(--ease-out);
+}
+
+.text-input::placeholder {
+  color: var(--c-text-muted);
+}
+
+.text-input:hover {
+  box-shadow:
+    inset 0 0 0 1px var(--c-text-muted),
+    var(--e-1);
+}
+
+.text-input:focus-visible {
+  box-shadow:
+    inset 0 0 0 1.5px var(--c-accent),
+    var(--focus-ring);
+}
+
+input[type="date"].text-input,
+input[type="time"].text-input,
+input[type="number"].text-input {
+  padding: 0 var(--s-5);
+}
+
+.when-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: var(--s-4);
+}
+
+.sub-field {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.sub-field[hidden] {
+  display: none;
+}
+
+.sub-field .text-input {
+  width: 140px;
+}
+
+.summary-line {
+  margin: 0;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-secondary);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--t-caption);
+  color: var(--c-text-secondary);
+}
+
+.hint:empty {
+  display: none;
+}
+
+/* Chip groups double as the duration, walk-radius, and ranking controls. They
+   are `role="radiogroup"` with roving tabindex, so one Tab stop each. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+}
+
+.chip {
+  min-height: 34px;
+  padding: 0 var(--s-6);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: var(--c-chip);
+  backdrop-filter: var(--blur-chip);
+  -webkit-backdrop-filter: var(--blur-chip);
+  color: var(--c-text-secondary);
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+  white-space: nowrap;
+  transition:
+    background var(--m-fast) var(--ease-out),
+    color var(--m-fast) var(--ease-out),
+    border-color var(--m-fast) var(--ease-out),
+    transform var(--m-instant) var(--ease-out);
+}
+
+.chip:hover {
+  border-color: var(--c-accent);
+  color: var(--c-text);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chip[aria-checked="true"] {
+  background: var(--c-accent-soft);
+  border-color: var(--c-accent);
+  color: var(--c-accent-ink);
+  font-weight: var(--w-semibold);
+}
+
+.chip[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.advanced {
+  margin-top: var(--s-3);
+  font-size: var(--t-small);
+}
+
+.advanced > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: fit-content;
+  padding: var(--s-2) var(--s-4);
+  border-radius: var(--r-pill);
+  list-style: none;
+  color: var(--c-text-secondary);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+}
+
+.advanced > summary::-webkit-details-marker {
+  display: none;
+}
+
+.advanced > summary::before {
+  content: "›";
+  display: inline-block;
+  transition: transform var(--m-fast) var(--ease-out);
+}
+
+.advanced[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.advanced > summary:hover {
+  background: var(--c-chip);
+  color: var(--c-text);
+}
+
+.advanced-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+  margin-top: var(--s-5);
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--c-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--c-border);
+}
+
+.advanced label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s-4);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: var(--w-medium);
+  color: var(--c-text-secondary);
+}
+
+.advanced output {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-semibold);
+  color: var(--c-text);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--c-accent);
+}
+
+.primary {
+  min-height: var(--tap-min);
+  padding: 0 var(--s-6);
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--c-accent);
+  color: #fff;
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  box-shadow: var(--e-2);
+  transition:
+    background var(--m-fast) var(--ease-out),
+    transform var(--m-instant) var(--ease-out),
+    box-shadow var(--m-fast) var(--ease-out);
+}
+
+.primary:hover {
+  background: var(--c-accent-hover);
+  box-shadow: var(--e-lift);
+}
+
+.primary:active {
+  transform: translateY(1px);
+}
+
+.primary:disabled {
+  background: var(--c-text-muted);
+  cursor: progress;
+  box-shadow: none;
+}
+
+/* The stale marker: the walk radius and the window are server-side inputs, so
+   changing one makes what is on screen an answer to a different question. */
+.primary.is-stale {
+  box-shadow:
+    0 0 0 3px var(--c-select-glow),
+    var(--e-2);
+}
+
+.stale-note {
+  margin: calc(var(--s-4) * -1) 0 0;
+  font-size: var(--t-caption);
+  color: var(--v-ambiguous-ink);
+}
+
+.stale-note[hidden] {
+  display: none;
+}
+
+.ghost {
+  min-height: 32px;
+  padding: 0 var(--s-5);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--c-text-secondary);
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  transition:
+    background var(--m-fast) var(--ease-out),
+    color var(--m-fast) var(--ease-out);
+}
+
+.ghost:hover {
+  background: var(--c-chip);
+  color: var(--c-text);
+}
+
+/* The one-line summary the search card collapses to after a search. */
+.search-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-5) var(--s-5) var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: var(--e-1);
+}
+
+.search-summary[hidden] {
+  display: none;
+}
+
+.search-summary-text {
+  flex: 1 1 auto;
+  margin: 0;
+  min-width: 0;
+  font-size: var(--t-small);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-tight);
+}
+
+.search-summary-text b {
+  display: block;
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+}
+
+.search-summary .ghost {
+  flex: 0 0 auto;
+}
+
+/* ---- Autocomplete (ARIA combobox) -------------------------------------- */
+
+.combobox {
+  position: relative;
+}
+
+.ac-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + var(--s-3));
+  z-index: 12;
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  margin: 0;
+  padding: var(--s-2);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--c-glass-border);
+  background: var(--c-glass-raised);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+  box-shadow: var(--e-3);
+}
+
+.ac-list[hidden] {
+  display: none;
+}
+
+.ac-option {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-4) var(--s-5);
+  border-radius: var(--r-md);
+  cursor: pointer;
+}
+
+.ac-option[aria-selected="true"],
+.ac-option:hover {
+  background: var(--c-accent-soft);
+}
+
+.ac-glyph {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: var(--r-sm);
+  background: var(--c-surface-sunken);
+  color: var(--c-text-secondary);
+  font-size: var(--t-small);
+}
+
+.ac-body {
+  min-width: 0;
+}
+
+.ac-label {
+  display: block;
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ac-secondary {
+  display: block;
+  font-size: var(--t-caption);
+  color: var(--c-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ac-option-pin .ac-glyph {
+  background: var(--c-accent-soft);
+  color: var(--c-accent-ink);
+}
+
+/* ---- Verdict chips ----------------------------------------------------- */
+
+.verdict-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-1) var(--s-5) var(--s-1) var(--s-4);
+  border-radius: var(--r-pill);
+  border: 1px solid transparent;
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  white-space: nowrap;
+}
+
+.verdict-pattern {
+  width: 16px;
+  height: 0;
+  flex: 0 0 auto;
+}
+
+.verdict-symbol {
+  font-size: var(--t-caption);
+}
+
+.verdict-legal {
+  background: var(--v-legal-soft);
+  color: var(--v-legal-ink);
+  border-color: color-mix(in srgb, var(--v-legal) 35%, transparent);
+}
+
+.verdict-legal .verdict-pattern {
+  border-top: 3px solid var(--v-legal);
+}
+
+/* Legality by absence. Same colour family, deliberately unfilled: a dashed
+   outline says "nothing was read here" where a solid chip would say "a sign
+   said yes" (UX_AUDIT P0-1). */
+.verdict-absence {
+  background: transparent;
+  color: var(--v-legal-ink);
+  border: 1.5px dashed var(--v-legal);
+}
+
+.verdict-absence .verdict-pattern {
+  border-top: 3px dashed var(--v-legal);
+}
+
+.verdict-ambiguous {
+  background: var(--v-ambiguous-soft);
+  color: var(--v-ambiguous-ink);
+  border-color: color-mix(in srgb, var(--v-ambiguous) 45%, transparent);
+}
+
+.verdict-ambiguous .verdict-pattern {
+  border-top: 3px dashed var(--v-ambiguous);
+}
+
+.verdict-illegal {
+  background: var(--v-illegal-soft);
+  color: var(--v-illegal-ink);
+  border-color: color-mix(in srgb, var(--v-illegal) 35%, transparent);
+}
+
+.verdict-illegal .verdict-pattern {
+  border-top: 3px dotted var(--v-illegal);
+}
+
+.verdict-no_data {
+  background: var(--v-nodata-soft);
+  color: var(--v-nodata-ink);
+  border-color: color-mix(in srgb, var(--v-nodata) 40%, transparent);
+}
+
+.verdict-no_data .verdict-pattern {
+  border-top: 3px dotted var(--v-nodata);
+}
+
+/* ---- Result list ------------------------------------------------------- */
+
+.results-heading[hidden] {
+  display: none;
+}
+
+.results-heading {
+  margin: var(--s-7) 0 var(--s-3);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.results-region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.results-count {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--c-text-secondary);
+}
+
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  width: 100%;
+  padding: var(--s-5) var(--s-6);
+  text-align: left;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: var(--e-1);
+  transition:
+    transform var(--m-fast) var(--ease-out),
+    box-shadow var(--m-fast) var(--ease-out),
+    background var(--m-fast) var(--ease-out);
+}
+
+/* The 4 px verdict edge repeats the map's dash pattern, so a card and its line
+   are recognisably the same thing without reading either label. */
+.card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: var(--s-4);
+  bottom: var(--s-4);
+  width: 4px;
+  border-radius: var(--r-pill);
+}
+
+.card-legal::before {
+  background: var(--v-legal);
+}
+
+.card-legal.card-absence::before {
+  background: repeating-linear-gradient(
+    var(--v-legal) 0 6px,
+    color-mix(in srgb, var(--v-legal) 25%, transparent) 6px 10px
+  );
+}
+
+.card-ambiguous::before {
+  background: repeating-linear-gradient(var(--v-ambiguous) 0 7px, transparent 7px 11px);
+}
+
+.card-illegal::before {
+  background: repeating-linear-gradient(var(--v-illegal) 0 4px, transparent 4px 7px);
+}
+
+.card-no_data::before {
+  background: repeating-linear-gradient(var(--v-nodata) 0 3px, transparent 3px 8px);
+}
+
+.card:hover {
+  transform: translateY(-1px);
+  background: var(--c-accent-soft);
+  box-shadow: var(--e-lift);
+}
+
+.card[aria-pressed="true"] {
+  background: var(--c-accent-soft);
+  box-shadow:
+    0 0 0 2px var(--c-accent),
+    0 0 0 6px var(--c-select-glow),
+    var(--e-lift);
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+.card-rank {
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-muted);
+}
+
+.card-walk {
+  margin-left: auto;
+  white-space: nowrap;
+  font-size: var(--t-lead);
+  font-weight: var(--w-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--track-tight);
+}
+
+.card-walk span {
+  font-size: var(--t-caption);
+  font-weight: var(--w-regular);
+  color: var(--c-text-secondary);
+}
+
+.card-street {
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  line-height: var(--lh-tight);
+}
+
+.card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-secondary);
+}
+
+.card-price {
+  color: var(--c-text);
+  font-weight: var(--w-semibold);
+}
+
+.card-reason {
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+  color: var(--c-text);
+}
+
+.card-reason-absence {
+  color: var(--v-nodata-ink);
+}
+
+.show-more {
+  align-self: flex-start;
+}
+
+/* Collapsed verdict groups. Always present, always counted from the server's
+   `counts`, even when the group is empty (UX_AUDIT (f) 7). */
+.group {
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: var(--e-1);
+  overflow: hidden;
+}
+
+.group-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  width: 100%;
+  min-height: var(--tap-min);
+  padding: var(--s-4) var(--s-6);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: var(--t-small);
+  font-weight: var(--w-medium);
+}
+
+.group-toggle::after {
+  content: "›";
+  margin-left: auto;
+  color: var(--c-text-muted);
+  transition: transform var(--m-fast) var(--ease-out);
+}
+
+.group-toggle[aria-expanded="true"]::after {
+  transform: rotate(90deg);
+}
+
+.group-count {
+  color: var(--c-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.group-body {
+  padding: 0 var(--s-4) var(--s-4);
+}
+
+.group-body[hidden] {
+  display: none;
+}
+
+.group-body .results {
+  gap: var(--s-3);
+}
+
+.group-note {
+  margin: 0 0 var(--s-3);
+  padding: 0 var(--s-3);
+  font-size: var(--t-caption);
+  color: var(--c-text-secondary);
+}
+
+/* ---- Loading skeletons ------------------------------------------------- */
+
+.skeleton-card {
+  height: 96px;
+  border-radius: var(--r-lg);
+  background: var(--c-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--c-border);
+}
+
+.progress-text {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--c-text-secondary);
+}
+
+/* ---- Detail sheet ------------------------------------------------------ */
+
+.detail {
+  position: absolute;
+  right: var(--s-6);
+  top: var(--s-6);
+  bottom: var(--s-6);
+  width: var(--sheet-w);
+  max-width: calc(100% - var(--s-6) * 2);
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--c-glass-border);
+  background: var(--c-glass-raised);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+  box-shadow: var(--e-sheet);
+  overflow: hidden;
+  animation: sheet-in var(--m-base) var(--ease-out);
+}
+
+.detail[hidden] {
+  display: none;
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.detail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0 var(--s-7) var(--s-9);
+}
+
+.detail-header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-5);
+  padding: var(--s-6) var(--s-7) var(--s-5);
+  border-bottom: 1px solid var(--c-glass-border);
+}
+
+.detail-title {
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--t-title);
+  font-weight: var(--w-semibold);
+}
+
+.detail-sub {
+  margin: var(--s-2) 0 0;
+  font-size: var(--t-caption);
+  color: var(--c-text-secondary);
+}
+
+.detail-close {
+  flex: 0 0 auto;
+  min-width: var(--tap-min);
+  min-height: 34px;
+  padding: 0 var(--s-5);
+  border: 1px solid var(--c-border-strong);
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  color: var(--c-text-secondary);
+}
+
+.detail-close:hover {
+  background: var(--c-chip);
+  color: var(--c-text);
+}
+
+.detail h3 {
+  margin: var(--s-8) 0 var(--s-4);
+  font-size: var(--t-caption);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+.detail h4 {
+  margin: var(--s-5) 0 var(--s-3);
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+}
+
+.detail-verdict {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+  margin-top: var(--s-6);
+  padding: var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: var(--e-1);
+}
+
+.detail-verdict-legal {
+  background: var(--v-legal-soft);
+}
+
+.detail-verdict-ambiguous {
+  background: var(--v-ambiguous-soft);
+}
+
+.detail-verdict-illegal {
+  background: var(--v-illegal-soft);
+}
+
+.detail-verdict-no_data {
+  background: var(--v-nodata-soft);
+}
+
+.detail-reason {
+  margin: 0;
+  font-size: var(--t-lead);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--track-tight);
+}
+
+.detail-basis {
+  margin: 0;
+  font-size: var(--t-small);
+  color: var(--c-text-secondary);
+}
+
+/* "Before you park" — every caveat, always open, directly under the verdict. */
+.caveat-block {
+  margin-top: var(--s-5);
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--v-ambiguous-soft);
+  color: var(--v-ambiguous-ink);
+  box-shadow: inset 3px 0 0 var(--v-ambiguous);
+}
+
+.caveat-block h3 {
+  margin: 0 0 var(--s-3);
+  color: inherit;
+}
+
+.caveat-block ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+}
+
+.caveat-block li + li {
+  margin-top: var(--s-3);
+}
+
+.notice {
+  margin: var(--s-5) 0 0;
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+  background: var(--c-surface-sunken);
+  box-shadow: inset 3px 0 0 var(--c-border-strong);
+}
+
+.notice-ambiguous {
+  background: var(--v-ambiguous-soft);
+  color: var(--v-ambiguous-ink);
+  box-shadow: inset 3px 0 0 var(--v-ambiguous);
+}
+
+.notice-no_data {
+  background: var(--v-nodata-soft);
+  color: var(--v-nodata-ink);
+  box-shadow: inset 3px 0 0 var(--v-nodata);
+}
+
+.sign-card {
+  margin-bottom: var(--s-5);
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  background: var(--c-surface);
+  box-shadow: var(--e-1);
+}
+
+.as-posted-eyebrow {
+  display: block;
+  margin-bottom: var(--s-3);
+  font-size: var(--t-micro);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-caps);
+  text-transform: uppercase;
+  color: var(--c-text-muted);
+}
+
+/* Raw sign text, quoted verbatim (SPEC §10). Wrapped, never truncated, never
+   scrolled sideways. */
+.as-posted {
+  margin: 0;
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-md);
+  background: var(--c-surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--c-border-strong);
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.sign-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-5);
+  margin-top: var(--s-3);
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--c-text-secondary);
+}
+
+.collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 38px;
+  padding: var(--s-3) var(--s-5);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: transparent;
+  text-align: left;
+  font-size: var(--t-small);
+  color: var(--c-text-secondary);
+}
+
+.collapse-toggle::after {
+  content: "›";
+  margin-left: auto;
+  transition: transform var(--m-fast) var(--ease-out);
+}
+
+.collapse-toggle[aria-expanded="true"]::after {
+  transform: rotate(90deg);
+}
+
+.collapse-body {
+  margin-top: var(--s-4);
+}
+
+.collapse-body[hidden] {
+  display: none;
+}
+
+.rule {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1px solid var(--c-border);
+}
+
+.rule-summary {
+  margin: 0 0 var(--s-3);
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--s-2) var(--s-6);
+  margin: 0;
+  font-size: var(--t-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.facts dt {
+  color: var(--c-text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail-fineprint {
+  margin: var(--s-7) 0 0;
+  padding-top: var(--s-5);
+  border-top: 1px solid var(--c-border);
+  font-size: var(--t-caption);
+  line-height: var(--lh-normal);
+  color: var(--c-text-secondary);
+}
+
+/* ---- Phone: the sheet is a second drawer layer over the rail ----------- */
+
+@media (max-width: 1099px) {
+  .detail {
+    width: min(520px, calc(100% - var(--s-5) * 2));
+    right: var(--s-5);
+    top: var(--s-5);
+    bottom: var(--s-5);
+  }
+}
+
+@media (max-width: 640px) {
+  .detail {
+    right: 0;
+    left: 0;
+    top: var(--s-7);
+    bottom: 0;
+    width: auto;
+    max-width: none;
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+    animation: sheet-up var(--m-slow) var(--ease-out);
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(14px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .detail-header {
+    padding: var(--s-5) var(--s-6) var(--s-4);
+  }
+
+  .detail-scroll {
+    padding: 0 var(--s-6) var(--s-9);
+  }
+
+  .when-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ---- Map furniture ----------------------------------------------------- */
+
+/* Not MapLibre's teardrop: a disc reads at any zoom and cannot be mistaken for
+   a verdict line (DESIGN_DIRECTION §6). */
+.map-marker {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--c-marker);
+  box-shadow:
+    0 0 0 3px #fff,
+    0 0 0 4px rgba(0, 0, 0, 0.25),
+    0 4px 10px rgba(26, 86, 176, 0.45);
+}
+
+.ring-label {
+  padding: var(--s-1) var(--s-4);
+  border-radius: var(--r-pill);
+  background: var(--c-surface-scrim);
+  backdrop-filter: var(--blur-chip);
+  -webkit-backdrop-filter: var(--blur-chip);
+  box-shadow: var(--e-1);
+  font-size: var(--t-micro);
+  font-weight: var(--w-medium);
+  color: var(--c-text-secondary);
+  white-space: nowrap;
+}
+
+.ac-option-empty {
+  color: var(--c-text-secondary);
+  font-size: var(--t-small);
+  cursor: default;
+}

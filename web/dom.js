@@ -6,7 +6,7 @@
  * escapes), so there is no code path in this app that builds markup from data.
  */
 
-import { verdictInfo, verdictKey } from "./format.js";
+import { verdictChip } from "./format.js";
 
 /**
  * Build an element. `text` is always assigned with textContent, never parsed.
@@ -67,15 +67,53 @@ export function definition(term, value) {
 }
 
 /**
- * The verdict badge: colour, symbol, and the written word together.
+ * The verdict chip: colour, symbol, written word, and the map's dash pattern.
  *
- * SPEC §11 requires the four states to stay visually distinct, and the word is
- * what makes them distinguishable without colour vision.
+ * SPEC §11 requires the four states to stay visually distinct and UX_AUDIT (e) 1
+ * requires four channels, so the pattern bar repeats the `line-dasharray` the
+ * same verdict is drawn with on the map.
  */
-export function verdictBadge(verdict) {
-  const info = verdictInfo(verdict);
-  return el("span", { className: `badge badge-${verdictKey(verdict)}` }, [
-    el("span", { className: "badge-symbol", text: info.symbol, attrs: { "aria-hidden": "true" } }),
-    el("span", { text: info.label }),
+export function verdictChipNode(result) {
+  const chip = verdictChip(result);
+  return el("span", { className: `verdict-chip ${chip.className}` }, [
+    el("span", { className: "verdict-pattern", attrs: { "aria-hidden": "true" } }),
+    el("span", {
+      className: "verdict-symbol",
+      text: chip.symbol,
+      attrs: { "aria-hidden": "true" },
+    }),
+    el("span", { text: chip.label }),
   ]);
+}
+
+/**
+ * A labelled disclosure: a `aria-expanded` button over a `hidden` body.
+ *
+ * Used for the verdict groups and for "Other signs on this block". Native
+ * `<details>` is not used where the summary has to carry a live count and a
+ * second line, because Safari's summary styling fights both.
+ *
+ * @param {{label: string, count?: number|null, expanded?: boolean,
+ *          className?: string, toggleClassName?: string}} options
+ * @returns {{root: HTMLElement, toggle: HTMLElement, body: HTMLElement}}
+ */
+export function collapsible({
+  label,
+  count = null,
+  expanded = false,
+  className = "group",
+  toggleClassName = "group-toggle",
+}) {
+  const body = el("div", { className: "group-body", attrs: { hidden: !expanded } });
+  const toggle = el("button", { className: toggleClassName, attrs: { type: "button" } }, [
+    el("span", { text: label }),
+    count === null ? null : el("span", { className: "group-count", text: `(${count})` }),
+  ]);
+  toggle.setAttribute("aria-expanded", String(expanded));
+  toggle.addEventListener("click", () => {
+    const open = toggle.getAttribute("aria-expanded") === "true";
+    toggle.setAttribute("aria-expanded", String(!open));
+    body.hidden = open;
+  });
+  return { root: el("div", { className }, [toggle, body]), toggle, body };
 }

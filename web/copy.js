@@ -1,12 +1,19 @@
 /**
  * Safety-critical wording, kept in one file so it can be diffed against the spec.
  *
- * SPEC §11 makes these four states non-negotiable and requires that they are
- * never collapsed into a plain legal/illegal pair. The strings below are the
- * spec's own words. The API sends its own caveat strings with every result;
- * these are what the page says on its own behalf, and the fallback when the
- * API is unreachable.
+ * SPEC §11 makes the four verdict states non-negotiable and requires that they
+ * are never collapsed into a plain legal/illegal pair. The strings below are the
+ * spec's own words, tightened to the tone in docs/ux/DESIGN_DIRECTION.md §7:
+ * plain, second person, shortest true sentence, and an uncertain state always
+ * ends with the action ("Read the curb").
+ *
+ * The API sends its own caveat strings with every result; these are what the
+ * page says on its own behalf, and the fallback when the API is unreachable.
  */
+
+/** The two load-bearing sentences the advisory strip carries at every size. */
+export const STRIP_ADVISORY = "Advisory only. Read the posted sign.";
+export const STRIP_NO_DATA = "Grey means no data, not no restriction.";
 
 export const VERDICT_EXPLANATION = {
   // SPEC §11, "No sign data on this block". Said when the span does not record
@@ -16,8 +23,8 @@ export const VERDICT_EXPLANATION = {
     "driveway) may still apply. Read the curb.",
   // SPEC §11, "Ambiguous rule": show the raw text and say the machine could not read it.
   ambiguous:
-    "Ambiguous rule. The software could not confidently read the signs on this stretch, or the " +
-    "signs conflict. The raw sign text is below — read it yourself, and read the curb.",
+    "The software could not read these signs, or they conflict. Read them yourself, below, " +
+    "and read the curb.",
 };
 
 /**
@@ -32,17 +39,32 @@ export const VERDICT_EXPLANATION = {
  */
 export const NO_DATA_EXPLANATION = {
   no_signs:
-    "No regulation data on this stretch. NYC DOT's inventory lists no signs here. Sign-free " +
-    "prohibitions (hydrant 15 ft, bus stop, crosswalk, driveway) may still apply. Read the curb.",
+    "NYC DOT lists no sign on this stretch. Unknown, not free. Sign-free prohibitions " +
+    "(hydrant 15 ft, bus stop, crosswalk, driveway) may still apply. Read the curb.",
   unmatched_signs:
-    "Signs exist on this block but CurbCheck could not place them. Treat as unknown. Read the " +
-    "posted signs.",
+    "DOT publishes signs on this block but CurbCheck could not place them. Treat as unknown. " +
+    "Read the posted signs.",
 };
 
 /** The `no_data` wording for one span: gap-kind specific where the span says which. */
 export function noDataExplanation(gapKind) {
   return NO_DATA_EXPLANATION[gapKind] || VERDICT_EXPLANATION.no_data;
 }
+
+/**
+ * The sentence under each verdict chip in the detail sheet.
+ *
+ * `basis` splits the green verdict in two (UX_AUDIT P0-1): a sign that was read
+ * and permits parking, versus no sign covering the window at all. The second is
+ * absence of evidence and must never be worded, coloured, or scored as a
+ * permission.
+ */
+export const BASIS_SENTENCE = {
+  posted: "A posted sign permits parking for your whole window.",
+  absence: "No posted sign covers this window. That is not a permission — read the curb.",
+};
+
+export const ILLEGAL_SENTENCE = "A posted sign prohibits parking for part or all of your window.";
 
 // SPEC §11, and the legend: an empty map is read as "nothing here", which is
 // the hazard SPEC §11 exists to prevent arriving through another door
@@ -66,16 +88,19 @@ export const CALENDAR_MISSING_CAVEAT =
 // said they are leaving, and every verdict on the page would be about the wrong
 // curb without saying so.
 export const PIN_MODE_NEEDS_A_CLICK =
-  "Pin mode is on but no pin is placed. Click the map to set the destination, or type an " +
+  "Pin mode is on but no pin is placed. Tap the map to set the destination, or type an " +
   "address instead.";
+
+export const PIN_MODE_PROMPT = "Tap the map to set your destination.";
 
 // SPEC §11, "Emergency ASP suspensions (offline mode)".
 export const ASP_SUSPENSION_CAVEAT =
   "Emergency ASP suspensions are not reflected. Same-day weather and parade suspensions are " +
   "only visible if the optional 311 live check is enabled, and it is off by default.";
 
-// SPEC §17. index.html carries the same text; this is the copy app.js falls back
-// to if the banner element is ever rebuilt from script.
+// SPEC §17. index.html carries the same text; this is what the detail sheet
+// prints, so the full notice is inside every verdict as well as at the top of
+// the page (UX_AUDIT (f) 1).
 export const DISCLAIMER =
   "CurbCheck is advisory only. This tool derives parking legality and price from NYC Open Data " +
   "(NYC DOT Sign Information Management System) and may be incomplete, out of date, or misread " +
@@ -101,8 +126,72 @@ export const UNPARSED_RULE =
 export const PANEL_STATES_NO_RULE =
   "This panel states no parking rule. It is shown because it is posted on this block.";
 
-// `/api/segment` lists every sign on the parent centerline segment, including
-// the ones governing the other side or a different stretch of the same side.
+// `/api/segment` splits the signs into the ones that produced the verdict and
+// the rest of the block. The second group is collapsed, never deleted
+// (UX_AUDIT P0-2 and (f) 4).
 export const SIGN_NOT_ON_THIS_STRETCH =
-  "This sign is posted on this block but does not govern this stretch. Read it anyway if you " +
-  "are parking near it.";
+  "These signs are posted on this block but do not govern this stretch. Read them anyway if " +
+  "you are parking near them.";
+
+export const GOVERNING_SIGNS_NOTE =
+  "Quoted from NYC Open Data, byte for byte. Where the text disagrees with the reading below " +
+  "it, the sign wins.";
+
+// UX_AUDIT P2-1: "confidence" mixed parse with snap confidence and was never
+// defined. It is now labelled, shown only when the server says it means
+// something, and explained in words rather than in a tooltip.
+export const CONFIDENCE_LABEL = "Data confidence";
+export const CONFIDENCE_EXPLANATION =
+  "How sure the software is that it read these signs and placed them on the right stretch — " +
+  "not how sure it is that you can park.";
+
+/** States. One sentence each, and each one ends with what to do next. */
+export const EMPTY_RESULTS = (walkMinutes) =>
+  `Nothing within a ${walkMinutes}-minute walk. Try a longer walk or another spot.`;
+
+export const OUTSIDE_COVERAGE = "CurbCheck covers Manhattan only.";
+
+export const SERVER_UNREACHABLE =
+  "CurbCheck can't reach its local server, so these results are gone. Check that " +
+  "`curbcheck serve` is still running.";
+
+export const SEARCH_PROGRESS = "Reading the signs near your destination…";
+
+export const STALE_SEARCH_NOTE = "Walk radius or time changed — press Search to update.";
+
+export const NEEDS_DESTINATION = "Type an address or a cross street, or drop a pin on the map.";
+
+export const DROP_A_PIN = "Drop a pin instead";
+
+export const NO_CANDIDATES = "No Manhattan match for that. Try a cross street, or drop a pin.";
+
+/**
+ * A written sentence for every error code the API can return (docs/API.md).
+ *
+ * UX_AUDIT P2-6: the status line printed framework and browser phrasing
+ * ("Value error, the parking window must be 24 hours or less", "Failed to
+ * fetch"). The server's own message is kept as a second line only where it
+ * names something the user can act on.
+ */
+const ERROR_SENTENCE = {
+  address_not_found: "No Manhattan address matches that. Try a cross street, or drop a pin.",
+  outside_coverage: OUTSIDE_COVERAGE,
+  validation_error: "That search does not add up. Check the date, the time, and the walk radius.",
+  invalid_request: "That stretch of curb could not be looked up.",
+  not_found: "That stretch of curb is no longer in the database. Search again.",
+  database_unavailable: "There is no parking database yet. Run `curbcheck sync` to build one.",
+  internal_error: "The server hit an error it could not explain. Try again.",
+  network_error: SERVER_UNREACHABLE,
+  timeout: "The server took too long to answer. Try a shorter walk radius.",
+  bad_response: "Something other than CurbCheck answered on this port.",
+  http_error: "The server refused that search.",
+};
+
+/** The sentence for an `ApiError`. Never the exception's own phrasing. */
+export function errorSentence(code) {
+  return ERROR_SENTENCE[code] || "Something went wrong. Try again.";
+}
+
+/** Window too long is the one validation error worth naming exactly. */
+export const WINDOW_TOO_LONG = "A parking window can be at most 24 hours.";
+export const WINDOW_BACKWARDS = "The end time has to be after the start time.";

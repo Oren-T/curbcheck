@@ -6,8 +6,15 @@
  * strings, and money is a decimal string that must never become a float.
  */
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+import { CONFIDENCE_LABEL } from "./copy.js";
 
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const WEEKDAY_FROM_SUNDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/**
+ * The four verdicts, each with the word and the symbol that carry it without
+ * colour (SPEC §11). `legal` splits on `basis`: see `verdictChip`.
+ */
 const VERDICT_INFO = {
   legal: { label: "Legal", symbol: "✓" },
   illegal: { label: "Illegal", symbol: "✕" },
@@ -53,52 +60,148 @@ export function verdictKey(verdict) {
 }
 
 /**
+ * What the verdict chip says for one result.
+ *
+ * A `legal` verdict with `basis: "absence"` is legality by *absence of a rule*,
+ * not by permission, and UX_AUDIT P0-1 found the old UI announcing exactly that
+ * case as "Legal · 100% confidence". It gets its own word, its own outlined
+ * chip in the same colour family, and never a confidence figure.
+ */
+export function verdictChip(result) {
+  const key = verdictKey(result && result.verdict);
+  if (key === "legal" && result && result.basis === "absence") {
+    return { key, label: "Nothing posted", symbol: "✓", className: "verdict-absence" };
+  }
+  const info = VERDICT_INFO[key];
+  return { key, label: info.label, symbol: info.symbol, className: `verdict-${key}` };
+}
+
+/** True when this result may print a confidence figure at all. */
+export function confidenceShown(result) {
+  return Boolean(result && result.confidence_shown && typeof result.confidence === "number");
+}
+
+/** "Data confidence 94%", or null when the number would mean nothing. */
+export function confidenceText(result) {
+  if (!confidenceShown(result)) {
+    return null;
+  }
+  return `${CONFIDENCE_LABEL} ${Math.round(result.confidence * 100)}%`;
+}
+
+/**
  * Money for display. `null` means unknown, which is not the same as free:
  * showing "$0.00" for an unpriced meter would be a lie about cost.
  */
 export function formatMoney(money, priceKnown = true) {
   if (money === null || money === undefined) {
-    return "price unknown";
+    return "Price unknown";
   }
   const text = `$${money}`;
   return priceKnown ? text : `${text} (unconfirmed)`;
 }
 
 /**
- * What a result costs, read from the whole result rather than the money field.
- * An unmetered span comes back as "0.00", which is true but reads like a price;
- * say "no meter" instead so "price unknown" keeps its meaning.
+ * What a result costs, read from the whole result.
+ *
+ * `null` means print nothing at all. UX_AUDIT P0-5: a grey span asserted
+ * "Money — no meter" about curb the app knows nothing about, so `no_data` never
+ * prints a price, a "$0", or a "no meter" — not even an unknown one. "Free" is
+ * reserved for a span where a sign was actually read and says so.
  */
-export function moneyLabel(result) {
-  if (!result.metered && result.money === "0.00") {
-    return "no meter";
+export function priceLabel(result) {
+  const key = verdictKey(result.verdict);
+  if (key === "no_data") {
+    return null;
   }
-  return formatMoney(result.money, result.price_known);
+  // Legality by absence read no rule at all, so it has no price to report:
+  // the engine's "0.00" there means "nothing charges in this window", and
+  // printing that as a price would be the app's most confident voice on the
+  // thing it knows least about (UX_AUDIT P0-1, P0-5).
+  if (result.basis === "absence") {
+    return null;
+  }
+  const money = result.money;
+  if (money === null || money === undefined) {
+    return key === "illegal" ? null : "Price unknown";
+  }
+  if (result.price_known === false) {
+    return `$${money} (unconfirmed)`;
+  }
+  if (!result.metered && money === "0.00") {
+    if (key === "illegal") {
+      return null;
+    }
+    return result.basis === "posted" ? "Free · no meter" : "Price unknown";
+  }
+  return `$${money}`;
 }
 
-export function formatWalkMinutes(minutes) {
-  if (typeof minutes !== "number" || Number.isNaN(minutes)) {
-    return "walk unknown";
+/**
+ * The span's street label, with a degenerate cross-street pair dropped.
+ *
+ * The server builds `street_name` from the centerline's own end nodes, and a
+ * segment that begins and ends on the same avenue produces "E 86 ST, south
+ * side, PARK AVE → PARK AVE" (UX_AUDIT P2-7). Saying it once is true; saying
+ * it twice reads like a bug and tells the driver nothing.
+ */
+export function streetLabelText(streetName) {
+  if (typeof streetName !== "string" || streetName === "") {
+    return "Unnamed stretch";
   }
-  const rounded = minutes < 1 ? Math.round(minutes * 10) / 10 : Math.round(minutes);
-  return `${rounded} min walk`;
+  const parts = streetName.split(", ");
+  const last = parts[parts.length - 1];
+  const arrow = last.split(" → ");
+  if (arrow.length === 2 && arrow[0] === arrow[1]) {
+    return `${parts.slice(0, -1).join(", ")}, at ${arrow[0]}`;
+  }
+  return streetName;
+}
+
+/**
+ * Walk time in whole minutes, floored at one.
+ *
+ * UX_AUDIT P2-3: "0.2 min walk" is false precision, and ranking on tenths of a
+ * minute ranks on noise.
+ */
+export function walkText(minutes) {
+  if (typeof minutes !== "number" || Number.isNaN(minutes)) {
+    return "—";
+  }
+  return `${Math.max(1, Math.round(minutes))} min`;
+}
+
+/**
+ * Capacity, phrased so it cannot be read as availability (UX_AUDIT P2-4).
+ * Only parkable verdicts get one; `null` means print nothing.
+ */
+export function capacityLabel(result) {
+  const key = verdictKey(result.verdict);
+  if (key === "illegal" || key === "no_data") {
+    return null;
+  }
+  const cars = result.capacity_cars;
+  if (cars === null || cars === undefined) {
+    return null;
+  }
+  return cars === 1 ? "room for ~1 car" : `room for ~${cars} cars`;
 }
 
 export function formatCapacity(cars) {
   if (cars === null || cars === undefined) {
-    return "capacity unknown";
+    return null;
   }
-  return cars === 1 ? "about 1 car" : `about ${cars} cars`;
+  return cars === 1 ? "room for ~1 car when empty" : `room for ~${cars} cars when empty`;
 }
 
 export function formatConfidence(confidence) {
   if (typeof confidence !== "number" || Number.isNaN(confidence)) {
-    return "confidence unknown";
+    return null;
   }
-  return `${Math.round(confidence * 100)}% confidence`;
+  return `${Math.round(confidence * 100)}%`;
 }
 
-/** "Mon–Fri", "Mon–Wed, Sat", "Every day". */
+/** "Mon–Fri", "Mon–Wed, Sat", "every day". */
 export function formatDays(days) {
   if (!Array.isArray(days) || days.length === 0) {
     return "no days";
@@ -236,7 +339,7 @@ export function describeRegulation(regulation) {
   return extras.length > 0 ? `${sentence} · ${extras.join(", ")}` : sentence;
 }
 
-/** Hourly meter rates as "$4.50 first hour, $5.50 after". */
+/** Hourly meter rates as "$4.50 first hour, then $5.50". */
 export function formatHourRates(hourRates) {
   if (!Array.isArray(hourRates) || hourRates.length === 0) {
     return "no published rate";
@@ -249,7 +352,7 @@ export function formatHourRates(hourRates) {
 }
 
 /**
- * The status line under the form, built from the server's `counts`.
+ * The count line above the results, built from the server's `counts`.
  *
  * `counts` is measured over everything in radius, before either cap, and the
  * response can hold fewer rows than that (docs/API.md). Counting the rows we
@@ -260,34 +363,86 @@ export function formatHourRates(hourRates) {
 export function statusLine(counts, shown, walkMinutes) {
   const total = counts && typeof counts.total === "number" ? counts.total : shown;
   if (total === 0) {
-    return "Nothing within that walk radius. Try a longer walk or a different time.";
+    return `Nothing within a ${walkMinutes}-minute walk.`;
   }
   const parts = [`${total} stretches within a ${walkMinutes} min walk`];
   if (counts) {
     parts.push(
-      `${counts.legal ?? 0} legal for the whole window, ${counts.illegal ?? 0} illegal, ` +
-        `${counts.ambiguous ?? 0} ambiguous, ${counts.no_data ?? 0} with no data`,
+      `${counts.legal ?? 0} legal · ${counts.ambiguous ?? 0} ambiguous · ` +
+        `${counts.illegal ?? 0} illegal · ${counts.no_data ?? 0} no data`,
     );
   }
   if (shown < total) {
-    parts.push(`showing the nearest ${shown}`);
+    parts.push(`${shown} drawn, nearest first`);
   }
-  return `${parts.join(" · ")}.`;
+  return parts.join(" · ");
 }
 
-/** "2026-09-15T09:00" for a datetime-local input, in the browser's local time. */
-export function toLocalInputValue(date) {
-  const pad = (value) => String(value).padStart(2, "0");
-  return (
-    `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
-    `T${pad(date.getHours())}:${pad(date.getMinutes())}`
-  );
+/* ---- The search window ------------------------------------------------- */
+
+const pad = (value) => String(value).padStart(2, "0");
+
+/** "2026-09-16" for a `<input type="date">`, in the browser's local time. */
+export function toDateInputValue(date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 }
 
-/** The next top of the hour, local time — the default arrival. */
-export function nextTopOfHour(now = new Date()) {
+/** "10:00" for a `<input type="time">`, in the browser's local time. */
+export function toTimeInputValue(date) {
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/**
+ * A naive local ISO string for the API.
+ *
+ * docs/API.md: a value without an offset is read in America/New_York, which is
+ * what every parking sign states its hours in. Sending the browser's UTC offset
+ * instead would silently shift the window for anyone not in New York.
+ */
+export function toApiDateTime(dateValue, timeValue) {
+  return `${dateValue}T${timeValue}`;
+}
+
+/** A local `Date` from the two input values, or null when either is empty. */
+export function parseLocal(dateValue, timeValue) {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+  const [year, month, day] = dateValue.split("-").map(Number);
+  const [hour, minute] = timeValue.split(":").map(Number);
+  if ([year, month, day, hour, minute].some((part) => Number.isNaN(part))) {
+    return null;
+  }
+  return new Date(year, month - 1, day, hour, minute, 0, 0);
+}
+
+export function addMinutes(date, minutes) {
+  return new Date(date.getTime() + minutes * 60 * 1000);
+}
+
+/** The next quarter hour, local time — the default arrival. */
+export function nextQuarterHour(now = new Date()) {
   const next = new Date(now.getTime());
-  next.setMinutes(0, 0, 0);
-  next.setHours(next.getHours() + 1);
+  next.setSeconds(0, 0);
+  next.setMinutes(Math.ceil((next.getMinutes() + 1) / 15) * 15);
   return next;
+}
+
+function dayLabel(date) {
+  return `${WEEKDAY_FROM_SUNDAY[date.getDay()]} ${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+
+/**
+ * "Wed Sep 16, 10:00 → 12:00", or with the second date when the window crosses
+ * midnight. UX_AUDIT P0-7: a `datetime-local` widget clipped its own value, so
+ * the window — which drives every verdict — has to be rendered as text.
+ */
+export function windowSummary(start, end) {
+  if (!start || !end) {
+    return "";
+  }
+  const from = `${dayLabel(start)}, ${toTimeInputValue(start)}`;
+  const sameDay = toDateInputValue(start) === toDateInputValue(end);
+  const to = sameDay ? toTimeInputValue(end) : `${dayLabel(end)}, ${toTimeInputValue(end)}`;
+  return `${from} → ${to}`;
 }

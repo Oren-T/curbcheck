@@ -1,0 +1,286 @@
+/*
+ * CurbCheck design tokens — the single source of colour, space, type, and motion.
+ *
+ * Custom properties only. No selectors other than :root and the dark-mode block,
+ * so this file can be linked before styles.css and never fights it.
+ *
+ * Constraints this file is written against:
+ *  - STYLE_GUIDE §4 / CSP: plain CSS, no build step, no external or icon fonts.
+ *  - SPEC §11: the four verdicts stay visually distinct and are never carried by
+ *    colour alone — every verdict token below has a paired label token and a
+ *    map dash pattern (--dash-*).
+ *  - Red/green colour-vision deficiency: the four verdict hues are staggered in
+ *    OKLCH lightness, not just hue. Measured with the dataviz validator
+ *    (Machado 2009 severity 1.0, OKLab ΔE ×100, all-pairs):
+ *      light  worst CVD pair ΔE 9.7  (target ≥8), worst normal-vision pair 16.4 (floor ≥15)
+ *      dark   worst CVD pair ΔE 8.5  (target ≥8), worst normal-vision pair 19.4 (floor ≥15)
+ *  - The basemap (web/basemap/style.json) is a warm light Protomaps style:
+ *    earth #e2dfda, roads #ffffff/#ebebeb, casings #e0e0e0, labels #91888b.
+ *    The neutral ramp below is warm on purpose so the UI chrome sits in the
+ *    same family as the map instead of next to it.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Neutrals (warm, tuned to the basemap's #e2dfda earth) ---- */
+  --c-page: #f6f5f3; /* app background behind panels */
+  --c-surface: #ffffff; /* cards, panels, sheets */
+  --c-surface-sunken: #fbfaf9; /* inset wells, code blocks' frame */
+  --c-surface-scrim: rgba(255, 255, 255, 0.92); /* floating chrome over the map */
+  --c-border: #e7e4df; /* hairline, 1.27:1 — decorative only */
+  --c-border-strong: #d9d6d0; /* input borders, dividers that must be seen */
+  --c-text: #1a1917; /* 17.6:1 on --c-surface */
+  --c-text-secondary: #5c5a55; /* 6.9:1 on --c-surface */
+  --c-text-muted: #86837c; /* 3.8:1 on --c-surface — never body copy */
+  --c-text-inverse: #ffffff;
+
+  /* ---- Accent (deep civic blue; stays clear of the basemap's #80deea water) ---- */
+  --c-accent: #1a56b0; /* 7.0:1 on --c-surface */
+  --c-accent-hover: #15529e;
+  --c-accent-soft: #eaf0fb; /* selected row / hover wash */
+  --c-accent-ink: #123f80; /* accent text on --c-accent-soft, 9.0:1 */
+  --c-focus: #1a56b0;
+
+  /* ---- Verdicts: fill = map line + chip border, ink = text, soft = chip bg ---- */
+  /* Contrast of the fill against the three surfaces it is drawn on:
+     white road #ffffff / grey road #ebebeb / earth #e2dfda */
+  --v-legal: #15855a; /* 4.63 / 3.88 / 3.48 */
+  --v-illegal: #a01b12; /* 7.89 / 6.62 / 5.94 */
+  --v-ambiguous: #c78700; /* 3.05 / 2.56 / 2.29 — see note below */
+  --v-nodata: #4c525d; /* 6.73 / 5.64 / 5.06 */
+
+  /* Ink: chip and heading text. Measured on its own --v-*-soft background. */
+  --v-legal-ink: #0b5a3c; /* 7.4:1 on --v-legal-soft */
+  --v-illegal-ink: #8e1710; /* 8.0:1 on --v-illegal-soft */
+  --v-ambiguous-ink: #6f4c00; /* 7.0:1 on --v-ambiguous-soft */
+  --v-nodata-ink: #3f4a58; /* 7.9:1 on --v-nodata-soft */
+
+  --v-legal-soft: #e8f5ee;
+  --v-illegal-soft: #fcebe9;
+  --v-ambiguous-soft: #fbf2de;
+  --v-nodata-soft: #eef1f4;
+
+  /* Amber measures 2.56:1 on the grey road fill and 2.29:1 on earth. It is the
+     one verdict below 3:1 anywhere, and it is allowed here only because SPEC §11
+     already forbids colour-alone signalling: the ambiguous line is 5–6 px wide,
+     carries the --dash-ambiguous pattern, and every ambiguous span is labelled
+     in the list and the sheet. Do not use --v-ambiguous for text; use
+     --v-ambiguous-ink. */
+
+  /* ---- Map dash patterns (MapLibre line-dasharray, units = line-width) ---- */
+  /* Not decoration. These are the second channel SPEC §11 requires, and the
+     legend swatches repeat them exactly. */
+  --dash-legal: none; /* solid, line-cap round */
+  --dash-ambiguous: 2 1.25; /* long dash, line-cap butt */
+  --dash-illegal: 0.9 0.7; /* tight dash, line-cap butt */
+  --dash-nodata: 0 2.2; /* dots, line-cap round */
+
+  /* ---- Map chrome ---- */
+  --c-map-scrim: rgba(246, 245, 243, 0.45); /* desaturating wash under the result lines */
+  --c-map-halo: #ffffff; /* casing under every verdict line */
+  --c-marker: #1a56b0; /* destination pin */
+  --c-walk-ring: #1a56b0;
+  --c-select-halo: #1a1917;
+
+  /* ---- Spacing (4 px base; only these values) ---- */
+  --s-1: 2px;
+  --s-2: 4px;
+  --s-3: 6px;
+  --s-4: 8px;
+  --s-5: 12px;
+  --s-6: 16px;
+  --s-7: 20px;
+  --s-8: 24px;
+  --s-9: 32px;
+  --s-10: 48px;
+
+  /* ---- Radius ---- */
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+  --r-pill: 999px;
+
+  /* ---- Elevation. Four steps; nothing in the app needs a fifth. ---- */
+  --e-0: none;
+  --e-1: 0 1px 2px rgba(26, 25, 23, 0.06);
+  --e-2: 0 2px 6px rgba(26, 25, 23, 0.08), 0 1px 2px rgba(26, 25, 23, 0.06);
+  --e-3: 0 8px 24px rgba(26, 25, 23, 0.12), 0 2px 6px rgba(26, 25, 23, 0.06);
+  --e-4: 0 16px 40px rgba(26, 25, 23, 0.16), 0 4px 10px rgba(26, 25, 23, 0.08);
+
+  /* ---- Type. System stack only: SPEC §3.4 forbids remote assets and a
+     vendored font would cost 40–120 KB for no legibility gain at these sizes. */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+
+  --t-micro: 11px; /* attribution, scale bar */
+  --t-caption: 12px; /* facts row, hints */
+  --t-small: 13px; /* secondary copy, caveats */
+  --t-body: 15px; /* default */
+  --t-lead: 17px; /* result title, sheet reason */
+  --t-title: 20px; /* sheet heading */
+  --t-display: 24px; /* wordmark */
+
+  --lh-tight: 1.25;
+  --lh-normal: 1.45;
+  --lh-loose: 1.6;
+
+  --w-regular: 400;
+  --w-medium: 500;
+  --w-semibold: 600;
+  --w-bold: 700;
+
+  --track-tight: -0.01em;
+  --track-caps: 0.06em; /* section eyebrows only */
+
+  /* ---- Motion. Calm: nothing eases longer than a quarter second except the map. */
+  --m-instant: 90ms; /* hover, focus ring */
+  --m-fast: 140ms; /* chip toggle, disclosure */
+  --m-base: 200ms; /* sheet slide, drawer */
+  --m-slow: 280ms; /* full-height sheet on phone */
+  --m-map: 600ms; /* easeTo / fitBounds */
+  --ease-out: cubic-bezier(0.22, 0.8, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.5, 0, 0.2, 1);
+
+  /* ---- Focus ---- */
+  --focus-ring: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-focus);
+  --focus-width: 2px;
+  --focus-offset: 2px;
+
+  /* ---- Layout ---- */
+  --panel-w: 400px; /* desktop results rail */
+  --sheet-w: 460px; /* desktop detail sheet */
+  --tap-min: 44px; /* minimum touch target */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --c-page: #111110;
+    --c-surface: #1b1b1a;
+    --c-surface-sunken: #141413;
+    --c-surface-scrim: rgba(27, 27, 26, 0.92);
+    --c-border: #33332f;
+    --c-border-strong: #45453f;
+    --c-text: #f2f1ef; /* 15.3:1 on --c-surface */
+    --c-text-secondary: #b8b5ae; /* 8.4:1 */
+    --c-text-muted: #8d8a83; /* 5.0:1 */
+    --c-text-inverse: #111110;
+
+    --c-accent: #8ab0f2; /* 7.9:1 on --c-surface */
+    --c-accent-hover: #a6c3f6;
+    --c-accent-soft: #1c2330;
+    --c-accent-ink: #b7cdf8;
+    --c-focus: #8ab0f2;
+
+    /* Verdict fills, contrast against --c-surface #1b1b1a: */
+    --v-legal: #3fbf88; /* 7.40 */
+    --v-illegal: #df554b; /* 4.55 */
+    --v-ambiguous: #eab53c; /* 9.17 */
+    --v-nodata: #6f7886; /* 3.86 */
+
+    /* Inks, measured on their own --v-*-soft background: */
+    --v-legal-ink: #6ccfa3; /* 8.5:1 */
+    --v-illegal-ink: #ef8177; /* 6.7:1 */
+    --v-ambiguous-ink: #f0c766; /* 10.2:1 */
+    --v-nodata-ink: #9aa3b0; /* 6.3:1 */
+
+    --v-legal-soft: #16241f;
+    --v-illegal-soft: #241719;
+    --v-ambiguous-soft: #241f12;
+    --v-nodata-soft: #1c1f24;
+
+    /* The vendored basemap is a light style and there is no dark one in the
+       repo. The map keeps its light rendering in dark mode; the *map* layers
+       therefore keep the light verdict fills (see DESIGN_DIRECTION §6). The
+       dark values above are for panel chips, swatches, and borders. */
+    --c-map-scrim: rgba(246, 245, 243, 0.45);
+    --c-map-halo: #ffffff;
+    --c-marker: #1a56b0;
+    --c-walk-ring: #1a56b0;
+    --c-select-halo: #1a1917;
+
+    --e-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --e-2: 0 2px 6px rgba(0, 0, 0, 0.55), 0 1px 2px rgba(0, 0, 0, 0.4);
+    --e-3: 0 8px 24px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+    --e-4: 0 16px 40px rgba(0, 0, 0, 0.65), 0 4px 10px rgba(0, 0, 0, 0.45);
+
+    --focus-ring: 0 0 0 2px var(--c-surface), 0 0 0 4px var(--c-focus);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --m-instant: 0ms;
+    --m-fast: 0ms;
+    --m-base: 0ms;
+    --m-slow: 0ms;
+    --m-map: 0ms;
+  }
+}
+
+/*
+ * ---- Implementation extensions (docs/ux/IMPLEMENTATION_NOTES.md) ----
+ *
+ * The block above is the audited design system and none of its measured values
+ * change here: every verdict hue, ink, and dash pattern is untouched, because
+ * those numbers carry the contrast and colour-vision guarantees.
+ *
+ * What is added: the floating-glass chrome the UI now uses instead of opaque
+ * rails. A translucent panel puts basemap pixels behind body copy, so the
+ * glass tokens are deliberately opaque enough (0.78–0.92 alpha over a light
+ * basemap) that --c-text keeps >12:1 against the worst basemap colour the
+ * panel can sit over, and every one has a solid fallback for browsers without
+ * backdrop-filter.
+ */
+
+:root {
+  --c-glass: rgba(255, 255, 255, 0.84);
+  --c-glass-solid: #fbfaf9; /* the fallback when backdrop-filter is unsupported */
+  --c-glass-raised: rgba(255, 255, 255, 0.9); /* sheets, which sit over more map */
+  --c-glass-border: rgba(26, 25, 23, 0.08);
+  --c-glass-hairline: rgba(255, 255, 255, 0.7); /* inner top highlight on glass */
+  --c-strip: rgba(251, 242, 222, 0.88);
+  --c-strip-solid: #fbf2de;
+  --c-chip: rgba(255, 255, 255, 0.6);
+  --c-scrim: rgba(26, 25, 23, 0.28); /* behind the phone detail sheet */
+
+  --blur-panel: saturate(180%) blur(20px);
+  --blur-chip: saturate(160%) blur(10px);
+
+  --r-2xl: 20px;
+
+  /* Layered, wide, low-opacity: a floating panel over a map needs depth without
+     a hard edge, which is why these are softer and taller than --e-3/--e-4. */
+  --e-glass: 0 24px 56px rgba(26, 25, 23, 0.14), 0 4px 12px rgba(26, 25, 23, 0.08);
+  --e-sheet: 0 32px 72px rgba(26, 25, 23, 0.2), 0 6px 16px rgba(26, 25, 23, 0.1);
+  --e-lift: 0 6px 18px rgba(26, 25, 23, 0.1), 0 1px 3px rgba(26, 25, 23, 0.07);
+
+  --c-select-glow: rgba(26, 86, 176, 0.3);
+  --track-display: -0.02em; /* tight-tracked headings */
+
+  --strip-h: 36px;
+  --drawer-peek: 148px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-glass: rgba(27, 27, 26, 0.76);
+    --c-glass-solid: #1b1b1a;
+    --c-glass-raised: rgba(27, 27, 26, 0.88);
+    --c-glass-border: rgba(255, 255, 255, 0.1);
+    --c-glass-hairline: rgba(255, 255, 255, 0.06);
+    --c-strip: rgba(36, 31, 18, 0.9);
+    --c-strip-solid: #241f12;
+    --c-chip: rgba(255, 255, 255, 0.05);
+    --c-scrim: rgba(0, 0, 0, 0.5);
+
+    --e-glass: 0 24px 56px rgba(0, 0, 0, 0.6), 0 4px 12px rgba(0, 0, 0, 0.4);
+    --e-sheet: 0 32px 72px rgba(0, 0, 0, 0.66), 0 6px 16px rgba(0, 0, 0, 0.45);
+    --e-lift: 0 6px 18px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.4);
+
+    --c-select-glow: rgba(138, 176, 242, 0.32);
+  }
+}

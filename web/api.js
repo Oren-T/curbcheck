@@ -19,9 +19,21 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = "GET", body = null, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+async function request(
+  path,
+  { method = "GET", body = null, timeoutMs = DEFAULT_TIMEOUT_MS, signal = null } = {},
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+  // A caller that supersedes its own request (the autocomplete does, on every
+  // keystroke) passes a signal; aborting it has to abort the fetch as well.
+  if (signal) {
+    if (signal.aborted) {
+      controller.abort();
+    } else {
+      signal.addEventListener("abort", () => controller.abort(), { once: true });
+    }
+  }
   let response;
   try {
     response = await fetch(path, {
@@ -39,6 +51,9 @@ async function request(path, { method = "GET", body = null, timeoutMs = DEFAULT_
       credentials: "same-origin",
     });
   } catch (error) {
+    if (signal && signal.aborted) {
+      throw new ApiError("superseded", { code: "aborted" });
+    }
     const timedOut = controller.signal.aborted;
     throw new ApiError(
       timedOut
@@ -90,7 +105,13 @@ export function segment(regSegId, options = {}) {
 
 /** GET /api/geocode?q= — local geocoder; an empty candidate list is a 200, not an error. */
 export function geocode(query, options = {}) {
-  return request(`/api/geocode?q=${encodeURIComponent(query)}`, options);
+  return request(`/api/geocode?q=${encodeURIComponent(query)}`, { timeoutMs: 5000, ...options });
+}
+
+/** GET /api/reverse?lat=&lon= — the label for a dropped pin ("near 1519 3 AVE"). */
+export function reverse(lat, lon, options = {}) {
+  const query = new URLSearchParams({ lat: String(lat), lon: String(lon) });
+  return request(`/api/reverse?${query.toString()}`, { timeoutMs: 5000, ...options });
 }
 
 /** GET /api/health — answers even when the database is missing. */

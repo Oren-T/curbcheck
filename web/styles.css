@@ -1,31 +1,20 @@
 /*
- * CurbCheck styles. No web fonts and no remote assets of any kind (SPEC §3.4):
- * the type is whatever the operating system already has.
+ * CurbCheck — page shell: the advisory strip, the floating rail, the map, and
+ * the responsive behaviour. Component internals live in components.css.
  *
- * Colour rule: red and green are the pair a red/green colour-vision deficiency
- * collapses, so no verdict is ever signalled by colour alone. Each one also
- * carries its written label, a symbol, and — on the map — its own dash pattern,
- * repeated in the legend swatches below.
+ * No web fonts and no remote assets of any kind (SPEC §3.4): the type is
+ * whatever the operating system already has. Every colour, space, and duration
+ * comes from tokens.css; nothing here invents a value.
+ *
+ * Layout rule that the phone bug (UX_AUDIT P0-4, an 87,609 px document) turns
+ * into law: the document itself never scrolls. `body` is a fixed-height flex
+ * column and every scrollable region — the rail, the results list, the detail
+ * sheet — owns its own `overflow-y`.
  */
 
-:root {
-  --legal: #0f7b3f;
-  --ambiguous: #b45309;
-  --illegal: #b42318;
-  --no_data: #6b7280;
-  --ink: #16191d;
-  --ink-soft: #4b5563;
-  --line: #d6dae0;
-  --panel-bg: #ffffff;
-  --page-bg: #f3f4f6;
-  --accent: #1d4ed8;
-  --warn-bg: #fff8e6;
-  --warn-line: #d9a441;
-  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
-}
-
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -33,334 +22,176 @@ html,
 body {
   height: 100%;
   margin: 0;
+  overflow: hidden;
 }
 
 body {
   display: flex;
   flex-direction: column;
-  font-family: var(--font);
-  font-size: 15px;
-  line-height: 1.45;
-  color: var(--ink);
-  background: var(--page-bg);
+  font-family: var(--font-sans);
+  font-size: var(--t-body);
+  line-height: var(--lh-normal);
+  color: var(--c-text);
+  background: var(--c-page);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Disclaimer (SPEC §17): always visible, never dismissible. */
-.disclaimer {
-  flex: 0 0 auto;
-  background: var(--warn-bg);
-  border-bottom: 2px solid var(--warn-line);
-  padding: 8px 16px;
-}
-
-.disclaimer p {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.4;
-  max-width: 130ch;
-}
-
-.layout {
-  flex: 1 1 auto;
-  display: grid;
-  grid-template-columns: minmax(340px, 26%) 1fr;
-  min-height: 0;
-}
-
-.panel {
-  background: var(--panel-bg);
-  border-right: 1px solid var(--line);
-  overflow-y: auto;
-  padding: 14px 16px 32px;
-}
-
-.wordmark {
-  margin: 0 0 10px;
-  font-size: 20px;
-  letter-spacing: 0.02em;
-}
-
-/* Form */
-
-.search-form {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  /* Grid and flex items default to min-width:auto, which lets a datetime-local
-     input's intrinsic width push it out of its column. */
-  min-width: 0;
-}
-
-.field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-
-label,
-legend {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--ink-soft);
-}
-
-input[type="text"],
-input[type="datetime-local"] {
+button,
+input,
+select,
+textarea {
   font: inherit;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
   color: inherit;
-  /* A datetime-local input's intrinsic width is wider than the column it sits
-     in at 1280px; without both of these it overflows the panel. */
-  min-width: 0;
-  width: 100%;
-}
-
-input[type="range"] {
-  width: 100%;
-  accent-color: var(--accent);
-}
-
-output {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  color: var(--ink);
-}
-
-.weights {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px 10px 10px;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pin-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 button {
-  font: inherit;
   cursor: pointer;
 }
 
-.primary {
-  padding: 9px 12px;
-  border: 0;
-  border-radius: 6px;
-  background: var(--accent);
-  color: #fff;
-  font-weight: 600;
+a {
+  color: var(--c-accent);
 }
 
-.primary:disabled {
-  background: var(--no_data);
-  cursor: progress;
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: var(--track-display);
+  line-height: var(--lh-tight);
 }
 
-.toggle {
-  padding: 4px 9px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #fff;
-  font-size: 12.5px;
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--r-sm);
 }
 
-.toggle[aria-pressed="true"] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.hint {
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-/* Status, caveats, suggestions */
-
-.status {
-  margin: 12px 0 6px;
-  font-size: 13px;
-  color: var(--ink-soft);
-  min-height: 1.4em;
-}
-
-.status-error {
-  color: var(--illegal);
-  font-weight: 600;
-}
-
-.suggestions {
-  list-style: none;
-  margin: 0 0 8px;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.suggestion {
-  width: 100%;
-  text-align: left;
-  padding: 6px 8px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-}
-
-.caveats {
-  list-style: disc;
-  margin: 0 0 12px;
-  padding-left: 18px;
-  font-size: 12px;
-  color: var(--ink-soft);
-}
-
-.caveats li + li {
-  margin-top: 4px;
-}
-
-.results-heading {
-  font-size: 14px;
-  margin: 4px 0 8px;
-}
-
-.results {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-/* Result cards */
-
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  text-align: left;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-left-width: 6px;
-  border-radius: 6px;
-  background: #fff;
-}
-
-.card:hover {
-  border-color: var(--accent);
-  border-left-color: currentColor;
-}
-
-.card-selected {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.card-legal {
-  border-left-color: var(--legal);
-}
-
-.card-ambiguous {
-  border-left-color: var(--ambiguous);
-  border-left-style: dashed;
-}
-
-.card-illegal {
-  border-left-color: var(--illegal);
-  border-left-style: dotted;
-}
-
-.card-no_data {
-  border-left-color: var(--no_data);
-  border-left-style: dotted;
-}
-
-.card-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-rank {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.card-title {
-  font-weight: 700;
-  font-size: 14px;
-}
-
-.card-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 10px;
-  font-size: 12.5px;
-  color: var(--ink-soft);
-}
-
-.card-reason {
-  font-size: 12.5px;
-}
-
-/* Verdict badge: colour plus symbol plus word, never colour alone. */
-
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fff;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-.badge-symbol {
-  font-size: 12px;
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: calc(var(--strip-h) + var(--s-3));
+  z-index: 40;
+  padding: var(--s-4) var(--s-6);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  box-shadow: var(--e-3);
+  color: var(--c-accent-ink);
+  font-size: var(--t-small);
+  font-weight: var(--w-semibold);
+  text-decoration: none;
 }
 
-.badge-legal {
-  background: var(--legal);
+.skip-link:focus-visible {
+  left: var(--s-5);
 }
 
-.badge-ambiguous {
-  background: var(--ambiguous);
+.skip-link + .skip-link:focus-visible {
+  left: 190px;
 }
 
-.badge-illegal {
-  background: var(--illegal);
+/* ---- Advisory strip (SPEC §17) ---------------------------------------- */
+
+.strip {
+  position: relative;
+  z-index: 20;
+  flex: 0 0 auto;
+  min-height: var(--strip-h);
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  padding: 0 var(--s-6);
+  background: var(--c-strip);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+  box-shadow:
+    inset 3px 0 0 var(--v-ambiguous),
+    0 1px 0 var(--c-glass-border);
+  color: var(--v-ambiguous-ink);
 }
 
-.badge-no_data {
-  background: var(--no_data);
+.strip-text {
+  margin: 0;
+  font-size: var(--t-small);
+  line-height: var(--lh-tight);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-3);
 }
 
-/* Map */
+.strip-text strong {
+  font-weight: var(--w-semibold);
+}
+
+.strip-toggle {
+  margin-left: auto;
+  flex: 0 0 auto;
+  padding: var(--s-2) var(--s-5);
+  border: 1px solid color-mix(in srgb, var(--v-ambiguous-ink) 28%, transparent);
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: inherit;
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  transition:
+    background var(--m-instant) var(--ease-out),
+    border-color var(--m-instant) var(--ease-out);
+}
+
+.strip-toggle:hover {
+  background: color-mix(in srgb, var(--v-ambiguous-ink) 10%, transparent);
+}
+
+.strip-toggle[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--v-ambiguous-ink) 14%, transparent);
+}
+
+.full-notice {
+  position: relative;
+  z-index: 19;
+  flex: 0 0 auto;
+  max-height: 40vh;
+  overflow-y: auto;
+  padding: var(--s-6) var(--s-8);
+  background: var(--c-strip);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+  box-shadow: 0 1px 0 var(--c-glass-border);
+  color: var(--v-ambiguous-ink);
+}
+
+.full-notice[hidden] {
+  display: none;
+}
+
+.full-notice p {
+  margin: 0;
+  max-width: 96ch;
+  font-size: var(--t-small);
+  line-height: var(--lh-loose);
+}
+
+/* ---- Layout: the map is the page, everything else floats over it ------- */
+
+.layout {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
 
 .map-area {
-  position: relative;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
 }
 
 .map {
@@ -368,249 +199,425 @@ button {
   inset: 0;
 }
 
+.map:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px var(--c-focus);
+}
+
 .map-attribution {
   position: absolute;
-  right: 0;
-  bottom: 0;
+  right: var(--s-4);
+  bottom: var(--s-4);
+  z-index: 4;
   margin: 0;
-  padding: 2px 6px;
-  font-size: 11px;
-  background: rgba(255, 255, 255, 0.85);
-  border-top-left-radius: 4px;
-  z-index: 2;
+  padding: var(--s-2) var(--s-5);
+  border-radius: var(--r-pill);
+  background: var(--c-surface-scrim);
+  backdrop-filter: var(--blur-chip);
+  -webkit-backdrop-filter: var(--blur-chip);
+  box-shadow: var(--e-1);
+  font-size: var(--t-micro);
+  color: var(--c-text-secondary);
 }
 
 .map-attribution a {
   color: inherit;
 }
 
+/* The legend is a floating control, not a panel: four swatch rows plus the
+   sentence that stops an empty curb reading as a safe one (SPEC §11). */
 .legend {
   position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  list-style: none;
-  margin: 0;
-  padding: 6px 10px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  font-size: 12px;
+  right: var(--s-6);
+  top: var(--s-6);
+  z-index: 4;
+  width: 216px;
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--c-glass-border);
+  background: var(--c-glass);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+  box-shadow: var(--e-lift);
+  font-size: var(--t-caption);
 }
 
-.legend li {
+.legend-row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--s-4);
+  padding: var(--s-1) 0;
+  color: var(--c-text-secondary);
 }
 
-/* Grey is the verdict a driver is most likely to misread as "nothing here",
-   so the legend says in words what the absence of colour means (SPEC §11). */
-.legend-note {
-  flex-basis: 100%;
-  color: var(--ink-soft);
+.legend-row .legend-word {
+  color: var(--c-text);
+  font-weight: var(--w-medium);
 }
 
-/* The swatches repeat the map's dash patterns so the legend is readable
-   without colour vision. */
-.swatch {
-  width: 26px;
+.legend-swatch {
+  flex: 0 0 auto;
+  width: 30px;
   height: 0;
-  border-top-width: 4px;
 }
 
-.swatch-legal {
-  border-top: 5px solid var(--legal);
+.legend-note {
+  margin: var(--s-3) 0 0;
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--c-glass-border);
+  font-size: var(--t-micro);
+  line-height: var(--lh-normal);
+  color: var(--c-text-secondary);
 }
 
-.swatch-ambiguous {
-  border-top: 4px dashed var(--ambiguous);
-}
+/* ---- The rail: a floating glass panel with its own scroll -------------- */
 
-.swatch-illegal {
-  border-top: 4px dotted var(--illegal);
-}
-
-.swatch-no_data {
-  border-top: 3px dotted var(--no_data);
-}
-
-/* Detail panel */
-
-.detail {
+.rail {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(440px, 48%);
-  z-index: 3;
-  overflow-y: auto;
-  padding: 12px 14px 28px;
-  background: var(--panel-bg);
-  border-left: 1px solid var(--line);
-  box-shadow: -4px 0 14px rgba(0, 0, 0, 0.12);
+  left: var(--s-6);
+  top: var(--s-6);
+  bottom: var(--s-6);
+  width: var(--panel-w);
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--r-2xl);
+  border: 1px solid var(--c-glass-border);
+  background: var(--c-glass);
+  backdrop-filter: var(--blur-panel);
+  -webkit-backdrop-filter: var(--blur-panel);
+  box-shadow: var(--e-glass);
+  overflow: hidden;
 }
 
-.detail[hidden] {
+.rail::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  background: var(--c-glass-hairline);
+  pointer-events: none;
+}
+
+.rail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s-7) var(--s-7) var(--s-9);
+  scrollbar-width: thin;
+}
+
+.wordmark {
+  margin: 0 0 var(--s-6);
+  font-size: var(--t-display);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-display);
+}
+
+/* The drag handle is the phone drawer's detent control; on desktop the rail is
+   always open and the handle would be noise. */
+.drawer-handle {
   display: none;
 }
 
-.detail-header {
+/* ---- Status, notices, caveats ----------------------------------------- */
+
+.status {
+  margin: var(--s-5) 0 var(--s-3);
+  font-size: var(--t-small);
+  color: var(--c-text-secondary);
+  min-height: 1.4em;
+}
+
+.status-error {
+  color: var(--v-illegal-ink);
+  font-weight: var(--w-medium);
+}
+
+.notices:empty {
+  display: none;
+}
+
+.notice-block {
+  margin: var(--s-5) 0 0;
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-lg);
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+  box-shadow: var(--e-1);
+}
+
+.notice-block h3 {
+  margin: 0 0 var(--s-2);
+  font-size: var(--t-body);
+  font-weight: var(--w-semibold);
+}
+
+.notice-block p {
+  margin: 0;
+}
+
+.notice-block .ghost {
+  margin-top: var(--s-4);
+}
+
+.notice-error {
+  background: var(--v-illegal-soft);
+  color: var(--v-illegal-ink);
+  box-shadow:
+    inset 3px 0 0 var(--v-illegal),
+    var(--e-1);
+}
+
+.notice-warn {
+  background: var(--v-ambiguous-soft);
+  color: var(--v-ambiguous-ink);
+  box-shadow:
+    inset 3px 0 0 var(--v-ambiguous),
+    var(--e-1);
+}
+
+.notice-empty {
+  background: var(--c-surface);
+  color: var(--c-text);
+  box-shadow: var(--e-1);
+}
+
+.caveats {
+  list-style: none;
+  margin: var(--s-4) 0 var(--s-6);
+  padding: 0;
+  font-size: var(--t-caption);
+  line-height: var(--lh-normal);
+  color: var(--c-text-secondary);
+}
+
+.caveats li {
+  position: relative;
+  padding-left: var(--s-6);
+}
+
+.caveats li::before {
+  content: "•";
+  position: absolute;
+  left: var(--s-2);
+  color: var(--c-text-muted);
+}
+
+.caveats li + li {
+  margin-top: var(--s-2);
+}
+
+/* ---- Toasts ----------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  left: 50%;
+  bottom: var(--s-8);
+  z-index: 60;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: var(--s-4);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 
-.detail-title {
-  font-size: 16px;
-  margin: 0 0 6px;
-}
-
-.detail-close {
-  padding: 3px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: #fff;
-}
-
-.detail-verdict {
+.toast {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-5);
+  padding: var(--s-5) var(--s-6);
+  border-radius: var(--r-pill);
+  background: var(--c-text);
+  color: var(--c-text-inverse);
+  font-size: var(--t-small);
+  box-shadow: var(--e-3);
+  pointer-events: auto;
+  animation: toast-in var(--m-base) var(--ease-out);
 }
 
-.detail-reason {
-  margin: 0;
-  font-weight: 600;
+.toast button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-weight: var(--w-semibold);
+  text-decoration: underline;
 }
 
-.detail h3 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ink-soft);
-  margin: 16px 0 6px;
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
-.detail h4 {
-  font-size: 12.5px;
-  margin: 10px 0 4px;
-  color: var(--ink-soft);
-}
+/* ---- Tablet: 641–1099 px ---------------------------------------------- */
 
-.detail-caveats {
-  margin-top: 10px;
-  background: var(--warn-bg);
-  border: 1px solid var(--warn-line);
-  border-radius: 6px;
-  padding: 6px 10px 8px;
-}
-
-.detail-caveats h3 {
-  margin-top: 2px;
-}
-
-.detail-caveats ul {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 12.5px;
-}
-
-.notice {
-  margin: 8px 0;
-  padding: 7px 9px;
-  border-radius: 6px;
-  font-size: 13px;
-  border-left: 5px solid var(--no_data);
-  background: #f3f4f6;
-}
-
-.notice-ambiguous {
-  border-left: 5px dashed var(--ambiguous);
-  background: #fdf6ec;
-}
-
-.notice-no_data {
-  border-left: 5px dotted var(--no_data);
-}
-
-/* Neutral on purpose: a sign that simply states no rule on this stretch is not a
-   warning. SPEC §11's amber belongs to signs the parser could not read. */
-.notice-note {
-  border-left: 5px solid var(--line);
-}
-
-.sign-card {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 8px 10px;
-  margin-bottom: 10px;
-}
-
-/* Raw sign text, quoted verbatim. Wrapped, never truncated. */
-.sign-text {
-  font-family: var(--mono);
-  font-size: 12.5px;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  margin: 0 0 8px;
-  padding: 7px 9px;
-  background: #11161c;
-  color: #f2f5f8;
-  border-radius: 5px;
-}
-
-.rule {
-  border-top: 1px solid var(--line);
-  padding-top: 6px;
-  margin-top: 6px;
-}
-
-.rule-summary {
-  margin: 0 0 4px;
-  font-weight: 600;
-  font-size: 13px;
-}
-
-.facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1px 10px;
-  margin: 0;
-  font-size: 12.5px;
-}
-
-.facts dt {
-  color: var(--ink-soft);
-}
-
-.facts dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 1000px) {
-  .layout {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto minmax(320px, 55vh);
+@media (max-width: 1099px) {
+  .rail {
+    width: 340px;
+    left: var(--s-5);
+    top: var(--s-5);
+    bottom: var(--s-5);
   }
 
-  .panel {
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-    overflow-y: visible;
+  .rail-scroll {
+    padding: var(--s-6) var(--s-6) var(--s-8);
   }
 
-  .detail {
+  .legend {
+    width: 196px;
+    right: var(--s-5);
+    top: var(--s-5);
+  }
+}
+
+/* ---- Phone: ≤640 px ---------------------------------------------------
+   Map on top, the rail becomes a bottom drawer with three detents, and the
+   detail sheet is a second layer over it. Nothing here scrolls the document. */
+
+@media (max-width: 640px) {
+  .strip {
+    min-height: auto;
+    padding: var(--s-4) var(--s-5);
+    align-items: flex-start;
+  }
+
+  .strip-toggle {
+    margin-left: var(--s-3);
+  }
+
+  /* The legend is a compact wrapped row on a phone: four swatches and the
+     no-data sentence, which SPEC §11 requires wherever curb is drawn. */
+  .legend {
+    right: var(--s-4);
+    top: var(--s-4);
+    width: auto;
+    max-width: 66vw;
+    padding: var(--s-3) var(--s-5);
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-5);
+  }
+
+  .legend-swatch {
+    width: 18px;
+  }
+
+  .legend-note {
+    flex-basis: 100%;
+    margin-top: var(--s-2);
+    padding-top: var(--s-2);
+  }
+
+  .map-attribution {
+    bottom: calc(var(--drawer-peek) + var(--s-3));
+  }
+
+  .rail {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: var(--drawer-peek);
+    border-radius: var(--r-2xl) var(--r-2xl) 0 0;
+    border-bottom: 0;
+    background: var(--c-glass-raised);
+    box-shadow: var(--e-sheet);
+    transition: height var(--m-base) var(--ease-out);
+  }
+
+  .rail[data-detent="half"] {
+    height: 58vh;
+  }
+
+  .rail[data-detent="full"] {
+    height: calc(100% - var(--s-5));
+  }
+
+  .drawer-handle {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--s-2);
     width: 100%;
+    min-height: var(--tap-min);
+    padding: var(--s-3) var(--s-5) var(--s-2);
+    border: 0;
+    background: transparent;
+    touch-action: none;
   }
 
-  body {
-    overflow-y: auto;
+  .drawer-grip {
+    width: 40px;
+    height: 4px;
+    border-radius: var(--r-pill);
+    background: var(--c-border-strong);
+  }
+
+  .drawer-summary {
+    font-size: var(--t-small);
+    font-weight: var(--w-medium);
+    color: var(--c-text-secondary);
+  }
+
+  .rail-scroll {
+    padding: var(--s-3) var(--s-6) var(--s-8);
+  }
+
+  .wordmark {
+    display: none;
+  }
+
+  .skip-link + .skip-link:focus-visible {
+    left: 150px;
+  }
+}
+
+/* ---- Motion and contrast preferences ---------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Forced colours strips the verdict hues, so the word, the symbol, and the
+   border style have to survive on their own (UX_AUDIT (e) 11). */
+@media (forced-colors: active) {
+  .rail,
+  .legend,
+  .detail,
+  .card,
+  .strip {
+    border: 1px solid CanvasText;
+    background: Canvas;
+    backdrop-filter: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .rail,
+  .legend,
+  .detail,
+  .full-notice {
+    background: var(--c-glass-solid);
+  }
+
+  .strip {
+    background: var(--c-strip-solid);
   }
 }

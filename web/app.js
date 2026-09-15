@@ -1,301 +1,306 @@
 /**
- * State, form handling, and the search flow.
+ * State, wiring, and the search flow.
  *
- * The module wiring is deliberate (STYLE_GUIDE §4): `api.js` talks to the
- * server, `map.js` owns MapLibre, `results.js` renders the list, `detail.js`
- * renders one segment, `format.js` turns API values into words, and this file
- * is the only place that holds mutable state.
+ * The module split is deliberate (STYLE_GUIDE §4): `api.js` talks to the
+ * server, `map.js` owns MapLibre, `searchcard.js` owns the form controls,
+ * `results.js` renders the list, `detail.js` renders one span, `format.js` and
+ * `copy.js` own the words, and this file is the only place that holds mutable
+ * state.
  */
 
 import * as api from "./api.js";
+import { createAutocomplete } from "./autocomplete.js";
 import {
   CALENDAR_MISSING_CAVEAT,
+  NEEDS_DESTINATION,
+  OUTSIDE_COVERAGE,
   PIN_MODE_NEEDS_A_CLICK,
+  PIN_MODE_PROMPT,
+  SERVER_UNREACHABLE,
   TEMPORARY_SIGNAGE_CAVEAT,
+  WINDOW_BACKWARDS,
+  WINDOW_TOO_LONG,
+  errorSentence,
 } from "./copy.js";
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
 import { clear, el, replaceChildren } from "./dom.js";
-import { nextTopOfHour, statusLine, toLocalInputValue } from "./format.js";
+import { createDrawer } from "./drawer.js";
+import { statusLine, walkText } from "./format.js";
+import { renderLegend } from "./legend.js";
 import { CurbMap, loadStyle } from "./map.js";
-import { markSelected, renderResults } from "./results.js";
+import { rankLegal } from "./rank.js";
+import {
+  SHORTLIST_STEP,
+  markSelected,
+  renderEmpty,
+  renderResults,
+  renderSkeleton,
+} from "./results.js";
+import { createSearchCard } from "./searchcard.js";
+import { renderNotice, showToast } from "./states.js";
 
-const WINDOW_HOURS = 2;
+// `limit` caps the ranked legal list, `map_limit` everything else (docs/API.md).
+// Both are sent explicitly so the numbers the map draws are a decision here and
+// not a server default that can move under the UI.
+const SEARCH_LIMITS = { limit: 100, mapLimit: 2000 };
+
+const byId = (id) => document.getElementById(id);
 
 const dom = {
-  form: document.getElementById("search-form"),
-  destination: document.getElementById("destination"),
-  pinToggle: document.getElementById("pin-toggle"),
-  pinReadout: document.getElementById("pin-readout"),
-  t1: document.getElementById("t1"),
-  t2: document.getElementById("t2"),
-  walkMinutes: document.getElementById("walk-minutes"),
-  searchButton: document.getElementById("search-button"),
-  status: document.getElementById("status"),
-  suggestions: document.getElementById("suggestions"),
-  caveats: document.getElementById("search-caveats"),
-  results: document.getElementById("results"),
-  resultsHeading: document.getElementById("results-heading"),
-  detail: document.getElementById("detail"),
-  disclaimer: document.getElementById("disclaimer-text"),
-  mapContainer: document.getElementById("map"),
+  form: byId("search-form"),
+  destination: byId("destination"),
+  autocompleteList: byId("autocomplete-list"),
+  pinReadout: byId("pin-readout"),
+  date: byId("date"),
+  startTime: byId("start-time"),
+  endTime: byId("end-time"),
+  durationChips: byId("duration-chips"),
+  customDuration: byId("custom-duration"),
+  walkChips: byId("walk-chips"),
+  customWalk: byId("custom-walk"),
+  walkCustom: byId("walk-custom"),
+  preferChips: byId("prefer-chips"),
+  weightWalk: byId("weight-walk"),
+  weightWalkOut: byId("weight-walk-out"),
+  weightMoney: byId("weight-money"),
+  weightMoneyOut: byId("weight-money-out"),
+  weightRisk: byId("weight-risk"),
+  weightRiskOut: byId("weight-risk-out"),
+  windowSummary: byId("window-summary"),
+  searchButton: byId("search-button"),
+  staleNote: byId("stale-note"),
+  summary: byId("search-summary"),
+  summaryText: byId("search-summary-text"),
+  summaryEdit: byId("search-edit"),
+  notices: byId("notices"),
+  status: byId("status"),
+  caveats: byId("search-caveats"),
+  results: byId("results"),
+  resultsHeading: byId("results-heading"),
+  detail: byId("detail"),
+  legend: byId("legend"),
+  toasts: byId("toasts"),
+  noticeToggle: byId("notice-toggle"),
+  fullNotice: byId("full-notice"),
+  rail: document.querySelector(".rail"),
+  drawerHandle: byId("drawer-handle"),
+  drawerSummary: byId("drawer-summary"),
+  mapContainer: byId("map"),
 };
 
-const SLIDERS = [
-  { input: dom.walkMinutes, output: document.getElementById("walk-minutes-out"), digits: 0 },
-  {
-    input: document.getElementById("weight-walk"),
-    output: document.getElementById("weight-walk-out"),
-    digits: 1,
-  },
-  {
-    input: document.getElementById("weight-money"),
-    output: document.getElementById("weight-money-out"),
-    digits: 1,
-  },
-  {
-    input: document.getElementById("weight-risk"),
-    output: document.getElementById("weight-risk-out"),
-    digits: 1,
-  },
-];
+dom.resultsHeading.hidden = true;
 
 const state = {
-  /** [lon, lat] when the user dropped a pin or a search resolved an address. */
-  destination: null,
-  destinationLabel: "",
+  /** The resolved destination, and the text that was in the box when it resolved. */
+  resolved: null,
+  resolvedText: "",
   pinMode: false,
   results: [],
-  resultsById: new Map(),
+  counts: null,
+  walkMinutes: 10,
+  shown: SHORTLIST_STEP,
+  openGroups: new Set(),
   cardsById: new Map(),
-  selectedId: null,
+  resultsById: new Map(),
   details: new Map(),
+  selectedId: null,
+  lastFocused: null,
   searching: false,
+  coverage: null,
 };
 
-function init() {
-  const arrive = nextTopOfHour();
-  const leave = new Date(arrive.getTime() + WINDOW_HOURS * 60 * 60 * 1000);
-  dom.t1.value = toLocalInputValue(arrive);
-  dom.t2.value = toLocalInputValue(leave);
-
-  for (const slider of SLIDERS) {
-    const update = () => {
-      slider.output.textContent = Number(slider.input.value).toFixed(slider.digits);
-    };
-    slider.input.addEventListener("input", update);
-    update();
-  }
-  dom.walkMinutes.addEventListener("input", () => {
-    if (state.destination) {
-      curbMap.setWalkRadius(state.destination, Number(dom.walkMinutes.value));
-    }
-  });
-
-  dom.pinToggle.addEventListener("click", () => setPinMode(!state.pinMode));
-  dom.destination.addEventListener("input", () => {
-    if (dom.destination.value !== "") {
-      setPinMode(false);
-    }
-  });
-  dom.form.addEventListener("submit", onSubmit);
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && state.selectedId !== null) {
-      closeDetail();
-    }
-  });
-
-  reportHealth();
-}
-
-async function reportHealth() {
-  try {
-    const health = await api.health();
-    const signs = typeof health.sign_count === "number" ? health.sign_count : 0;
-    if (!health.db_present || signs === 0) {
-      setStatus(
-        "No parking database yet. Run `curbcheck sync` to build data/curbcheck.sqlite.",
-        "error",
-      );
-      return;
-    }
-    const ready = `Ready. ${signs.toLocaleString("en-US")} signs loaded.`;
-    // `degraded` with a database present means the calendar did not survive the
-    // sync; searching still works, so this is a warning, not a refusal.
-    if (health.calendar_missing) {
-      setStatus(`${ready} ${CALENDAR_MISSING_CAVEAT}.`, "error");
-      return;
-    }
-    setStatus(ready);
-  } catch (error) {
-    setStatus(error.message, "error");
-  }
-}
-
-function setPinMode(enabled) {
-  state.pinMode = enabled;
-  dom.pinToggle.setAttribute("aria-pressed", String(enabled));
-  dom.pinToggle.textContent = enabled ? "Click the map to place the pin" : "Drop a pin instead";
-  curbMap.setPinMode(enabled);
-  if (enabled) {
-    dom.destination.value = "";
-  }
-}
-
-function dropPin(lonlat) {
-  state.destination = lonlat;
-  state.destinationLabel = `${lonlat[1].toFixed(6)}, ${lonlat[0].toFixed(6)}`;
-  dom.pinReadout.textContent = `Pin at ${state.destinationLabel}`;
-  curbMap.setDestination(lonlat, state.destinationLabel);
-  curbMap.setWalkRadius(lonlat, Number(dom.walkMinutes.value));
-  setPinMode(false);
-}
+/* ---- Search ------------------------------------------------------------ */
 
 function onSubmit(event) {
   event.preventDefault();
   if (state.searching) {
     return;
   }
-  const address = dom.destination.value.trim();
-  if (address === "" && state.destination === null) {
-    setStatus("Type an address or an intersection, or drop a pin on the map.", "error");
+  const text = dom.destination.value.trim();
+  const where = destinationFor(text);
+  if (!where) {
+    // `dropPin` disarms pin mode, so still being armed means no pin was placed
+    // since it was turned on. Searching would silently reuse the old answer.
+    setStatus(state.pinMode ? PIN_MODE_NEEDS_A_CLICK : NEEDS_DESTINATION, "error");
+    dom.destination.focus();
     return;
   }
-  // `dropPin` disarms pin mode, so still being armed means no pin was placed
-  // since it was turned on. Searching would silently reuse the old destination.
-  if (address === "" && state.pinMode) {
-    setStatus(PIN_MODE_NEEDS_A_CLICK, "error");
+  const window_ = searchCard.window();
+  if (window_.error) {
+    setStatus(windowErrorSentence(window_.error), "error");
     return;
   }
-  if (dom.t2.value <= dom.t1.value) {
-    setStatus("The departure time has to be after the arrival time.", "error");
-    return;
-  }
-  runSearch(
-    address === "" ? { lat: state.destination[1], lon: state.destination[0] } : { address },
-  );
+  runSearch(where, window_);
 }
 
-async function runSearch(where) {
-  const walkMinutes = Number(dom.walkMinutes.value);
-  const body = {
-    ...where,
-    t1: dom.t1.value,
-    t2: dom.t2.value,
-    walk_minutes: walkMinutes,
-    weights: {
-      walk: Number(document.getElementById("weight-walk").value),
-      money: Number(document.getElementById("weight-money").value),
-      risk: Number(document.getElementById("weight-risk").value),
-    },
-  };
+function destinationFor(text) {
+  if (state.resolved && text === state.resolvedText) {
+    return { lat: state.resolved.lat, lon: state.resolved.lon };
+  }
+  if (text !== "") {
+    return { address: text };
+  }
+  if (state.resolved && !state.pinMode) {
+    return { lat: state.resolved.lat, lon: state.resolved.lon };
+  }
+  return null;
+}
 
+function windowErrorSentence(code) {
+  if (code === "too_long") {
+    return WINDOW_TOO_LONG;
+  }
+  if (code === "backwards") {
+    return WINDOW_BACKWARDS;
+  }
+  return "Pick a date, a start time, and how long you are staying.";
+}
+
+async function runSearch(where, window_) {
+  const walkMinutes = searchCard.walkMinutes();
+  state.walkMinutes = walkMinutes;
   setSearching(true);
-  clear(dom.suggestions);
-  setStatus("Searching…");
+  renderNotice(dom.notices, null);
+  renderSkeleton(dom.results);
+  dom.resultsHeading.hidden = false;
   try {
-    const response = await api.search(body);
+    const response = await api.search({
+      ...where,
+      t1: window_.t1,
+      t2: window_.t2,
+      walk_minutes: walkMinutes,
+      weights: searchCard.weights(),
+      limit: SEARCH_LIMITS.limit,
+      map_limit: SEARCH_LIMITS.mapLimit,
+    });
     showResponse(response, walkMinutes);
   } catch (error) {
-    handleSearchError(error, where);
+    handleSearchError(error);
   } finally {
     setSearching(false);
   }
 }
 
 function showResponse(response, walkMinutes) {
-  // The banner already carries the SPEC §17 text, marked up with the emphasis
-  // the spec puts on it. Replace it only if the server's wording differs.
-  const disclaimer = response.disclaimer;
-  if (typeof disclaimer === "string" && !sameText(disclaimer, dom.disclaimer.textContent)) {
-    dom.disclaimer.textContent = disclaimer;
-  }
   renderCaveats(response.caveats);
-
   const results = Array.isArray(response.results) ? response.results : [];
-  state.results = results;
+  state.results = rankLegal(results, searchCard.weights());
+  state.counts = response.counts || null;
   state.resultsById = new Map(results.map((result) => [result.reg_seg_id, result]));
   state.details = new Map();
-  closeDetail();
+  state.shown = SHORTLIST_STEP;
+  closeDetail({ restoreFocus: false });
 
   const destination = response.destination;
   if (destination && typeof destination.lat === "number" && typeof destination.lon === "number") {
-    state.destination = [destination.lon, destination.lat];
-    state.destinationLabel = destination.label || "Destination";
-    dom.pinReadout.textContent = `Searching near ${state.destinationLabel}`;
-    curbMap.setDestination(state.destination, state.destinationLabel);
-    curbMap.setWalkRadius(state.destination, walkMinutes);
-    curbMap.centerOn(state.destination, zoomForWalkMinutes(walkMinutes));
+    // A lat/lon search comes back labelled with its own coordinates, so the
+    // label the user picked (or the pin's reverse lookup) wins when it is still
+    // the one in the box — UX_AUDIT P1-4 wants the resolved place echoed, not
+    // six decimal places.
+    const picked = state.resolved && dom.destination.value.trim() === state.resolvedText;
+    const label = picked ? state.resolved.label : destination.label || "";
+    state.resolved = { lat: destination.lat, lon: destination.lon, label };
+    curbMap.setDestination([destination.lon, destination.lat], state.resolved.label);
+    curbMap.setWalkRadius([destination.lon, destination.lat], walkMinutes);
+  }
+  curbMap.setCoverage(null);
+  curbMap.setResults(state.results);
+  curbMap.fitResults();
+
+  searchCard.markSearched();
+  searchCard.collapse(state.resolved ? state.resolved.label : dom.destination.value.trim());
+
+  if (state.results.length === 0) {
+    dom.resultsHeading.hidden = true;
+    renderEmpty(dom.results, walkMinutes);
+    setStatus(statusLine(state.counts, 0, walkMinutes));
+    drawer.setSummary("Nothing found");
+    return;
   }
 
-  curbMap.setResults(results);
-  dom.resultsHeading.textContent = results.length === 0 ? "Results" : `Results (${results.length})`;
-  state.cardsById = renderResults(dom.results, results, {
-    onSelect: (regSegId) => selectSegment(regSegId, { fly: true }),
-    detailFor: (regSegId) => state.details.get(regSegId) || null,
-  });
-
-  setStatus(statusLine(response.counts, results.length, walkMinutes));
+  dom.resultsHeading.hidden = false;
+  paintResults();
+  setStatus(statusLine(state.counts, state.results.length, walkMinutes));
+  const nearest = state.results.find((result) => result.verdict === "legal");
+  drawer.setSummary(
+    nearest
+      ? `${state.counts ? state.counts.legal : state.results.length} legal · nearest ${walkText(nearest.walk_min)}`
+      : `${state.results.length} stretches`,
+  );
+  drawer.open("half");
 }
 
-function handleSearchError(error, where) {
-  // The previous search's results describe a different destination, a different
-  // window, or both. Leaving them on the map and in the list under an error
-  // banner reads as "here is the answer", which is the false confidence
-  // CLAUDE.md bans; an empty list next to the error is the honest state.
+function paintResults() {
+  state.cardsById = renderResults(dom.results, {
+    results: state.results,
+    counts: state.counts,
+    walkMinutes: state.walkMinutes,
+    shown: state.shown,
+    openGroups: state.openGroups,
+    onSelect: (regSegId) => selectSegment(regSegId, { fly: true }),
+    onHover: (regSegId) => curbMap.setHover(regSegId),
+    onShowMore: () => {
+      state.shown += SHORTLIST_STEP;
+      paintResults();
+    },
+  });
+  markSelected(state.cardsById, state.selectedId);
+}
+
+/**
+ * An error clears the previous answer.
+ *
+ * Results for the old destination left on the map under an error banner read as
+ * the answer to the new question (UX_AUDIT (f) 8). The form keeps its values so
+ * the search can be retried without retyping.
+ */
+function handleSearchError(error) {
   clearResults();
-  setStatus(error.message, "error");
-  if (error.code === "address_not_found" && where.address) {
-    offerSuggestions(where.address);
+  searchCard.expand();
+  if (error.code === "outside_coverage") {
+    showOutsideCoverage();
+    return;
+  }
+  renderNotice(dom.notices, {
+    kind: "error",
+    title: error.code === "network_error" ? "No answer from the server" : "That search did not run",
+    text: error.code === "network_error" ? SERVER_UNREACHABLE : errorSentence(error.code),
+    actionLabel: "Retry",
+    onAction: () => dom.form.requestSubmit(),
+  });
+  // The notice block is the live region for failures, so the status line does
+  // not repeat it; it goes back to saying nothing until there is an answer.
+  setStatus("");
+  if (error.code === "network_error" || error.code === "timeout") {
+    showToast(dom.toasts, "CurbCheck could not reach its server.");
+  }
+}
+
+function showOutsideCoverage() {
+  renderNotice(dom.notices, {
+    kind: "error",
+    title: OUTSIDE_COVERAGE,
+    text: "Your destination is outside the outlined area on the map. Move it into Manhattan.",
+  });
+  setStatus("");
+  if (state.coverage) {
+    curbMap.setCoverage(state.coverage);
+    curbMap.fitCoverage(state.coverage);
   }
 }
 
 function clearResults() {
   state.results = [];
+  state.counts = null;
   state.resultsById = new Map();
   state.details = new Map();
-  closeDetail();
   state.cardsById = new Map();
+  state.shown = SHORTLIST_STEP;
+  closeDetail({ restoreFocus: false });
   clear(dom.results);
-  dom.resultsHeading.textContent = "Results";
+  dom.resultsHeading.hidden = true;
   curbMap.clearResults();
-}
-
-async function offerSuggestions(query) {
-  try {
-    const response = await api.geocode(query);
-    const candidates = Array.isArray(response.candidates) ? response.candidates : [];
-    if (candidates.length === 0) {
-      setStatus(
-        "No match for that address. Try a cross street like “3 Ave & E 85 St”, or drop a pin.",
-        "error",
-      );
-      return;
-    }
-    replaceChildren(
-      dom.suggestions,
-      candidates.map((candidate) => {
-        const button = el("button", {
-          className: "suggestion",
-          text: `${candidate.label} (${candidate.kind})`,
-          attrs: { type: "button" },
-        });
-        button.addEventListener("click", () => {
-          dom.destination.value = candidate.label;
-          dropPin([candidate.lon, candidate.lat]);
-          clear(dom.suggestions);
-          runSearch({ lat: candidate.lat, lon: candidate.lon });
-        });
-        return el("li", {}, [button]);
-      }),
-    );
-  } catch {
-    // The address simply could not be resolved; the status line already says so.
-    clear(dom.suggestions);
-  }
-}
-
-function sameText(left, right) {
-  return left.replace(/\s+/g, " ").trim() === right.replace(/\s+/g, " ").trim();
+  drawer.setSummary("Search");
 }
 
 function renderCaveats(caveats) {
@@ -306,8 +311,13 @@ function renderCaveats(caveats) {
   );
 }
 
+/* ---- Selection and the detail sheet ------------------------------------ */
+
 function selectSegment(regSegId, { fly }) {
   const result = state.resultsById.get(regSegId) || null;
+  if (state.selectedId !== regSegId) {
+    state.lastFocused = document.activeElement;
+  }
   state.selectedId = regSegId;
   curbMap.setSelected(regSegId);
   if (fly) {
@@ -333,30 +343,58 @@ async function loadDetail(regSegId, result) {
     if (state.selectedId !== regSegId) {
       return;
     }
-    showDetail({ result, detail, error: null, loading: false, regSegId });
+    showDetail({ result, detail, error: null, loading: false, regSegId, keepFocus: true });
   } catch (error) {
     if (state.selectedId === regSegId) {
-      showDetail({ result, detail: null, error: error.message, loading: false, regSegId });
+      showDetail({
+        result,
+        detail: null,
+        error: errorSentence(error.code),
+        loading: false,
+        regSegId,
+        keepFocus: true,
+      });
     }
   }
 }
 
-function showDetail({ result, detail, error, loading, regSegId }) {
-  renderDetail(dom.detail, {
+function showDetail({ result, detail, error, loading, regSegId, keepFocus = false }) {
+  // The sheet is rebuilt when the segment call returns, which destroys whatever
+  // inside it had focus; re-anchoring on Close keeps the keyboard in the sheet.
+  const focusWasInside = dom.detail.contains(document.activeElement);
+  const close = renderDetail(dom.detail, {
     result,
     detail,
     error,
     loading,
     label: streetLabel(result || { reg_seg_id: regSegId }, detail),
-    onClose: closeDetail,
+    onClose: () => closeDetail({ restoreFocus: true }),
   });
+  updatePadding();
+  // Focus moves into the sheet on open so a screen reader lands on the verdict
+  // rather than announcing nothing at all (UX_AUDIT P1-7).
+  if (!keepFocus || focusWasInside) {
+    close.focus();
+  }
 }
 
-function closeDetail() {
+function closeDetail({ restoreFocus }) {
+  const had = state.selectedId !== null;
   state.selectedId = null;
   curbMap.setSelected(null);
   hideDetail(dom.detail);
   markSelected(state.cardsById, null);
+  updatePadding();
+  if (had && restoreFocus && state.lastFocused && state.lastFocused.isConnected) {
+    state.lastFocused.focus();
+  }
+}
+
+/* ---- Chrome ------------------------------------------------------------ */
+
+function setStatus(message, kind = "info") {
+  dom.status.textContent = message;
+  dom.status.classList.toggle("status-error", kind === "error");
 }
 
 function setSearching(searching) {
@@ -365,9 +403,101 @@ function setSearching(searching) {
   dom.searchButton.textContent = searching ? "Searching…" : "Search";
 }
 
-function setStatus(message, kind = "info") {
-  dom.status.textContent = message;
-  dom.status.classList.toggle("status-error", kind === "error");
+function setPinMode(enabled) {
+  state.pinMode = enabled;
+  curbMap.setPinMode(enabled);
+  dom.pinReadout.textContent = enabled ? PIN_MODE_PROMPT : "";
+  if (enabled) {
+    dom.destination.value = "";
+    state.resolved = null;
+    state.resolvedText = "";
+    drawer.collapse();
+  }
+}
+
+async function dropPin([lon, lat]) {
+  state.resolved = { lat, lon, label: `${lat.toFixed(5)}, ${lon.toFixed(5)}` };
+  curbMap.setDestination([lon, lat], state.resolved.label);
+  curbMap.setWalkRadius([lon, lat], searchCard.walkMinutes());
+  setPinMode(false);
+  showToast(dom.toasts, "Pin set");
+  try {
+    const place = await api.reverse(lat, lon);
+    const label = place && place.label ? `near ${place.label}` : state.resolved.label;
+    state.resolved.label = label;
+    state.resolvedText = label;
+    dom.destination.value = label;
+    dom.pinReadout.textContent = place && place.secondary ? place.secondary : "";
+    curbMap.setDestination([lon, lat], label);
+  } catch {
+    // No reverse label is not a failure: the coordinates are the destination,
+    // and the search runs on them either way.
+    state.resolvedText = state.resolved.label;
+    dom.destination.value = state.resolved.label;
+  }
+}
+
+function pickCandidate(candidate) {
+  state.resolved = { lat: candidate.lat, lon: candidate.lon, label: candidate.label };
+  state.resolvedText = candidate.label;
+  dom.destination.value = candidate.label;
+  // setPinMode clears the readout line, so the secondary label goes in after it.
+  setPinMode(false);
+  dom.pinReadout.textContent = candidate.secondary || "";
+  curbMap.setDestination([candidate.lon, candidate.lat], candidate.label);
+  curbMap.setWalkRadius([candidate.lon, candidate.lat], searchCard.walkMinutes());
+  curbMap.centerOn([candidate.lon, candidate.lat], 15);
+  // Focus stays in the field: moving it to Search during the Enter keydown lets
+  // the same keystroke's keypress reach the button and submit the form before
+  // the user has seen what was picked.
+}
+
+/** Keep the map's fitBounds clear of the rail and the sheet. */
+function updatePadding() {
+  const phone = drawer.isPhone();
+  const railWidth = phone ? 0 : dom.rail.getBoundingClientRect().width + 32;
+  const sheetWidth = dom.detail.hidden || phone ? 0 : dom.detail.getBoundingClientRect().width + 32;
+  curbMap.setPadding({
+    top: 40,
+    bottom: phone ? dom.rail.getBoundingClientRect().height + 24 : 40,
+    left: Math.max(40, railWidth),
+    right: Math.max(40, sheetWidth),
+  });
+}
+
+async function reportHealth() {
+  try {
+    const health = await api.health();
+    if (health.coverage && health.coverage.bbox) {
+      state.coverage = health.coverage.bbox;
+    }
+    const signs = typeof health.sign_count === "number" ? health.sign_count : 0;
+    if (!health.db_present || signs === 0) {
+      renderNotice(dom.notices, {
+        kind: "error",
+        title: "No parking database yet",
+        text: "Run `curbcheck sync` to build data/curbcheck.sqlite, then reload.",
+      });
+      return;
+    }
+    // `degraded` with a database present means the calendar did not survive the
+    // sync; searching still works, so this is a warning, not a refusal.
+    if (health.calendar_missing) {
+      renderNotice(dom.notices, {
+        kind: "warn",
+        title: "Holiday calendar missing",
+        text: `${CALENDAR_MISSING_CAVEAT}. Searching still works.`,
+      });
+      return;
+    }
+    setStatus(`Ready. ${signs.toLocaleString("en-US")} signs loaded.`);
+  } catch (error) {
+    renderNotice(dom.notices, {
+      kind: "error",
+      title: "No answer from the server",
+      text: error.code === "network_error" ? SERVER_UNREACHABLE : errorSentence(error.code),
+    });
+  }
 }
 
 function reportMapError(message) {
@@ -379,15 +509,7 @@ function reportMapError(message) {
   setStatus(`Basemap problem: ${message}`, "error");
 }
 
-function zoomForWalkMinutes(walkMinutes) {
-  if (walkMinutes <= 5) {
-    return 16;
-  }
-  if (walkMinutes <= 12) {
-    return 15;
-  }
-  return 14;
-}
+/* ---- Boot -------------------------------------------------------------- */
 
 // Top-level await: the map cannot be constructed until the style is in hand,
 // and a missing basemap must not stop the search from working.
@@ -400,6 +522,73 @@ const curbMap = new CurbMap(dom.mapContainer, style, {
   onSelect: (regSegId) => selectSegment(regSegId, { fly: false }),
   onPinDrop: (lonlat) => dropPin(lonlat),
   onError: (message) => reportMapError(message),
+  onHover: (regSegId) => {
+    curbMap.setHover(regSegId);
+  },
 });
 
-init();
+const drawer = createDrawer({
+  rail: dom.rail,
+  handle: dom.drawerHandle,
+  summary: dom.drawerSummary,
+  onDetent: () => updatePadding(),
+});
+
+const searchCard = createSearchCard({
+  dom,
+  onRerank: (weights) => {
+    if (state.results.length === 0) {
+      return;
+    }
+    state.results = rankLegal(state.results, weights);
+    state.shown = SHORTLIST_STEP;
+    paintResults();
+  },
+  onWalkChange: (minutes) => {
+    if (state.resolved) {
+      curbMap.setWalkRadius([state.resolved.lon, state.resolved.lat], minutes);
+    }
+  },
+  onStaleChange: () => {},
+});
+
+createAutocomplete({
+  input: dom.destination,
+  list: dom.autocompleteList,
+  onPick: (candidate) => pickCandidate(candidate),
+  onDropPin: () => setPinMode(true),
+});
+
+renderLegend(dom.legend);
+
+dom.form.addEventListener("submit", onSubmit);
+dom.summaryEdit.addEventListener("click", () => searchCard.expand());
+dom.destination.addEventListener("input", () => {
+  if (dom.destination.value !== state.resolvedText) {
+    state.resolved = null;
+  }
+  if (dom.destination.value !== "" && state.pinMode) {
+    setPinMode(false);
+  }
+});
+
+dom.noticeToggle.addEventListener("click", () => {
+  const open = dom.noticeToggle.getAttribute("aria-expanded") === "true";
+  dom.noticeToggle.setAttribute("aria-expanded", String(!open));
+  dom.fullNotice.hidden = open;
+  updatePadding();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.selectedId !== null) {
+    closeDetail({ restoreFocus: true });
+  }
+});
+
+window.addEventListener("resize", () => {
+  curbMap.resize();
+  updatePadding();
+});
+
+updatePadding();
+reportHealth();

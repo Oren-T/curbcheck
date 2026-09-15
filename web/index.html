@@ -7,12 +7,34 @@
     <title>CurbCheck — Manhattan curb parking</title>
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
+    <link rel="stylesheet" href="./tokens.css" />
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./components.css" />
   </head>
   <body>
-    <!-- SPEC §17: this banner is persistent and is never collapsed or dismissed.
-         app.js replaces the text with the API's `disclaimer` when one arrives. -->
-    <header class="disclaimer" role="note" aria-label="Disclaimer">
+    <a class="skip-link" href="#map">Skip to map</a>
+    <a class="skip-link" href="#results">Skip to results</a>
+
+    <!-- SPEC §17: the advisory is persistent and is never dismissible. The strip
+         carries the two load-bearing sentences; "Full notice" expands the whole
+         §17 text in place, and every detail sheet repeats it verbatim, so
+         collapsing this never removes the warning from the flow. -->
+    <header class="strip" role="note" aria-label="Advisory">
+      <p class="strip-text">
+        <strong>Advisory only. Read the posted sign.</strong>
+        <span>Grey means no data, not no restriction.</span>
+      </p>
+      <button
+        type="button"
+        id="notice-toggle"
+        class="strip-toggle"
+        aria-expanded="false"
+        aria-controls="full-notice"
+      >
+        Full notice
+      </button>
+    </header>
+    <div id="full-notice" class="full-notice" hidden>
       <p id="disclaimer-text">
         <strong>CurbCheck is advisory only.</strong> This tool derives parking legality and price
         from NYC Open Data (NYC DOT Sign Information Management System) and may be incomplete, out
@@ -28,91 +50,148 @@
         available. <strong>A blank or grey curb means no data, not no restriction.</strong> Data ©
         NYC Open Data; basemap © OpenStreetMap contributors.
       </p>
-    </header>
+    </div>
 
     <main class="layout">
-      <section class="panel" aria-label="Search and results">
-        <h1 class="wordmark">CurbCheck</h1>
+      <section class="rail" aria-label="Search and results">
+        <button
+          type="button"
+          id="drawer-handle"
+          class="drawer-handle"
+          aria-expanded="false"
+          aria-controls="rail-scroll"
+        >
+          <span class="drawer-grip" aria-hidden="true"></span>
+          <span id="drawer-summary" class="drawer-summary">Search</span>
+        </button>
 
-        <form id="search-form" class="search-form" autocomplete="off">
-          <div class="field">
-            <label for="destination">Destination</label>
-            <input
-              type="text"
-              id="destination"
-              name="destination"
-              placeholder="123 E 85 St, or 3 Ave &amp; E 85 St"
-              maxlength="200"
-            />
-            <div class="pin-row">
-              <button type="button" id="pin-toggle" class="toggle" aria-pressed="false">
-                Drop a pin instead
-              </button>
-              <span id="pin-readout" class="hint"></span>
+        <div id="rail-scroll" class="rail-scroll">
+          <h1 class="wordmark">CurbCheck</h1>
+
+          <form id="search-form" class="search-card" autocomplete="off">
+            <div class="field">
+              <label for="destination">Where are you going?</label>
+              <div class="combobox">
+                <input
+                  type="text"
+                  id="destination"
+                  name="destination"
+                  class="text-input"
+                  role="combobox"
+                  aria-expanded="false"
+                  aria-controls="autocomplete-list"
+                  aria-autocomplete="list"
+                  aria-describedby="pin-readout"
+                  placeholder="Address or cross street"
+                  maxlength="200"
+                />
+                <ul
+                  id="autocomplete-list"
+                  class="ac-list"
+                  role="listbox"
+                  aria-label="Address suggestions"
+                  hidden
+                ></ul>
+              </div>
+              <p id="pin-readout" class="hint"></p>
             </div>
+
+            <div class="field">
+              <span class="field-label" id="when-label">When</span>
+              <div class="when-row">
+                <input type="date" id="date" class="text-input" aria-label="Date" />
+                <input
+                  type="time"
+                  id="start-time"
+                  class="text-input"
+                  step="900"
+                  aria-label="Start time"
+                />
+              </div>
+              <div
+                id="duration-chips"
+                class="chips"
+                role="radiogroup"
+                aria-label="How long are you parking?"
+              ></div>
+              <div id="custom-duration" class="sub-field" hidden>
+                <label for="end-time">Until</label>
+                <input type="time" id="end-time" class="text-input" step="900" />
+              </div>
+              <p id="window-summary" class="summary-line" aria-live="polite"></p>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Walk at most</span>
+              <div id="walk-chips" class="chips" role="radiogroup" aria-label="Walk radius"></div>
+              <div id="custom-walk" class="sub-field" hidden>
+                <label for="walk-custom">Minutes</label>
+                <input
+                  type="number"
+                  id="walk-custom"
+                  class="text-input"
+                  min="1"
+                  max="30"
+                  step="1"
+                />
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="field-label">Prefer</span>
+              <div id="prefer-chips" class="chips" role="radiogroup" aria-label="Ranking"></div>
+              <details id="advanced" class="advanced">
+                <summary>Advanced</summary>
+                <div class="advanced-body">
+                  <div class="field">
+                    <label for="weight-walk">
+                      Walking <output id="weight-walk-out" for="weight-walk">1.0</output>
+                    </label>
+                    <input type="range" id="weight-walk" min="0" max="3" step="0.1" value="1" />
+                  </div>
+                  <div class="field">
+                    <label for="weight-money">
+                      Money <output id="weight-money-out" for="weight-money">1.0</output>
+                    </label>
+                    <input type="range" id="weight-money" min="0" max="3" step="0.1" value="1" />
+                  </div>
+                  <div class="field">
+                    <label for="weight-risk">
+                      Risk — how hard to avoid stretches the software is unsure about
+                      <output id="weight-risk-out" for="weight-risk">0.5</output>
+                    </label>
+                    <input type="range" id="weight-risk" min="0" max="3" step="0.1" value="0.5" />
+                  </div>
+                </div>
+              </details>
+            </div>
+
+            <button type="submit" id="search-button" class="primary">Search</button>
+            <p id="stale-note" class="stale-note" hidden></p>
+          </form>
+
+          <div id="search-summary" class="search-summary" hidden>
+            <p id="search-summary-text" class="search-summary-text"></p>
+            <button type="button" id="search-edit" class="ghost">Edit</button>
           </div>
 
-          <div class="field-row">
-            <div class="field">
-              <label for="t1">Arrive</label>
-              <input type="datetime-local" id="t1" name="t1" required />
-            </div>
-            <div class="field">
-              <label for="t2">Leave</label>
-              <input type="datetime-local" id="t2" name="t2" required />
-            </div>
-          </div>
+          <div id="notices" class="notices" role="status" aria-live="polite"></div>
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+          <ul id="search-caveats" class="caveats"></ul>
 
-          <div class="field">
-            <label for="walk-minutes">
-              Walk at most <output id="walk-minutes-out" for="walk-minutes">10</output> min
-            </label>
-            <input
-              type="range"
-              id="walk-minutes"
-              name="walk-minutes"
-              min="1"
-              max="30"
-              step="1"
-              value="10"
-            />
-          </div>
-
-          <fieldset class="weights">
-            <legend>How much each thing counts</legend>
-            <div class="field">
-              <label for="weight-walk">
-                Walking <output id="weight-walk-out" for="weight-walk">1.0</output>
-              </label>
-              <input type="range" id="weight-walk" min="0" max="3" step="0.1" value="1" />
-            </div>
-            <div class="field">
-              <label for="weight-money">
-                Money <output id="weight-money-out" for="weight-money">1.0</output>
-              </label>
-              <input type="range" id="weight-money" min="0" max="3" step="0.1" value="1" />
-            </div>
-            <div class="field">
-              <label for="weight-risk">
-                Risk of being wrong <output id="weight-risk-out" for="weight-risk">0.5</output>
-              </label>
-              <input type="range" id="weight-risk" min="0" max="3" step="0.1" value="0.5" />
-            </div>
-          </fieldset>
-
-          <button type="submit" id="search-button" class="primary">Search</button>
-        </form>
-
-        <p id="status" class="status" role="status" aria-live="polite"></p>
-        <ul id="suggestions" class="suggestions"></ul>
-        <ul id="search-caveats" class="caveats"></ul>
-
-        <h2 id="results-heading" class="results-heading">Results</h2>
-        <ol id="results" class="results" aria-labelledby="results-heading"></ol>
+          <h2 id="results-heading" class="results-heading">Results</h2>
+          <div
+            id="results"
+            class="results-region"
+            tabindex="-1"
+            aria-labelledby="results-heading"
+          ></div>
+        </div>
       </section>
 
       <section class="map-area" aria-label="Map">
-        <div id="map" class="map"></div>
+        <div id="map" class="map" tabindex="-1" aria-label="Map of curb verdicts"></div>
+        <div id="legend" class="legend" role="group" aria-label="Verdict legend"></div>
         <p class="map-attribution">
           ©
           <a
@@ -123,16 +202,18 @@
           >
           · Protomaps · Data: NYC Open Data (DOT, DCP)
         </p>
-        <ul class="legend" aria-label="Verdict legend">
-          <li><span class="swatch swatch-legal" aria-hidden="true"></span>Legal</li>
-          <li><span class="swatch swatch-ambiguous" aria-hidden="true"></span>Ambiguous</li>
-          <li><span class="swatch swatch-illegal" aria-hidden="true"></span>Illegal</li>
-          <li><span class="swatch swatch-no_data" aria-hidden="true"></span>No data</li>
-          <li class="legend-note">A blank or grey curb means no data, not no restriction.</li>
-        </ul>
-        <aside id="detail" class="detail" aria-label="Segment detail" hidden></aside>
+        <div
+          id="detail"
+          class="detail"
+          role="dialog"
+          aria-labelledby="detail-title"
+          aria-modal="false"
+          hidden
+        ></div>
       </section>
     </main>
+
+    <div id="toasts" class="toasts" role="status" aria-live="polite"></div>
 
     <!-- pmtiles.js is the browser IIFE build and must define the `pmtiles`
          global before map.js registers the protocol (web/vendor/MANIFEST.md). -->
