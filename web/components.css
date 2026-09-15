@@ -478,6 +478,124 @@ input[type="range"] {
   color: var(--v-nodata-ink);
 }
 
+/* ---- Count pills: the verdict filter and the honest totals -------------- */
+
+/* A 2x2 grid, not a wrapped row: four pills of four different widths wrap
+   3 + 1 and read as a ragged sentence rather than as a stat block. */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-3);
+  margin-top: var(--s-6);
+}
+
+.stats:empty {
+  display: none;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 30px;
+  padding: 0 var(--s-5);
+  border: 1px solid transparent;
+  border-radius: var(--r-pill);
+  font-size: var(--t-caption);
+  line-height: 1;
+  transition:
+    opacity var(--m-fast) var(--ease-out),
+    box-shadow var(--m-instant) var(--ease-out);
+}
+
+.pill-swatch {
+  width: 12px;
+  height: 5px;
+  flex: 0 0 auto;
+  border-radius: var(--r-pill);
+}
+
+.pill-count {
+  font-weight: var(--w-semibold);
+}
+
+.pill-word {
+  opacity: 0.8;
+}
+
+/* Pressed out: the pill keeps its count — hiding a verdict must never hide how
+   much of it there is (UX_AUDIT (f) 3) — and says so by going flat and struck. */
+.stat-pill[aria-checked="false"] {
+  background: transparent;
+  border-color: var(--c-border-strong);
+  color: var(--c-text-muted);
+}
+
+.stat-pill[aria-checked="false"] .pill-swatch {
+  opacity: 0.35;
+}
+
+.stat-pill[aria-checked="false"] .pill-word {
+  text-decoration: line-through;
+}
+
+.stat-legal[aria-checked="true"] {
+  background: var(--v-legal-soft);
+  color: var(--v-legal-ink);
+}
+
+.stat-ambiguous[aria-checked="true"] {
+  background: var(--v-ambiguous-soft);
+  color: var(--v-ambiguous-ink);
+}
+
+.stat-illegal[aria-checked="true"] {
+  background: var(--v-illegal-soft);
+  color: var(--v-illegal-ink);
+}
+
+.stat-no_data[aria-checked="true"] {
+  background: var(--v-nodata-soft);
+  color: var(--v-nodata-ink);
+}
+
+/* ---- "2 things to know" ------------------------------------------------ */
+
+.caveat-summary:empty {
+  display: none;
+}
+
+.caveat-disclosure {
+  margin-top: var(--s-3);
+}
+
+.caveat-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-4) var(--s-2) var(--s-3);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  font-size: var(--t-caption);
+  font-weight: var(--w-medium);
+  color: var(--c-text-secondary);
+}
+
+.caveat-toggle::before {
+  content: "›";
+  transition: transform var(--m-fast) var(--ease-out);
+}
+
+.caveat-toggle[aria-expanded="true"]::before {
+  transform: rotate(90deg);
+}
+
+.caveat-toggle:hover {
+  background: var(--c-chip);
+  color: var(--c-text);
+}
+
 /* ---- Result list ------------------------------------------------------- */
 
 .results-heading[hidden] {

@@ -474,21 +474,19 @@ export function formatHourRates(hourRates) {
  * were sent would state as fact something the query never established, which
  * is the failure docs/VALIDATION.md U1 recorded — so the numbers come from the
  * server and the line says plainly when it is showing a subset.
+ *
+ * The per-verdict breakdown used to live here too and made this a 44-word
+ * paragraph at the top of the rail. It is now the four count pills, which read
+ * the same `counts` object.
  */
 export function statusLine(counts, shown, walkMinutes) {
   const total = counts && typeof counts.total === "number" ? counts.total : shown;
   if (total === 0) {
     return `Nothing within a ${walkMinutes}-minute walk.`;
   }
-  const parts = [`${total} stretches within a ${walkMinutes} min walk`];
-  if (counts) {
-    parts.push(
-      `${counts.legal ?? 0} legal · ${counts.ambiguous ?? 0} ambiguous · ` +
-        `${counts.illegal ?? 0} illegal · ${counts.no_data ?? 0} no data`,
-    );
-  }
+  const parts = [`${total.toLocaleString("en-US")} stretches within a ${walkMinutes} min walk`];
   if (shown < total) {
-    parts.push(`${shown} drawn, nearest first`);
+    parts.push(`${shown.toLocaleString("en-US")} drawn, nearest first`);
   }
   return parts.join(" · ");
 }

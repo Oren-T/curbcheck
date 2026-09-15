@@ -23,7 +23,7 @@ import {
   errorSentence,
 } from "./copy.js";
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
-import { clear, el, replaceChildren } from "./dom.js";
+import { clear, collapsible, el, replaceChildren } from "./dom.js";
 import { createDrawer } from "./drawer.js";
 import { statusLine, walkText } from "./format.js";
 import { renderLegend } from "./legend.js";
@@ -35,9 +35,12 @@ import {
   renderEmpty,
   renderResults,
   renderSkeleton,
+  renderStats,
+  updateStats,
 } from "./results.js";
 import { createSearchCard } from "./searchcard.js";
 import { renderNotice, showToast } from "./states.js";
+import { VERDICT_ORDER } from "./verdicts.js";
 
 // `limit` caps the ranked legal list, `map_limit` everything else (docs/API.md).
 // Both are sent explicitly so the numbers the map draws are a decision here and
@@ -74,6 +77,7 @@ const dom = {
   summaryEdit: byId("search-edit"),
   notices: byId("notices"),
   status: byId("status"),
+  stats: byId("stats"),
   caveats: byId("search-caveats"),
   results: byId("results"),
   resultsHeading: byId("results-heading"),
@@ -101,9 +105,12 @@ const state = {
   shown: SHORTLIST_STEP,
   openGroups: new Set(),
   cardsById: new Map(),
+  /** Which verdicts the count pills are showing. Every one, until pressed. */
+  visibleVerdicts: new Set(VERDICT_ORDER),
   resultsById: new Map(),
   details: new Map(),
   selectedId: null,
+  hoverId: null,
   lastFocused: null,
   searching: false,
   coverage: null,
@@ -219,6 +226,11 @@ function showResponse(response, walkMinutes) {
   }
 
   dom.resultsHeading.hidden = false;
+  renderStats(dom.stats, {
+    counts: state.counts,
+    visible: state.visibleVerdicts,
+    onToggle: (verdict) => toggleVerdict(verdict),
+  });
   paintResults();
   setStatus(statusLine(state.counts, state.results.length, walkMinutes));
   const nearest = state.results.find((result) => result.verdict === "legal");
@@ -237,14 +249,39 @@ function paintResults() {
     walkMinutes: state.walkMinutes,
     shown: state.shown,
     openGroups: state.openGroups,
+    visible: state.visibleVerdicts,
     onSelect: (regSegId) => selectSegment(regSegId, { fly: true }),
-    onHover: (regSegId) => curbMap.setHover(regSegId),
+    onHover: (regSegId) => setHover(regSegId),
     onShowMore: () => {
       state.shown += SHORTLIST_STEP;
       paintResults();
     },
+    // A group's cards are built the first time it opens, so the selection ring
+    // has to be re-applied to cards that did not exist a moment ago.
+    onGroupFilled: () => markSelected(state.cardsById, state.selectedId),
   });
   markSelected(state.cardsById, state.selectedId);
+}
+
+/**
+ * Press one count pill: stop drawing that verdict and stop listing it.
+ *
+ * The last pill cannot be pressed out — an empty map after four presses is the
+ * "nothing here" reading SPEC §11 exists to prevent, and there is no way back
+ * from it that does not look like a bug.
+ */
+function toggleVerdict(verdict) {
+  if (state.visibleVerdicts.has(verdict)) {
+    if (state.visibleVerdicts.size === 1) {
+      return;
+    }
+    state.visibleVerdicts.delete(verdict);
+  } else {
+    state.visibleVerdicts.add(verdict);
+  }
+  curbMap.setVisibleVerdicts(state.visibleVerdicts);
+  updateStats(dom.stats, state.visibleVerdicts);
+  paintResults();
 }
 
 /**
@@ -298,17 +335,37 @@ function clearResults() {
   state.shown = SHORTLIST_STEP;
   closeDetail({ restoreFocus: false });
   clear(dom.results);
+  clear(dom.stats);
+  clear(dom.caveats);
   dom.resultsHeading.hidden = true;
   curbMap.clearResults();
   drawer.setSummary("Search");
 }
 
+/**
+ * The search-level caveats, collapsed to one line.
+ *
+ * UX_AUDIT (f) 5 forbids hiding a caveat behind a disclosure **on a displayed
+ * verdict**, and that is untouched: every detail sheet still prints all of them
+ * open, above the signs, in "Before you park". These are the same sentences
+ * repeated for the whole search, and as two paragraphs at the top of the rail
+ * they pushed the first result off the screen.
+ */
 function renderCaveats(caveats) {
   const items = Array.isArray(caveats) && caveats.length > 0 ? caveats : [TEMPORARY_SIGNAGE_CAVEAT];
-  replaceChildren(
-    dom.caveats,
-    items.map((caveat) => el("li", { text: caveat })),
+  const { root, body } = collapsible({
+    label: `${items.length} ${items.length === 1 ? "thing" : "things"} to know`,
+    className: "caveat-disclosure",
+    toggleClassName: "caveat-toggle",
+  });
+  body.append(
+    el(
+      "ul",
+      { className: "caveats" },
+      items.map((caveat) => el("li", { text: caveat })),
+    ),
   );
+  replaceChildren(dom.caveats, [root]);
 }
 
 /* ---- Selection and the detail sheet ------------------------------------ */
@@ -391,6 +448,30 @@ function closeDetail({ restoreFocus }) {
 }
 
 /* ---- Chrome ------------------------------------------------------------ */
+
+/**
+ * One hover, both directions (UX_AUDIT P2-9).
+ *
+ * Hovering a card lit its line already; hovering a line did nothing to the
+ * list, so the two halves of the same answer never pointed at each other. The
+ * card is highlighted, not scrolled to: a list that jumps under the cursor on
+ * every mousemove across 588 spans is worse than one that does not move.
+ */
+function setHover(regSegId) {
+  if (state.hoverId === regSegId) {
+    return;
+  }
+  const previous = state.cardsById.get(state.hoverId);
+  if (previous) {
+    previous.classList.remove("is-hovered");
+  }
+  state.hoverId = regSegId;
+  curbMap.setHover(regSegId);
+  const card = state.cardsById.get(regSegId);
+  if (card) {
+    card.classList.add("is-hovered");
+  }
+}
 
 function setStatus(message, kind = "info") {
   dom.status.textContent = message;
@@ -522,9 +603,7 @@ const curbMap = new CurbMap(dom.mapContainer, style, {
   onSelect: (regSegId) => selectSegment(regSegId, { fly: false }),
   onPinDrop: (lonlat) => dropPin(lonlat),
   onError: (message) => reportMapError(message),
-  onHover: (regSegId) => {
-    curbMap.setHover(regSegId);
-  },
+  onHover: (regSegId) => setHover(regSegId),
 });
 
 const drawer = createDrawer({

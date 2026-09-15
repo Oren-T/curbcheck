@@ -487,3 +487,39 @@ def test_the_font_is_declared_once_and_served_from_this_origin() -> None:
     face = styles.split("@font-face {")[1].split("}")[0]
     assert 'url("./fonts/' in face, "the font is not loaded from web/fonts/"
     assert "font-weight: 100 900" in face, "the variable weight range was lost"
+
+
+def test_a_verdict_filter_cannot_hide_a_count_or_empty_the_map() -> None:
+    """The count pills are the legend and the filter, so they are a safety surface.
+
+    UX_AUDIT (f) 3 and (f) 7: hiding a verdict is a press the user made and is
+    allowed, but the number of spans that verdict has must stay on screen, and
+    there is no sequence of presses that leaves the map blank — a blank map is
+    the "nothing here" reading SPEC §11 exists to prevent.
+    """
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
+    components = (WEB_DIR / "components.css").read_text(encoding="utf-8")
+
+    toggle = app.split("function toggleVerdict(verdict)")[1].split("\n}")[0]
+    assert "state.visibleVerdicts.size === 1" in toggle, "the last verdict can be hidden"
+    assert toggle.index("size === 1") < toggle.index("delete(verdict)")
+
+    # The counts are the server's, and the pill keeps printing its own.
+    stats = results.split("export function renderStats")[1].split("\n}")[0]
+    assert "view.counts[verdict]" in stats, "the pills stopped counting from the server"
+    assert 'className: "pill-count"' in stats
+    pressed_out = components.split('.stat-pill[aria-checked="false"] {')[1].split("}")[0]
+    assert "display: none" not in pressed_out, "a pressed-out pill hides its own count"
+
+
+def test_collapsed_verdict_groups_render_their_cards_on_expand() -> None:
+    """IMPLEMENTATION_NOTES §11: ~500 hidden buttons cost DOM on every re-rank."""
+    results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
+    group = results.split("function groupSection(group, view, cards)")[1].split("\nfunction ")[0]
+    assert "const fill = () =>" in group, "the group body is not built lazily"
+    assert "body.dataset.filled" in group, "expanding twice would duplicate the cards"
+    # And the selection ring has to reach cards that did not exist a moment ago.
+    assert "view.onGroupFilled()" in group
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    assert "onGroupFilled: () => markSelected" in app

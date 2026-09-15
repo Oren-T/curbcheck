@@ -15,11 +15,13 @@
 
 import { EMPTY_RESULTS, SEARCH_PROGRESS } from "./copy.js";
 import { collapsible, el, replaceChildren, verdictChipNode } from "./dom.js";
+import { VERDICT_ORDER, swatchBackground } from "./verdicts.js";
 import {
   capacityLabel,
   confidenceText,
   priceLabel,
   streetLabelParts,
+  verdictInfo,
   verdictKey,
   walkText,
 } from "./format.js";
@@ -34,18 +36,88 @@ const GROUPS = [
 
 export { SHORTLIST_STEP };
 
+const PILL_SWATCH_HEIGHT = 5;
+
+/**
+ * The four count pills: what is in the radius, and the filter for it.
+ *
+ * Two jobs, one control (DESIGN_DIRECTION §3). The numbers are the server's
+ * `counts`, measured over everything in radius before either cap, never
+ * `results.length` (UX_AUDIT (f) 7) — so a pressed-out pill changes what is
+ * *drawn*, never what is *counted*, and the count of the verdict you just hid
+ * stays on screen next to your thumb.
+ *
+ * It replaces a 44-word sentence and two caveat paragraphs that pushed the
+ * first result below the fold.
+ *
+ * @param {HTMLElement} container
+ * @param {{counts: Object|null, visible: Set<string>, onToggle: Function}} view
+ */
+export function renderStats(container, view) {
+  if (!view.counts) {
+    replaceChildren(container, []);
+    return;
+  }
+  const pills = VERDICT_ORDER.map((verdict) => {
+    const shown = view.visible.has(verdict);
+    const swatch = el("span", { className: "pill-swatch", attrs: { "aria-hidden": "true" } });
+    swatch.style.background = swatchBackground(verdict, PILL_SWATCH_HEIGHT);
+    const count = typeof view.counts[verdict] === "number" ? view.counts[verdict] : 0;
+    const pill = el(
+      "button",
+      {
+        className: `stat-pill stat-${verdict}`,
+        attrs: {
+          type: "button",
+          role: "switch",
+          "aria-checked": String(shown),
+          title: shown ? "Hide these on the map" : "Show these on the map",
+        },
+      },
+      [
+        swatch,
+        el("span", { className: "pill-count", text: count.toLocaleString("en-US") }),
+        el("span", { className: "pill-word", text: verdictInfo(verdict).label.toLowerCase() }),
+      ],
+    );
+    pill.addEventListener("click", () => view.onToggle(verdict));
+    return pill;
+  });
+  replaceChildren(container, pills);
+}
+
+/**
+ * Re-mark the pills after a toggle without rebuilding them.
+ *
+ * Rebuilding would drop the keyboard focus of the pill that was just pressed,
+ * which is the one place in this UI where focus is guaranteed to be.
+ */
+export function updateStats(container, visible) {
+  for (const verdict of VERDICT_ORDER) {
+    const pill = container.querySelector(`.stat-${verdict}`);
+    if (!pill) {
+      continue;
+    }
+    const shown = visible.has(verdict);
+    pill.setAttribute("aria-checked", String(shown));
+    pill.setAttribute("title", shown ? "Hide these on the map" : "Show these on the map");
+  }
+}
+
 /**
  * Render the whole results region.
  *
  * @param {HTMLElement} container
  * @param {{results: Array, counts: Object, walkMinutes: number, shown: number,
- *          openGroups: Set<string>, onSelect: Function, onHover: Function,
- *          onShowMore: Function}} view
+ *          openGroups: Set<string>, visible: Set<string>, onSelect: Function,
+ *          onHover: Function, onShowMore: Function}} view
  * @returns {Map<string, HTMLElement>} the card element for each rendered result
  */
 export function renderResults(container, view) {
   const cards = new Map();
-  const legal = view.results.filter((result) => verdictKey(result.verdict) === "legal");
+  const legal = view.visible.has("legal")
+    ? view.results.filter((result) => verdictKey(result.verdict) === "legal")
+    : [];
   const nodes = [];
 
   const shortlist = legal.slice(0, view.shown);
@@ -68,7 +140,9 @@ export function renderResults(container, view) {
   }
 
   for (const group of GROUPS) {
-    nodes.push(groupSection(group, view, cards));
+    if (view.visible.has(group.key)) {
+      nodes.push(groupSection(group, view, cards));
+    }
   }
 
   replaceChildren(container, nodes);
@@ -118,13 +192,32 @@ function groupSection(group, view, cards) {
       }),
     );
   }
-  const list = el("ol", { className: "results" });
-  for (const result of members) {
-    const card = resultCard(result, null, view);
-    cards.set(result.reg_seg_id, card);
-    list.append(el("li", {}, [card]));
+  // Rendered on expand, not on load: a dense search carries ~500 group members
+  // and building 500 buttons nobody has asked to see costs a visible pause on
+  // every re-rank (IMPLEMENTATION_NOTES §11). `fill` is idempotent, so the
+  // second expand reuses what the first one built.
+  const fill = () => {
+    if (body.dataset.filled === "yes") {
+      return;
+    }
+    const list = el("ol", { className: "results" });
+    for (const result of members) {
+      const card = resultCard(result, null, view);
+      cards.set(result.reg_seg_id, card);
+      list.append(el("li", {}, [card]));
+    }
+    body.append(list);
+    body.dataset.filled = "yes";
+    view.onGroupFilled();
+  };
+  toggle.addEventListener("click", () => {
+    if (toggle.getAttribute("aria-expanded") === "true") {
+      fill();
+    }
+  });
+  if (expanded) {
+    fill();
   }
-  body.append(list);
   return root;
 }
 

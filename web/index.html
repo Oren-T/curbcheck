@@ -176,8 +176,16 @@
           </div>
 
           <div id="notices" class="notices" role="status" aria-live="polite"></div>
+
+          <!-- Four tinted count pills: the server's own `counts`, and the
+               filter for the map and the list. Rendered by results.js. -->
+          <div id="stats" class="stats" role="group" aria-label="Filter by verdict"></div>
           <p id="status" class="status" role="status" aria-live="polite"></p>
-          <ul id="search-caveats" class="caveats"></ul>
+
+          <!-- The search-level caveats collapse to one line. They are never
+               collapsed on a verdict: every detail sheet prints all of them,
+               open, above the signs (UX_AUDIT (f) 5). -->
+          <div id="search-caveats" class="caveat-summary"></div>
 
           <h2 id="results-heading" class="results-heading">Results</h2>
           <div
