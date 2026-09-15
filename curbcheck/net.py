@@ -14,7 +14,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,6 +32,15 @@ DEFAULT_MAX_BYTES = 500 * 1024 * 1024
 DEFAULT_MAX_REDIRECTS = 5
 SOCRATA_HOST = "data.cityofnewyork.us"
 _DATASET_ID = re.compile(r"^[a-z0-9]{4}-[a-z0-9]{4}$")
+
+# nyc.gov answers 403 to any request whose User-Agent is not a browser's; the
+# block is on the header alone, not on rate or origin (docs/DECISIONS.md D11).
+# Callers pass this per request rather than setting it globally, so only the
+# hosts that need it see it.
+BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+)
 
 
 class NetworkPolicyError(Exception):
@@ -52,6 +61,12 @@ class TooManyRedirectsError(NetworkPolicyError):
 
 class UnexpectedContentTypeError(NetworkPolicyError):
     """The response Content-Type was not one the caller said it would accept."""
+
+
+# Everything a fetch can fail with that is a transport or policy problem rather
+# than a bug. Exported so callers can catch a download failure without importing
+# httpx, which STYLE_GUIDE §5 confines to this module.
+TRANSPORT_ERRORS: tuple[type[Exception], ...] = (NetworkPolicyError, httpx.HTTPError, OSError)
 
 
 class DownloadRecord(BaseModel):
@@ -119,12 +134,17 @@ class AllowlistedClient:
 
     @contextmanager
     def stream(
-        self, method: str, url: str, *, params: dict[str, Any] | None = None
+        self,
+        method: str,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> Iterator[httpx.Response]:
         """Open a streamed response, re-checking the allowlist on every redirect hop."""
         for _ in range(self._max_redirects + 1):
             check_url(url)
-            with self._client.stream(method, url, params=params) as response:
+            with self._client.stream(method, url, params=params, headers=headers) as response:
                 redirect = response.next_request
                 if redirect is None:
                     yield response
@@ -149,6 +169,7 @@ class AllowlistedClient:
         *,
         max_bytes: int = DEFAULT_MAX_BYTES,
         expected_content_types: frozenset[str] | None = None,
+        headers: Mapping[str, str] | None = None,
     ) -> DownloadRecord:
         """Stream url to dest_path via a temp file, returning its hash, size, and type.
 
@@ -158,7 +179,7 @@ class AllowlistedClient:
         dest_path.parent.mkdir(parents=True, exist_ok=True)
         digest = hashlib.sha256()
         size_bytes = 0
-        with self.stream("GET", url) as response:
+        with self.stream("GET", url, headers=headers) as response:
             response.raise_for_status()
             content_type = response.headers.get("content-type", "").split(";")[0].strip().lower()
             if expected_content_types is not None and content_type not in expected_content_types:

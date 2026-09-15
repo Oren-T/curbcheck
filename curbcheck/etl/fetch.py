@@ -21,7 +21,9 @@ from urllib.parse import urlencode
 
 from curbcheck.config import RAW_DIR
 from curbcheck.net import (
+    BROWSER_USER_AGENT,
     SOCRATA_HOST,
+    TRANSPORT_ERRORS,
     AllowlistedClient,
     DownloadRecord,
     Manifest,
@@ -36,6 +38,21 @@ DEFAULT_MAX_AGE_DAYS = 7
 # SPEC §5.7: a row count that moves more than this against the previous
 # manifest record for the same URL means the export changed shape, not the city.
 ROW_COUNT_DRIFT_TOLERANCE = 0.20
+
+# SPEC §5.7 refreshes the ASP calendar annually, but DOT does correct the file
+# after publishing it, so the snapshot is re-checked once a quarter.
+CALENDAR_MAX_AGE_DAYS = 90
+
+CALENDAR_DIRNAME = "calendar"
+CALENDAR_ICS_URL = "https://www.nyc.gov/html/dot/downloads/misc/{year}-alternate-side.ics"
+
+# nyc.gov sends the ICS as text/calendar; the octet-stream and text/plain
+# spellings are accepted because a CDN in front of it may relabel the body.
+CALENDAR_CONTENT_TYPES = frozenset({"text/calendar", "application/octet-stream", "text/plain"})
+
+# 23 KB in 2026. The cap is three orders of magnitude of headroom, not a limit
+# the real file is anywhere near.
+CALENDAR_MAX_BYTES = 8 * 1024 * 1024
 
 
 class FetchError(Exception):
@@ -81,6 +98,73 @@ class FetchResult:
     path: Path
     row_count: int
     refetched: bool
+
+
+@dataclass(frozen=True)
+class CalendarFetchResult:
+    """The ASP calendar snapshot after a sync attempt.
+
+    `path` is None only when nothing is on disk and the fetch did not succeed.
+    `error` records why a refetch failed while an older snapshot survives, which
+    is the case the build continues through with a warning.
+    """
+
+    path: Path | None
+    refetched: bool
+    error: str | None = None
+
+
+def calendar_path(year: int, raw_dir: Path = RAW_DIR) -> Path:
+    """Where the year's ICS lives. Matches the name `scripts/explore_calendar.py` wrote."""
+    return raw_dir / CALENDAR_DIRNAME / f"{year}-alternate-side.ics"
+
+
+def fetch_calendar(
+    client: AllowlistedClient | None,
+    year: int,
+    *,
+    raw_dir: Path = RAW_DIR,
+    manifest: Manifest | None = None,
+    max_age_days: float = CALENDAR_MAX_AGE_DAYS,
+    offline: bool = False,
+) -> CalendarFetchResult:
+    """Ensure the DOT ASP suspension ICS for `year` is on disk (docs/DECISIONS.md D11).
+
+    Never raises: a calendar we cannot refresh is a degraded build, not a failed
+    one (SPEC §11). The caller gets the previous snapshot with `error` set, or
+    `path=None` when there is nothing at all and the ETL should carry on with an
+    empty `asp_suspension` table.
+    """
+    path = calendar_path(year, raw_dir)
+    if offline or is_fresh(path, max_age_days):
+        if not path.exists():
+            return CalendarFetchResult(path=None, refetched=False, error="no snapshot on disk")
+        return CalendarFetchResult(path=path, refetched=False)
+
+    url = CALENDAR_ICS_URL.format(year=year)
+    owned_client = client is None
+    active = client or AllowlistedClient()
+    try:
+        record = active.download(
+            url,
+            path,
+            max_bytes=CALENDAR_MAX_BYTES,
+            expected_content_types=CALENDAR_CONTENT_TYPES,
+            headers={"User-Agent": BROWSER_USER_AGENT},
+        )
+    except TRANSPORT_ERRORS as error:
+        LOGGER.warning("fetch.calendar_failed year=%d url=%s error=%s", year, url, error)
+        return CalendarFetchResult(
+            path=path if path.exists() else None, refetched=False, error=str(error)
+        )
+    finally:
+        if owned_client:
+            active.close()
+
+    (manifest or Manifest(raw_dir / "manifest.jsonl")).append(record)
+    _write_calendar_sidecar(path, record)
+    LOGGER.info("fetch.calendar year=%d bytes=%d", year, record.size_bytes)
+    return CalendarFetchResult(path=path, refetched=True)
 
 
 def raw_path(dataset: Dataset, raw_dir: Path = RAW_DIR) -> Path:
@@ -200,14 +284,22 @@ def fetch_all(
     max_age_days: float = DEFAULT_MAX_AGE_DAYS,
     offline: bool = False,
     datasets: Sequence[Dataset] = DATASETS,
+    calendar_year: int | None = None,
 ) -> list[FetchResult]:
-    """Fetch every dataset the ETL needs, reusing snapshots that are still fresh."""
+    """Fetch every dataset the ETL needs, reusing snapshots that are still fresh.
+
+    The ASP calendar is fetched alongside them but is not in the returned list:
+    it is not a Socrata dataset and a failure to refresh it does not stop a
+    build (docs/DECISIONS.md D11).
+    """
     raw_dir.mkdir(parents=True, exist_ok=True)
     manifest = Manifest(raw_dir / "manifest.jsonl")
+    year = calendar_year or datetime.now(UTC).year
     results = []
     if offline:
         for dataset in datasets:
             results.append(fetch_dataset(dataset, raw_dir=raw_dir, manifest=manifest, offline=True))
+        fetch_calendar(None, year, raw_dir=raw_dir, manifest=manifest, offline=True)
         return results
     with AllowlistedClient() as client:
         for dataset in datasets:
@@ -220,6 +312,7 @@ def fetch_all(
                     max_age_days=max_age_days,
                 )
             )
+        fetch_calendar(client, year, raw_dir=raw_dir, manifest=manifest)
     return results
 
 
@@ -245,6 +338,18 @@ def _write_atomic(path: Path, payload: bytes) -> None:
     except BaseException:
         temp_path.unlink(missing_ok=True)
         raise
+
+
+def _write_calendar_sidecar(path: Path, record: DownloadRecord) -> None:
+    meta = {
+        "url": record.url,
+        "fetched_at_utc": record.fetched_at.isoformat(timespec="seconds"),
+        "byte_size": record.size_bytes,
+        "sha256": record.sha256,
+    }
+    path.with_suffix(path.suffix + ".meta.json").write_text(
+        json.dumps(meta, indent=2) + "\n", encoding="utf-8"
+    )
 
 
 def _write_sidecar(dataset: Dataset, raw_dir: Path, record: DownloadRecord) -> None:
