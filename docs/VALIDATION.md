@@ -284,6 +284,12 @@ The tool never says "legal" there — but it never says anything, and a blank ma
 is read by a driver as "nothing here", not as "unknown". This is the same hazard
 SPEC §11 was written to prevent, arriving through a different door.
 
+**Since this run:** the ETL writes a placeholder span for a centerline side with
+no rules, carrying `gap_kind` — `no_signs` where DOT lists no sign, and
+`unmatched_signs` where signs exist and none could be placed. The grey state
+says which of the two it is, and the legend and the banner say that a blank or
+grey curb means no data, not no restriction.
+
 ```
 sqlite3 data/curbcheck.sqlite "SELECT COUNT(*) FROM (
   SELECT DISTINCT on_street, from_street, to_street, side_of_street
@@ -309,7 +315,7 @@ not machine-readable", decision D17) and prints the meta sign's text. The no-dat
 panel prints SPEC §11's sentence about hydrants, bus stops, crosswalks and
 driveways. Screenshots: `data/screenshots/validation_ui_{legal,illegal,ambiguous,no_data}_detail.png`.
 
-**U1 — the ranked list truncates the map layer (not fixed).** `POST /api/search`
+**U1 — the ranked list truncates the map layer (fixed after this run).** `POST /api/search`
 sorts legal first and then applies `limit`, and the frontend never sends `limit`,
 so it gets the default 100. Measured at 2026-09-16 10:00–12:00:
 
@@ -327,9 +333,12 @@ never established. `docs/API.md` says `results` is "every span in radius,
 whatever its verdict, because the map colours illegal and ambiguous curb too";
 at these densities it is not. Raising the cap does not fix it, as the first row
 shows. The fix belongs in the engine — cap the *ranked legal list*, return the
-rest for the map — so it is written up rather than applied.
+rest for the map — and that is what was done after this run: `search()` returns
+the ranked legal spans capped at `limit`, every other verdict capped separately
+at `map_limit`, and `counts` taken before either cap, which the status line is
+built from. The table above measures the behaviour before that change.
 
-**U2 — two basemap glyph ranges 404 (not fixed).** Console errors on every map
+**U2 — two basemap glyph ranges 404 (fixed after this run).** Console errors on every map
 load:
 
 ```
@@ -338,8 +347,9 @@ GET /basemap/fonts/Noto Sans Regular/7680-7935.pbf  404
 ```
 
 MapLibre falls back to client-side rendering for U+0301, U+0306, U+1EA1, U+1ED9,
-U+1EDF, so labels still appear. Decision D16(c) says three vendored ranges are
-enough; Manhattan's Vietnamese and accented business names need two more. No
+U+1EDF, so labels still appear. Decision D16(c) said three vendored ranges are
+enough; Manhattan's Vietnamese and accented business names need two more. Both
+are vendored now, for each fontstack, and D16(c) carries the correction. No
 other console errors appeared. (A third console error, `404 /api/search`, was the
 documented `address_not_found` for the query below.)
 
