@@ -619,6 +619,15 @@ input[type="range"] {
   gap: var(--s-5);
 }
 
+/* The region is a hand-off target, not a control: it is out of the tab order
+   and takes focus only when the collapsing search card would otherwise drop it
+   (`showResponse`). At 2,113 px tall the standard ring drew a 4 px box round the
+   whole scroll height, nearly all of it off screen. The cue is the status line
+   announcing the new count and the next Tab landing on result #1. */
+.results-region:focus-visible {
+  box-shadow: none;
+}
+
 .results-count {
   margin: 0;
   font-size: var(--t-small);
