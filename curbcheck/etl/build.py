@@ -194,9 +194,7 @@ def run_geometry(
     signs, stage_report = stage_signs(fetch.load_rows("signs_manhattan", raw_dir))
     snaps, snap_report = snap_signs(signs, resolved_graph)
     readings = sign_readings(snap.sign.sign_description for snap in snaps)
-    reg_segments, segment_report = resolve_segments(
-        snaps, readings=readings, graph=resolved_graph
-    )
+    reg_segments, segment_report = resolve_segments(snaps, readings=readings, graph=resolved_graph)
 
     _write_nodes(conn, resolved_graph)
     _write_segments(conn, resolved_graph.segments.values())
