@@ -7,7 +7,6 @@ from typing import Any
 import pytest
 
 from curbcheck.etl.stage import (
-    PanelClass,
     StagingError,
     classify_panel,
     neutralize_formula,
@@ -80,19 +79,19 @@ def test_neutralization_reaches_the_staged_text_columns():
 @pytest.mark.parametrize(
     ("description", "expected"),
     [
-        ("NO PARKING ANYTIME <->", PanelClass.REGULATION),
-        ("2 HMP SATURDAY 8AM-7PM <->", PanelClass.REGULATION),
-        ("BUS STOP SIGN", PanelClass.REGULATION),
-        ("LOCAL MTA BUS ROUTE PANEL (TEXT TO BE MODIFIED AS REQUESTED)", PanelClass.MTA_ROUTE),
-        ("EXPRESS MTA BUS DESTINATION PANEL (TEXT TO BE MODIFIED)", PanelClass.MTA_ROUTE),
-        ("PAY-BY-CELL LOCATOR NUMBER", PanelClass.PAY_BY_CELL),
-        ("6TH AVE PAY-BY-APP INFORMATION SIGN", PanelClass.PAY_BY_CELL),
-        ("14 STREET & UNION SQ (BOTTOM LOCATION PANEL)", PanelClass.BLANK_LOCATION),
-        ("   ", PanelClass.OTHER),
+        ("NO PARKING ANYTIME <->", "regulation"),
+        ("2 HMP SATURDAY 8AM-7PM <->", "regulation"),
+        ("BUS STOP SIGN", "regulation"),
+        ("LOCAL MTA BUS ROUTE PANEL (TEXT TO BE MODIFIED AS REQUESTED)", "panel:mta_route"),
+        ("EXPRESS MTA BUS DESTINATION PANEL (TEXT TO BE MODIFIED)", "panel:mta_route"),
+        ("PAY-BY-CELL LOCATOR NUMBER", "panel:pay_by_cell"),
+        ("6TH AVE PAY-BY-APP INFORMATION SIGN", "panel:pay_by_cell"),
+        ("14 STREET & UNION SQ (BOTTOM LOCATION PANEL)", "panel:location"),
+        ("   ", "panel:blank"),
     ],
 )
 def test_panel_classification_separates_regulations_from_panels(description, expected):
-    assert classify_panel(description) is expected
+    assert classify_panel(description) == expected
 
 
 def test_only_regulation_panels_are_marked_as_regulations():
@@ -105,7 +104,7 @@ def test_only_regulation_panels_are_marked_as_regulations():
 
     assert [sign.is_regulation for sign in staged] == [True, False]
     assert report.regulation_rows == 1
-    assert report.panel_counts == {"regulation": 1, "pay_by_cell": 1}
+    assert report.panel_counts == {"regulation": 1, "panel:pay_by_cell": 1}
 
 
 def test_sign_id_is_a_stable_16_character_hash_of_the_raw_row():

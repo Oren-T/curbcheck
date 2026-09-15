@@ -8,7 +8,6 @@ from test_etl_fixtures import AVENUE_LON, avenue_chain_length_ft, grid_graph, st
 from curbcheck.config import CAR_LENGTH_FT
 from curbcheck.etl.segments import Arity, arrow_arity, regulation_family, resolve_segments
 from curbcheck.etl.snap import snap_sign
-from curbcheck.etl.stage import PanelClass
 
 NO_PARKING = "NO PARKING ANYTIME"
 NO_STANDING = "NO STANDING ANYTIME"
@@ -205,7 +204,7 @@ def test_non_regulation_panels_never_produce_a_segment():
         staged_sign(
             "panel",
             description="LOCAL MTA BUS ROUTE PANEL",
-            panel_class=PanelClass.MTA_ROUTE,
+            panel_class="panel:mta_route",
         )
     )
 

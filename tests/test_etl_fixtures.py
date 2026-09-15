@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from curbcheck.etl.stage import PanelClass, StagedSign, stage_centerline
+from curbcheck.etl.stage import REGULATION_PANEL_CLASS, StagedSign, stage_centerline
 from curbcheck.etl.streets import StreetGraph, build_graph
 
 AVENUE_LON = -73.9880
@@ -117,7 +117,7 @@ def staged_sign(
     arrow_direction: str | None = None,
     x_coord: float | None = None,
     y_coord: float | None = None,
-    panel_class: PanelClass = PanelClass.REGULATION,
+    panel_class: str = REGULATION_PANEL_CLASS,
 ) -> StagedSign:
     return StagedSign(
         sign_id=sign_id,
@@ -135,5 +135,5 @@ def staged_sign(
         sign_x_coord=x_coord,
         sign_y_coord=y_coord,
         panel_class=panel_class,
-        is_regulation=panel_class is PanelClass.REGULATION,
+        is_regulation=panel_class == REGULATION_PANEL_CLASS,
     )

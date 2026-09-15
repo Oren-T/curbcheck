@@ -12,13 +12,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-import re
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
+
+from curbcheck.etl.parse import panel_class
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,9 +30,9 @@ _FORMULA_LEAD = frozenset("=+-@")
 # 64 bits over 75k rows leaves the accidental-collision probability near 1e-10.
 SIGN_ID_HEX_CHARS = 16
 
-_MTA_PANEL = re.compile(r"\b(?:ROUTE|DESTINATION) PANEL\b")
-_LOCATION_PANEL = re.compile(r"\bLOCATION PANEL\b")
-_PAY_BY_CELL = re.compile(r"\bPAY-BY-(?:CELL|APP)\b")
+# What `classify_panel` returns for a string that may state a regulation. The
+# other values are the parser's own `panel:<kind>` labels.
+REGULATION_PANEL_CLASS = "regulation"
 
 # docs/DECISIONS.md D9: record_type is the literal 'Current' on every row
 # citywide, so it filters nothing. Kept as an assertion so a change is noticed.
@@ -41,16 +41,6 @@ EXPECTED_RECORD_TYPE = "Current"
 
 class StagingError(Exception):
     """The snapshot violated an invariant the rest of the ETL depends on."""
-
-
-class PanelClass(StrEnum):
-    """What a sign row actually is. Only `regulation` reaches the parser (D10)."""
-
-    REGULATION = "regulation"
-    MTA_ROUTE = "mta_route"
-    PAY_BY_CELL = "pay_by_cell"
-    BLANK_LOCATION = "blank_location"
-    OTHER = "other"
 
 
 class RawSignRow(BaseModel):
@@ -129,7 +119,7 @@ class StagedSign:
     sign_notes: str | None
     sign_x_coord: float | None
     sign_y_coord: float | None
-    panel_class: PanelClass
+    panel_class: str
     is_regulation: bool
 
     @property
@@ -163,24 +153,15 @@ def neutralize_formula(value: str) -> str:
     return value
 
 
-def classify_panel(description: str) -> PanelClass:
+def classify_panel(description: str) -> str:
     """Label a sign_description with what kind of panel it is (docs/DECISIONS.md D10).
 
-    Rules are the ones measured in `data/explore/description_classes.txt`: MTA
-    route and destination panels, the pay-by-cell locator plate, and the blank
-    location panel together account for ~22% of active rows and carry no
-    regulation at all.
+    One classifier serves both steps: staging labels the `sign` row with it and
+    the parser refuses to read anything it labels. Keeping a second, coarser
+    copy here meant a sign could be staged as a regulation and then dropped by
+    the parser, which made the coverage numbers disagree with the row counts.
     """
-    text = description.upper()
-    if not text.strip():
-        return PanelClass.OTHER
-    if _PAY_BY_CELL.search(text):
-        return PanelClass.PAY_BY_CELL
-    if _MTA_PANEL.search(text):
-        return PanelClass.MTA_ROUTE
-    if _LOCATION_PANEL.search(text):
-        return PanelClass.BLANK_LOCATION
-    return PanelClass.REGULATION
+    return panel_class(description) or REGULATION_PANEL_CLASS
 
 
 def sign_id_for(raw_row: dict[str, Any]) -> str:
@@ -247,7 +228,7 @@ def stage_signs(raw_rows: Sequence[dict[str, Any]]) -> tuple[list[StagedSign], S
     assert_record_type(active_rows)
     panel_counts: dict[str, int] = {}
     for sign in staged:
-        panel_counts[sign.panel_class.value] = panel_counts.get(sign.panel_class.value, 0) + 1
+        panel_counts[sign.panel_class] = panel_counts.get(sign.panel_class, 0) + 1
 
     report = StageReport(
         source_rows=len(raw_rows),
@@ -278,7 +259,7 @@ def stage_centerline(raw_rows: Sequence[dict[str, Any]]) -> list[RawCenterlineRo
 
 def _stage_sign(row: RawSignRow, sign_id: str) -> StagedSign:
     description = neutralize_formula(_required(row.sign_description, "sign_description", sign_id))
-    panel_class = classify_panel(description)
+    panel = classify_panel(description)
     return StagedSign(
         sign_id=sign_id,
         order_number=neutralize_formula((row.order_number or "").strip()),
@@ -294,8 +275,8 @@ def _stage_sign(row: RawSignRow, sign_id: str) -> StagedSign:
         sign_notes=_optional_text(row.sign_notes),
         sign_x_coord=_optional_float(row.sign_x_coord),
         sign_y_coord=_optional_float(row.sign_y_coord),
-        panel_class=panel_class,
-        is_regulation=panel_class is PanelClass.REGULATION,
+        panel_class=panel,
+        is_regulation=panel == REGULATION_PANEL_CLASS,
     )
 
 
