@@ -15,6 +15,7 @@ wiring is deleted.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from html.parser import HTMLParser
@@ -45,6 +46,8 @@ EXPECTED_MODULES = {
     "states.js",
 }
 EXPECTED_STYLESHEETS = ("tokens.css", "styles.css", "components.css")
+FONTS_DIR = WEB_DIR / "fonts"
+FONT_MANIFEST = FONTS_DIR / "MANIFEST.md"
 
 URL_ATTRIBUTES = ("src", "href", "action", "data", "poster", "srcset")
 REMOTE_SCHEME = re.compile(r"^\s*(?:https?:)?//", re.IGNORECASE)
@@ -427,3 +430,40 @@ def test_every_scroll_region_owns_its_own_container() -> None:
     for block, css in (("rail-scroll", styles), ("detail-scroll", components)):
         rule = css.split(f".{block} {{")[1].split("}")[0]
         assert "overflow-y: auto" in rule, f".{block} lost its own scroll container"
+
+
+def test_the_vendored_font_matches_its_manifest() -> None:
+    """The one web font is local, licensed, and hashed.
+
+    SPEC §3.4 forbids a remote font, so Inter ships in the tree; the OFL forbids
+    shipping it without its licence. Both are only true as long as the manifest
+    describes the bytes that are actually here, which is what this checks.
+    """
+    recorded = {
+        row[1].strip().strip("`"): (int(row[2]), row[3].strip().strip("`"))
+        for row in (line.split("|") for line in FONT_MANIFEST.read_text().splitlines())
+        if len(row) > 4 and row[1].strip().startswith("`")
+    }
+    assert recorded, "web/fonts/MANIFEST.md lists no files"
+    assert "LICENSE.txt" in recorded, "the OFL text is not vendored with the font"
+
+    for name, (size, digest) in recorded.items():
+        path = FONTS_DIR / name
+        assert path.is_file(), f"MANIFEST.md lists {name}, which is not in web/fonts/"
+        data = path.read_bytes()
+        assert len(data) == size, f"{name} is {len(data)} bytes, manifest says {size}"
+        assert hashlib.sha256(data).hexdigest() == digest, f"{name} does not match its SHA-256"
+
+    # A subset that grows past a couple of hundred KB stops being a subset.
+    woff2 = next(path for path in FONTS_DIR.glob("*.woff2"))
+    assert woff2.stat().st_size <= 150_000, f"{woff2.name} is over the 150 KB budget"
+    assert woff2.name in recorded, f"{woff2.name} is not in the manifest"
+
+
+def test_the_font_is_declared_once_and_served_from_this_origin() -> None:
+    """`font-src` is absent from the CSP, so `default-src 'self'` is what allows it."""
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    assert styles.count("@font-face") == 1, "more than one @font-face to keep in sync"
+    face = styles.split("@font-face {")[1].split("}")[0]
+    assert 'url("./fonts/' in face, "the font is not loaded from web/fonts/"
+    assert "font-weight: 100 900" in face, "the variable weight range was lost"

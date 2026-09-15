@@ -33,8 +33,10 @@
 }
 
 label,
-.field-label {
-  font-size: var(--t-caption);
+.field-label,
+.results-heading,
+.as-posted-eyebrow {
+  font-size: var(--t-micro);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-caps);
   text-transform: uppercase;
@@ -508,11 +510,6 @@ input[type="range"] {
 
 .results-heading {
   margin: var(--s-7) 0 var(--s-3);
-  font-size: var(--t-caption);
-  font-weight: var(--w-semibold);
-  letter-spacing: var(--track-caps);
-  text-transform: uppercase;
-  color: var(--c-text-muted);
 }
 
 .results-region {

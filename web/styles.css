@@ -2,15 +2,27 @@
  * CurbCheck — page shell: the advisory strip, the floating rail, the map, and
  * the responsive behaviour. Component internals live in components.css.
  *
- * No web fonts and no remote assets of any kind (SPEC §3.4): the type is
- * whatever the operating system already has. Every colour, space, and duration
- * comes from tokens.css; nothing here invents a value.
+ * No remote assets of any kind (SPEC §3.4). The one web font is vendored and
+ * served from this origin — see the face declared below and web/fonts/MANIFEST.md.
+ * Every colour, space, and duration comes from tokens.css; nothing here invents
+ * a value.
  *
  * Layout rule that the phone bug (UX_AUDIT P0-4, an 87,609 px document) turns
  * into law: the document itself never scrolls. `body` is a fixed-height flex
  * column and every scrollable region — the rail, the results list, the detail
  * sheet — owns its own `overflow-y`.
  */
+
+/* One file, both axes (opsz 14–32, wght 100–900), same origin. `swap` is
+   irrelevant in practice — the file is local and ~72 KB — but it guarantees the
+   verdict words are readable even if the font response is slow. */
+@font-face {
+  font-family: "Inter var";
+  src: url("./fonts/InterVariable-latin.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
 *,
 *::before,
@@ -34,6 +46,25 @@ body {
   color: var(--c-text);
   background: var(--c-page);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Inter's `calt` contextual alternates are what make its ASCII punctuation
+     sit correctly; optical sizing is what keeps 11 px caps from going spindly. */
+  font-optical-sizing: auto;
+  font-feature-settings: "calt" 1;
+}
+
+/* Every figure in this UI is compared down a column — walk minutes, prices,
+   counts — so nothing is ever set in proportional digits. */
+.card-walk,
+.card-price,
+.card-rank,
+.facts dd,
+.stat-pill,
+.group-count,
+.sign-meta,
+.summary-line,
+.text-input {
+  font-variant-numeric: tabular-nums;
 }
 
 button,
@@ -309,11 +340,27 @@ h4 {
   scrollbar-width: thin;
 }
 
+/* The wordmark is a signature, not a headline: at 15 px in the corner it names
+   the product without competing with the answer (DESIGN_DIRECTION §2.4). */
 .wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
   margin: 0 0 var(--s-6);
   font-size: var(--t-display);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-display);
+  color: var(--c-text-secondary);
+}
+
+.wordmark::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 2px;
+  background: var(--v-legal);
+  transform: rotate(45deg);
 }
 
 /* The drag handle is the phone drawer's detent control; on desktop the rail is

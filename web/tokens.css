@@ -109,18 +109,21 @@
   --e-3: 0 8px 24px rgba(26, 25, 23, 0.12), 0 2px 6px rgba(26, 25, 23, 0.06);
   --e-4: 0 16px 40px rgba(26, 25, 23, 0.16), 0 4px 10px rgba(26, 25, 23, 0.08);
 
-  /* ---- Type. System stack only: SPEC §3.4 forbids remote assets and a
-     vendored font would cost 40–120 KB for no legibility gain at these sizes. */
-  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* ---- Type. Inter is vendored and served from 'self' (web/fonts/MANIFEST.md);
+     the system stack stays behind it as the fallback for a glyph the 72 KB Latin
+     subset does not carry. Still no remote asset anywhere (SPEC §3.4). */
+  --font-sans:
+    "Inter var", system-ui, -apple-system, "Segoe UI Variable Text", "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
 
-  --t-micro: 11px; /* attribution, scale bar */
+  --t-micro: 11px; /* attribution, scale bar, section labels */
   --t-caption: 12px; /* facts row, hints */
   --t-small: 13px; /* secondary copy, caveats */
-  --t-body: 15px; /* default */
-  --t-lead: 17px; /* result title, sheet reason */
-  --t-title: 20px; /* sheet heading */
-  --t-display: 24px; /* wordmark */
+  --t-body: 15px; /* default, and the card title */
+  --t-lead: 17px; /* sheet reason, the one bold number on a card */
+  --t-title: 19px; /* sheet heading */
+  --t-display: 15px; /* wordmark — small and quiet, DESIGN_DIRECTION §2.4 */
 
   --lh-tight: 1.25;
   --lh-normal: 1.45;
@@ -131,8 +134,8 @@
   --w-semibold: 600;
   --w-bold: 700;
 
-  --track-tight: -0.01em;
-  --track-caps: 0.06em; /* section eyebrows only */
+  --track-tight: -0.011em;
+  --track-caps: 0.08em; /* section eyebrows only */
 
   /* ---- Motion. Calm: nothing eases longer than a quarter second except the map. */
   --m-instant: 90ms; /* hover, focus ring */
