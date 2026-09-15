@@ -6,8 +6,10 @@ CORS middleware and there never will be — the UI is same-origin by design
 (SPEC §3.4), so a page from any other origin cannot read these responses.
 
 Every field name below matches the Python dataclass it comes from
-(`curbcheck.engine.search.SearchResult`, `SignRef`, `curbcheck.model.Regulation`).
-They are not renamed on the way out.
+(`curbcheck.engine.search.SearchResult`, `SignRef`,
+`curbcheck.engine.signs.SignDetail`, `curbcheck.geocode.GeocodeCandidate`,
+`ReverseMatch`, `curbcheck.model.Regulation`). They are not renamed on the way
+out.
 
 ## Conventions
 
@@ -72,7 +74,8 @@ SQL are never included; they go to the server log instead.
 | 400 | `invalid_request` | Malformed path parameter, e.g. a `reg_seg_id` that is not in the id charset. Rejected before any query runs. |
 | 404 | `not_found` | No such `reg_seg_id`. |
 | 404 | `address_not_found` | `POST /api/search` was given an `address` the local geocoder could not resolve. |
-| 422 | `validation_error` | Body failed Pydantic validation: unknown field, out-of-range value, `t2 <= t1`, coordinates outside Manhattan. |
+| 422 | `validation_error` | Body or query failed Pydantic validation: unknown field, out-of-range value, `t2 <= t1`, coordinates outside the input bounding box. |
+| 422 | `outside_coverage` | The destination resolved to a point more than 250 m from every street centerline. Message: "That location is outside Manhattan, the only area CurbCheck covers." Never advise a longer walk for this — the radius is not the problem (`docs/DECISIONS.md` D28). |
 | 503 | `database_unavailable` | `data/curbcheck.sqlite` is missing. Message: ``database not found; run `curbcheck sync` ``. |
 | 500 | `internal_error` | Anything unexpected. Message is the constant `"internal error"`. |
 
@@ -109,9 +112,13 @@ hundred green spans and no red ones (`docs/VALIDATION.md` U1). `map_limit` is
 applied to the non-legal spans nearest the destination first, so a cap drops
 the farthest curb rather than a whole verdict.
 
-The lat/lon bounds are a Manhattan-ish bounding box. They are an input sanity
-check, not a service area promise: the database only holds Manhattan, so a
-point in the Bronx corner of the box simply returns no results.
+The lat/lon bounds are a Manhattan-ish bounding box, and they are only an input
+sanity check. The service area is a separate, narrower test: a destination
+further than 250 m from every street centerline is refused with 422
+`outside_coverage` before any search runs, and `GET /api/health` publishes the
+area and its bounding box (`docs/DECISIONS.md` D28). A point inside the input
+box but outside coverage — the Hudson, Long Island City — is an error, not an
+empty result.
 
 ```json
 {
@@ -136,12 +143,15 @@ point in the Bronx corner of the box simply returns no results.
       "reg_seg_id": "3681:W:0",
       "geometry": { "type": "LineString", "coordinates": [[-73.954561, 40.778149], [-73.954063, 40.778831]] },
       "verdict": "legal",
+      "basis": "posted",
+      "confidence_shown": true,
       "reason": "metered parking permitted",
       "caveats": [
         "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation."
       ],
       "walk_min": 1.4,
       "money": "9.00",
+      "money_value": 9.0,
       "price_known": true,
       "capacity_cars": 12,
       "confidence": 0.94,
@@ -158,6 +168,7 @@ point in the Bronx corner of the box simply returns no results.
       "charged_minutes": 120,
       "metered": true,
       "score": 10.4,
+      "risk": 1.95,
       "rate_label": "Area 1",
       "street_name": "3 AVENUE, west side, E 85 ST → E 86 ST",
       "gap_kind": null
@@ -174,7 +185,10 @@ point in the Bronx corner of the box simply returns no results.
 ```
 
 `results` is **one array in two parts**: the ranked legal spans, at most
-`limit` of them, ordered by ascending `score`; then every other verdict within
+`limit` of them, ordered by ascending `score` — except that spans whose `score`
+differs by less than 0.5 are ordered `basis: "posted"` before
+`basis: "absence"`, so a stretch with a sign to read outranks one where nothing
+is posted at the same cost (`docs/DECISIONS.md` D27); then every other verdict within
 the radius, at most `map_limit` of them, ordered `ambiguous`, `illegal`,
 `no_data` and by `score` within each. One array rather than two because the map
 draws all of it and the result list renders all of it, so two arrays would only
@@ -199,17 +213,21 @@ rows you did not get are the farthest ones.
 | `reg_seg_id` | string | Id of the curb span; pass to `/api/segment/{reg_seg_id}`. Derived from the centerline segment, the curb, and the span's extent, so it moves whenever the span rules change — never persist one. |
 | `geometry` | GeoJSON geometry | The span, in WGS-84. |
 | `verdict` | `"legal"` \| `"illegal"` \| `"ambiguous"` \| `"no_data"` | Never collapse these into two colours (SPEC §11). |
-| `reason` | string | One sentence explaining the verdict, generated by the engine. An `ambiguous` span whose reason mentions conflicting signs is one a prohibitive span on the same centerline side overlaps: the two posts disagree about where the boundary is, and the engine will not call either stretch legal (SPEC §8.6). The ETL writes no such pair since `docs/DECISIONS.md` D25 and D26, so this reason should not appear on a current database. |
+| `basis` | `"posted"` \| `"absence"` \| null | Why a `legal` verdict is legal. `posted`: at least one rule in the stack permits parking somewhere in the window. `absence`: no rule is in force for any part of it, which 34 RCNY 4-08 makes legal but which is the engine reporting that it read *nothing*. `null` on every non-legal verdict. Render the two differently: an absence verdict is not a permission, and it was being drawn with the same green badge and the same confidence percentage as one (`docs/DECISIONS.md` D27). |
+| `confidence_shown` | boolean | Whether `confidence` means anything on this span. `false` on `basis: "absence"` (the confidence of an empty stack) and on `no_data` (0 next to "no sign data on this block"). Do not print a percentage where it is false; the number is still there for the audit block. |
+| `reason` | string | One sentence explaining the verdict, generated by the engine. `"No posted rule covers this window"` exactly when `basis` is `"absence"`. An `ambiguous` span whose reason mentions conflicting signs is one a prohibitive span on the same centerline side overlaps: the two posts disagree about where the boundary is, and the engine will not call either stretch legal (SPEC §8.6). The ETL writes no such pair since `docs/DECISIONS.md` D25 and D26, so this reason should not appear on a current database. |
 | `caveats` | string[] | Per-span warnings, always including the universal temporary-signage caveat. |
 | `walk_min` | number | Straight-line walk estimate, minutes. |
-| `money` | string \| null | Meter cost for the window. `null` = unknown, `"0.00"` = free. |
-| `price_known` | boolean | `false` when the rate is missing or several meter zones cover the blockface. |
+| `money` | string \| null | Meter cost for the window. `null` = unknown, `"0.00"` = free. Always `null` on a `no_data` verdict and on a placeholder span (`gap_kind` set): unpriced curb is not free curb, and "$0.00"/"no meter" on a grey span asserts what the data never said. |
+| `money_value` | number \| null | The numeric twin of `money`, for arithmetic only — ranking, sorting, a re-ranked score. `null` whenever `money` is. Display `money`, never this: it is a float and money is a decimal. |
+| `price_known` | boolean | `false` when the rate is missing, several meter zones cover the blockface, or the span is `no_data`/a placeholder. |
 | `capacity_cars` | integer \| null | Cars the span holds at 22 ft each. |
 | `confidence` | number | 0–1, the lower of parse confidence and snap confidence. |
 | `signs` | `SignRef[]` | Raw sign text behind the verdict. Always shown in the UI. |
 | `charged_minutes` | integer | Minutes of the window the meter is actually running. |
 | `metered` | boolean | Whether any governing rule is metered. |
-| `score` | number | Ranking score: the weighted sum of walk, money, and risk. |
+| `risk` | number | Expected fine in dollars, 2 dp: how likely a ticket is if the software misread this span, times the standard $65 fine. The third term of `score`. |
+| `score` | number | Ranking score under the weights in the request: `w_walk*walk_min + w_money*money_value + w_risk*risk`, with an unknown price counted as 0. The three terms are all in the response, so a client can re-rank locally when the sliders move without a new request. |
 | `rate_label` | string \| null | Meter zone label, when known. |
 | `street_name` | string \| null | A human label for the span: the centerline's street name, the side, and the cross streets at the ends of the centerline segment the span lies on — `"3 AVENUE, west side, E 85 ST → E 86 ST"`. Names are as CSCL stores them (capitals) and are **untrusted**, like every other text column. `null` when the span has no centerline segment to name it from. Render this on the card; do not fetch `/api/segment` for a label. |
 | `gap_kind` | `"no_signs"` \| `"unmatched_signs"` \| null | Only on a `no_data` span, and only when the database records why it is empty. `no_signs`: DOT's inventory lists no sign on this centerline side. `unmatched_signs`: DOT does publish signs here and none could be placed on the centerline. The two need different words — 332 of the 499 unmatched blockface-sides carry a NO STANDING/PARKING/STOPPING ANYTIME sign on the 2026-09-15 snapshot, so "no signs here" would be false about them (`docs/VALIDATION.md` §5). `null` on a real span, and on any database built before the column existed. |
@@ -254,12 +272,14 @@ method" requirement.
     "capacity_cars": 12,
     "capacity_approximate": true,
     "confidence": 0.94,
-    "derived_from": ["9f2c…"]
+    "derived_from": ["9f2c…"],
+    "gap_kind": null
   },
   "geometry": { "type": "LineString", "coordinates": [[-73.954561, 40.778149]] },
   "regulations": [
     {
       "reg_id": "3681:W:0:1",
+      "sign_id": "9f2c…",
       "raw_sign_description": "2 HOUR METERED PARKING 8:30AM-7PM EXCEPT SUNDAY",
       "parse_method": "grammar",
       "parse_confidence": 0.98,
@@ -280,7 +300,7 @@ method" requirement.
       }
     }
   ],
-  "signs": [
+  "governing": [
     {
       "sign_id": "9f2c…",
       "order_number": "1-11111",
@@ -291,6 +311,27 @@ method" requirement.
       "to_street": "EAST 86 STREET",
       "side_of_street": "W",
       "distance_from_intersection": 44.0,
+      "distance_ft": 44.0,
+      "arrow": null,
+      "snap_confidence": 0.94,
+      "snap_notes": "",
+      "is_regulation": true,
+      "panel_class": "regulation"
+    }
+  ],
+  "other_on_block": [
+    {
+      "sign_id": "4b81…",
+      "order_number": "1-11112",
+      "sign_code": "PS-2G",
+      "sign_description": "NO STANDING ANYTIME",
+      "on_street": "3 AVENUE",
+      "from_street": "EAST 85 STREET",
+      "to_street": "EAST 86 STREET",
+      "side_of_street": "W",
+      "distance_from_intersection": 232.0,
+      "distance_ft": 232.0,
+      "arrow": "N",
       "snap_confidence": 0.94,
       "snap_notes": "",
       "is_regulation": true,
@@ -315,6 +356,10 @@ D18). A zone row carries `confidence: 0.6`; quote it, but say where it came
 from. `commercial_hour_rates` is what the meter charges commercial plates and
 never applies to a passenger query.
 
+`gap_kind` on the `segment` object is the same value the search result carries:
+null on a real span, `no_signs` or `unmatched_signs` on a placeholder. A
+placeholder has no `governing` signs and no `regulations`.
+
 `segment_id` names the one centerline segment the span lies on — a span never
 crosses a segment boundary — and `start_ft`/`end_ft` are measured along that
 segment from its own start, in the direction CSCL digitized it, which is not
@@ -325,14 +370,44 @@ that curb is, so two DOT blockfaces over one piece of curb reach you as one row.
 
 `capacity_approximate` is always true in v1: hydrant, driveway, and crosswalk
 setbacks are not in the data, so a car count is an upper bound (SPEC §8.5).
-`signs` lists every sign on the parent centerline segment, including the
-non-regulation panels decision D10 classifies out (`is_regulation: false`) —
-they are kept visible for audit but produce no rule. `panel_class` is
+
+**`governing` and `other_on_block`** are the same sign rows in two groups, each
+ordered along the curb by `distance_from_intersection` (unmeasured last).
+
+- `governing` is the span's own `derived_from` set: the posts whose text became
+  its rules, and the only signs that produced this verdict. Empty on a
+  placeholder span (`gap_kind` set), which has no rules at all.
+- `other_on_block` is every other sign DOT posts on the same blockface-side —
+  the same `(on_street, from_street, to_street, side_of_street)` name tuple as a
+  governing sign. These do **not** govern the stretch: 9 of the 11 signs the old
+  single list showed under the audited green verdict did not, and the first of
+  them read `NO STANDING ANYTIME` (`docs/ux/UX_AUDIT.md` P0-2). Show them, say
+  they do not govern, and collapse them if you like — but never drop them
+  (SPEC §10). When a span has no governing sign to take a name tuple from, this
+  is every sign snapped to the parent centerline segment on the same side
+  letter. On a `gap_kind: "unmatched_signs"` placeholder it also lists the signs
+  DOT publishes for that blockface that could never be placed on the centerline;
+  332 of the 499 unmatched blockface-sides carry a NO STANDING/PARKING/STOPPING
+  ANYTIME sign (`docs/VALIDATION.md` §5), so the grey state is not an empty one.
+
+Both groups include the non-regulation panels decision D10 classifies out
+(`is_regulation: false`) — kept visible for audit, producing no rule.
+`distance_ft` is `distance_from_intersection` under a name that states DOT's
+unit; both are returned, and they are always equal. `arrow` is DOT's own
+`arrow_direction` compass word for the arrow on the post (`"N"`, `"NE"`), null
+when the sign carries no arrow — which way that points *along this curb* is the
+resolved `arrow` on each rule, not this one. `panel_class` is
 `regulation` for a sign that states a rule, and otherwise the parser's own
 `panel:<kind>` label (`panel:pay_by_cell`, `panel:mta_route`, `panel:location`,
 `panel:template`, `panel:parking_geometry`, `panel:blank`,
 `panel:supersedes_only`); treat it as an opaque string, not a closed set
 (decision D19).
+
+Each rule carries the `sign_id` it was read from, so the UI can file rules under
+their post. A rule is tied to its sign by the raw description — the parser reads
+each distinct description once — so two posts on one span carrying identical
+text collapse to one rule named after the first of them in curb order.
+`sign_id` is null when no sign in `governing` carries that description.
 
 A rule with `parse_method: "unparsed"` carries a placeholder `regulation` whose
 fields mean nothing — read only `raw_sign_description`, `parse_method`, and
@@ -345,16 +420,32 @@ fields mean nothing — read only `raw_sign_description`, `parse_method`, and
 Local geocoder over the centerline address ranges. No network, no third-party
 geocoder, so no address ever leaves the machine (threat T6).
 
-`q` is 1–200 characters. Returns at most 5 candidates, best first. An
+`q` is 1–200 characters. Returns at most **8** candidates, best first. An
 unparseable or unmatched query returns `{"query": …, "candidates": []}` with
-status 200 — an empty result is an answer, not an error.
+status 200 — an empty result is an answer, not an error. A candidate outside
+coverage is never returned, so anything in this list can be searched
+(`docs/DECISIONS.md` D28).
 
 ```json
 {
   "query": "123 E 85 St",
   "candidates": [
-    { "label": "123 E 85 ST", "lat": 40.778455, "lon": -73.956201, "kind": "address", "confidence": 0.9 },
-    { "label": "E 85 ST & LEXINGTON AVE", "lat": 40.778901, "lon": -73.956998, "kind": "intersection", "confidence": 0.5 }
+    {
+      "label": "123 E 85 ST",
+      "secondary": "LEXINGTON AVE → PARK AVE",
+      "lat": 40.778455,
+      "lon": -73.956201,
+      "kind": "address",
+      "confidence": 0.9
+    },
+    {
+      "label": "E 85 ST & LEXINGTON AVE",
+      "secondary": "Manhattan",
+      "lat": 40.778901,
+      "lon": -73.956998,
+      "kind": "intersection",
+      "confidence": 0.5
+    }
   ]
 }
 ```
@@ -362,11 +453,53 @@ status 200 — an empty result is an answer, not an error.
 Accepted forms: `123 E 85 St`, `123 East 85th Street`, `1500 3rd Ave`,
 `Lexington Ave & 86th St`, `E 86 St and 3 Ave`, and a bare street name.
 
-`kind` is `"address"` (interpolated within a house-number range) or
-`"intersection"` (a centerline node, or a fallback). `confidence` is 0–1;
-see the coverage limits in `curbcheck/geocode.py`'s module docstring — only
-54% of Manhattan centerline segments publish address ranges, so many house
-numbers resolve only to the nearest hundred-block corner at confidence ≈ 0.5.
+`kind` is one of `address`, `intersection`, `street`, `zip`, `place`, `pin`.
+Only the first three are produced today — `address` is interpolated within a
+house-number range, `intersection` is a centerline node or a nearest-corner
+fallback, `street` is the midpoint of a street whose house number could not be
+placed. The other three are part of the closed set now so a client that
+switches on `kind` is written against the whole of it; treat an unknown value
+as `place`.
+
+`secondary` is the muted second line: the block's cross streets when the
+segment names them, otherwise `"Manhattan"`. It is `string | null` in the
+contract, and no route emits `null` today; there is no ZIP in any dataset we
+load, which is the field a `"Manhattan, 10028"` would go in.
+
+`confidence` is 0–1; see the coverage limits in `curbcheck/geocode.py`'s module
+docstring — only 54% of Manhattan centerline segments publish address ranges,
+so many house numbers resolve only to the nearest hundred-block corner at
+confidence ≈ 0.5.
+
+---
+
+## `GET /api/reverse?lat=&lon=`
+
+What a dropped pin is nearest to, so the UI can echo a place rather than
+`40.778830, -73.953985` (`docs/ux/UX_AUDIT.md` P1-4).
+
+`lat` is 40.68–40.90 and `lon` is -74.05 – -73.88, both required; anything else
+is 422 `validation_error`. A point outside coverage is 422 `outside_coverage`.
+
+```json
+{
+  "label": "1519 3 AVE",
+  "secondary": "E 85 ST → E 86 ST",
+  "kind": "address",
+  "lat": 40.778402,
+  "lon": -73.955249,
+  "distance_m": 12.4
+}
+```
+
+`label`, `secondary` and `kind` mean what they do on a geocode candidate. The
+answer is a house number interpolated on the nearest block that publishes a
+range, when that block is within 60 m of the pin; otherwise the nearest
+centerline node (`kind: "intersection"`); otherwise the street the pin is on
+(`kind: "street"`). `lat`/`lon` are the returned place, not the pin, and
+`distance_m` is how far the pin is from it, to one decimal. The house number is
+interpolated along the block and keeps the parity of the side the pin fell on,
+which makes it approximate: it names the block, not the door.
 
 ---
 
@@ -376,8 +509,27 @@ Answers even with no database. `status` is `"ok"` only when the database is
 present, readable, **and** has an ASP/holiday calendar; otherwise `"degraded"`.
 
 ```json
-{ "status": "ok", "db_present": true, "db_readonly": true, "sign_count": 74590, "calendar_missing": false }
+{
+  "status": "ok",
+  "db_present": true,
+  "db_readonly": true,
+  "sign_count": 74590,
+  "calendar_missing": false,
+  "coverage": {
+    "area": "Manhattan",
+    "bbox": [-74.046770, 40.684050, -73.906821, 40.879046]
+  }
+}
 ```
+
+`coverage` is the area this database can answer about: `area` is the name to
+put in front of a user, and `bbox` is `[min_lon, min_lat, max_lon, max_lat]`
+over every `street_segment` row, which is the edge of what CurbCheck knows and
+what the map should outline. It is `null` when there is no readable database.
+The box is the *data's*, not the borough's — Roosevelt and Randalls Islands are
+inside it because CSCL files them under Manhattan — and being inside it is
+necessary but not sufficient: the service-area test is 250 m from a centerline
+(`docs/DECISIONS.md` D28).
 
 `calendar_missing` is true when `sync_meta.calendar_missing` is set or
 `asp_suspension` is empty. Such a database answers every query and gets every

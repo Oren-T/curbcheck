@@ -534,3 +534,80 @@ with its own count, and `--overlaps` measures it because it compares geometry;
 corner DOT names rather than from the centerline segment's own start. The chain
 and its from-node are still in `street_segment`, so that is a presentation
 change, but it would be a reason to store both.
+
+## D27. Legality by absence is a separate state from legality by permission
+
+**Decided:** 2026-09-15. `SearchResult.basis` says why a LEGAL verdict is legal:
+`posted` when at least one rule in the stack permitted parking somewhere in the
+window, `absence` when no rule was in force for any part of it, `null` on the
+three non-legal verdicts. An absence verdict reads "No posted rule covers this
+window" and carries `confidence_shown: false`, as does every `no_data` span, so
+the percentage is in the audit block and not beside the verdict. Within the
+ranked legal list, spans whose cost differs by less than 0.5 min-equivalents
+(`engine.search.COST_TIE_BAND`) are ordered `posted` before `absence`; the band
+is anchored on the first span in each band rather than on the previous one, so a
+dense run cannot chain into one tie and stop the cost ranking meaning anything.
+
+**Why:** absence of a rule really is a permission — 34 RCNY 4-08 allows parking
+where no posted sign applies, which is why `resolve` returns LEGAL for it — but
+it is also the engine reporting that it read nothing. The UI had no way to tell
+the two apart, so it printed the same green badge and the same "100% confidence"
+for both: all 100 ranked results for 1519 3rd Ave, Wednesday 10:00–12:00 read
+"Legal · 100% confidence · no posted rule covers this window", the app
+announcing that it found nothing in its most confident voice
+(`docs/ux/UX_AUDIT.md` P0-1). The confidence number makes it worse, because it
+is the confidence of an *empty* stack: nothing was parsed, so nothing could be
+parsed badly. Splitting the state in the engine rather than in the frontend
+keeps the distinction on the contract, where the ranking can use it too.
+
+The tie-break is deliberately narrow. Rank order was already being decided by
+walk-time differences of tenths of a minute (`UX_AUDIT.md` P2-3), so preferring
+a span with a sign the driver can go and read, among spans that cost the same,
+spends nothing the user could perceive. It never reorders spans whose cost
+differs by more than the band.
+
+**What it does not reach:** the caveat "part of this window has no posted rule;
+read the curb" still fires on a `posted` verdict whose window is only partly
+covered, and that mixed case is one word in a caveat list rather than a state of
+its own. `basis` answers "was anything posted at all", not "how much of the
+window did it cover"; `intervals` already carries the latter and nothing renders
+it yet.
+
+**Would reverse it:** a finding that drivers read "no rule found" as "not
+allowed" and walk past legal curb. The verdict would stay LEGAL either way — this
+is presentation — but the ranking preference would have to go.
+
+## D28. A destination outside the centerline is refused, not answered with zero results
+
+**Decided:** 2026-09-15. `POST /api/search` and `GET /api/reverse` return HTTP
+422 `outside_coverage` for a point further than 250 m from every
+`street_segment` geometry (`engine.coverage`), `GET /api/geocode` never offers a
+candidate outside it, and `GET /api/health` publishes
+`coverage: {area, bbox}` computed from the same table.
+
+**Why:** a pin dropped in West New York, NJ was accepted and answered "Nothing
+within that walk radius. Try a longer walk or a different time", advising the
+user to widen a radius that was never the problem, and nothing in the UI said
+CurbCheck is Manhattan-only (`docs/ux/UX_AUDIT.md` P0-3). Coverage is measured
+against the centerline rather than a borough polygon because the centerline is
+what actually decides whether a query can be answered, and it needs no second
+dataset to stay in step.
+
+Measured on the 2026-09-15 database (11,102 segments), distance to the nearest
+centerline: Great Lawn 184 m, the Ramble 177 m, Sheep Meadow 92 m, Inwood Hill
+Park 137 m, Roosevelt Island 18 m, Randalls Island 19 m — all in. Hudson
+midstream 1,090 m, Long Island City 1,068 m, West New York NJ (nothing within a
+kilometre) — all out. The bbox is
+`[-74.046770, 40.684050, -73.906821, 40.879046]`.
+
+**What it does not reach:** two edges, both of which fail in the safe direction.
+The centre of the Central Park reservoir is 287 m from any centerline and is
+refused, which is a wrong answer about a stretch of water. And the
+Manhattan-registered bridge centerlines reach far enough over the East River
+that a point in DUMBO is 240 m from one and is accepted; it then returns no
+spans, because DOT letters no Manhattan curb there.
+
+**Would reverse it:** a coverage polygon in the data — a borough boundary from
+Open Data would let the test be point-in-polygon, which would put the reservoir
+back in and DUMBO out. That is a new dataset with its own sync and licence
+entry, and the distance test needs none.
