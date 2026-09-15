@@ -154,13 +154,14 @@ and pan the map: there should be zero requests off `127.0.0.1`.
    fetches `hatchling` through PEP 517 build isolation without a hash. CI pins
    actions by major tag (`actions/checkout@v4`); pinning by commit SHA would be
    stronger.
-9. **An unreadable `geom` cell still fails a search.**
-   `engine/search.py:_candidates_in_radius` calls `json.loads` and `shape()` on
-   `regulation_segment.geom` without a guard, so a truncated snapshot answers
-   500. The JSON-list columns beside it were fixed to degrade to empty; geometry
-   was left alone on purpose, because silently dropping a span from the results
-   hides curb the user asked about, and choosing between that and failing loudly
-   is a product decision rather than a security fix.
+9. **Closed.** An unreadable `geom` cell used to fail the whole search:
+   `engine/search.py:_candidates_in_radius` called `json.loads` and `shape()` on
+   `regulation_segment.geom` without a guard, so a truncated snapshot answered
+   500. `_measure` now returns `None` for a row it cannot read; the row is
+   skipped and the count goes to the log as **one** warning per query, not one
+   per row. Dropping a span does hide curb the user asked about, so the count is
+   logged rather than swallowed — but a search that answers about the rest of
+   the neighbourhood is worth more than one that answers about none of it.
 10. **The data itself is only as good as NYC's.** That is a correctness risk, not
    a security one, and `docs/SPEC.md` §11 and §17 are where it is handled.
 

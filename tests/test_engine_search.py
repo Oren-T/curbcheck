@@ -7,6 +7,7 @@ to reason about: 0.001 degrees of latitude is about 111 m.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime
 from decimal import Decimal
@@ -569,6 +570,33 @@ def test_an_empty_database_returns_nothing(conn: sqlite3.Connection) -> None:
 
     assert found.all == []
     assert found.counts.total == 0
+
+
+def test_an_unreadable_geometry_skips_its_row_and_logs_one_warning(
+    conn: sqlite3.Connection, caplog
+) -> None:
+    """A truncated snapshot used to answer every search with a 500 (SECURITY.md residual 9)."""
+    conn.execute("UPDATE regulation_segment SET geom = ? WHERE reg_seg_id = ?", ("{", "seg-free"))
+    conn.execute(
+        "UPDATE regulation_segment SET geom = ? WHERE reg_seg_id = ?",
+        ('{"type": "LineString"}', "seg-odd"),
+    )
+
+    with caplog.at_level(logging.WARNING, logger="curbcheck.engine.search"):
+        results = run_search(conn)
+
+    assert {result.reg_seg_id for result in results} == {"seg-meter", "seg-blank"}
+    warnings = [record.getMessage() for record in caplog.records]
+    assert warnings == ["skipped 2 regulation_segment row(s) with unreadable geometry"]
+
+
+def test_a_readable_database_logs_no_geometry_warning(
+    conn: sqlite3.Connection, caplog
+) -> None:
+    with caplog.at_level(logging.WARNING, logger="curbcheck.engine.search"):
+        run_search(conn)
+
+    assert caplog.records == []
 
 
 def test_an_unreadable_json_column_reads_as_empty_rather_than_raising():

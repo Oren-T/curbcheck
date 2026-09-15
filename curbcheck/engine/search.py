@@ -8,6 +8,7 @@ kind of related row (never one per candidate), then verdict, price, and rank.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import sqlite3
 from collections.abc import Iterable, Iterator, Sequence
@@ -16,6 +17,7 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from shapely.errors import ShapelyError
 from shapely.geometry import Point, shape
 
 from curbcheck.db import placeholders, regulation_from_row
@@ -35,6 +37,8 @@ from curbcheck.engine.resolve import (
 )
 from curbcheck.engine.window import CalendarContext
 from curbcheck.model import ParseMethod
+
+LOGGER = logging.getLogger(__name__)
 
 # The ranked list the user reads is short; the map layer is not. Ranking and
 # drawing were one capped list until docs/VALIDATION.md U1 measured what that
@@ -313,10 +317,13 @@ def _candidates_in_radius(
 
     origin = Point(0.0, 0.0)
     candidates: list[_Candidate] = []
+    unreadable = 0
     for row in rows:
-        geometry = json.loads(str(row["geom"]))
-        local = shape(_to_local_meters(geometry, lon0=lon, lat0=lat))
-        distance_m = float(local.distance(origin))
+        measured = _measure(row["geom"], lon=lon, lat=lat, origin=origin)
+        if measured is None:
+            unreadable += 1
+            continue
+        geometry, distance_m = measured
         if distance_m > radius_m:
             continue
         candidates.append(
@@ -332,7 +339,32 @@ def _candidates_in_radius(
                 gap_kind=_optional_str(row["gap_kind"]) if has_gap_kind else None,
             )
         )
+    if unreadable:
+        # One line for the whole query, not one per row: a truncated snapshot
+        # can hold thousands of these and the point is the count, not each id.
+        LOGGER.warning("skipped %d regulation_segment row(s) with unreadable geometry", unreadable)
     return candidates
+
+
+def _measure(
+    geom: Any, *, lon: float, lat: float, origin: Point
+) -> tuple[dict[str, Any], float] | None:
+    """The row's geometry and its distance in metres, or None when it cannot be read.
+
+    The database is untrusted at read time (CLAUDE.md), and `geom` is the last
+    column in this query that was still decoded unguarded: a truncated or
+    hand-edited snapshot answered every search with a 500
+    (docs/SECURITY.md residual 9). Dropping the row hides a stretch of curb the
+    user asked about, which is why the count is logged rather than swallowed —
+    but a search that answers about the rest of the neighbourhood is worth more
+    than one that answers about none of it.
+    """
+    try:
+        geometry = json.loads(str(geom))
+        local = shape(_to_local_meters(geometry, lon0=lon, lat0=lat))
+        return geometry, float(local.distance(origin))
+    except (ValueError, TypeError, KeyError, IndexError, ShapelyError):
+        return None
 
 
 # CSCL writes street names in capitals ("3 AVENUE"); they are shown as stored,
