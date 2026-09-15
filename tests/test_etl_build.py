@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from datetime import datetime
 
 import pytest
@@ -128,16 +129,22 @@ def test_build_all_writes_every_geometry_table_and_swaps_the_file_in(raw_dir, tm
             table: conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]  # noqa: S608
             for table in ("street_node", "street_segment", "sign", "regulation_segment")
         }
+        counts["real_spans"] = conn.execute(
+            "SELECT count(*) FROM regulation_segment WHERE gap_kind IS NULL"
+        ).fetchone()[0]
         sign = conn.execute("SELECT * FROM sign WHERE order_number = 'P-1'").fetchone()
         panel = conn.execute("SELECT * FROM sign WHERE order_number = 'P-2'").fetchone()
-        segment = conn.execute("SELECT * FROM regulation_segment").fetchone()
+        segment = conn.execute("SELECT * FROM regulation_segment WHERE gap_kind IS NULL").fetchone()
     finally:
         conn.close()
 
     assert counts["street_segment"] == len(grid_rows())
     assert counts["sign"] == 2
     # The pay-by-cell plate is kept for audit but never becomes a curb span (D10).
-    assert counts["regulation_segment"] == 1
+    assert counts["real_spans"] == 1
+    # Every other side of the grid draws SPEC §11's grey placeholder instead of
+    # nothing: 12 segments, two sides each, less the one the sign governs.
+    assert counts["regulation_segment"] == 24
     assert sign["segment_id"] == "avenue-0"
     assert sign["is_regulation"] == 1
     assert sign["derived_lon"] < -73.9880
@@ -174,7 +181,7 @@ def test_the_steps_run_in_an_order_that_lets_each_read_the_last(raw_dir, tmp_pat
     stats, out_path = build(raw_dir, tmp_path)
 
     [regulation] = rows(out_path, "SELECT * FROM regulation")
-    [segment] = rows(out_path, "SELECT * FROM regulation_segment")
+    [segment] = rows(out_path, "SELECT * FROM regulation_segment WHERE gap_kind IS NULL")
     [rate] = rows(out_path, "SELECT * FROM meter_rate")
     assert regulation["reg_seg_id"] == segment["reg_seg_id"]
     assert regulation["metered"] == 1
@@ -307,6 +314,51 @@ def test_coverage_numbers_land_in_sync_meta(raw_dir, tmp_path):
     assert json.loads(meta["regulation_rows_by_parse_method"]) == {"grammar": 1}
     assert meta["parse_arrow_disagreements"] == "0"
     assert "last_sync_at" in meta
+
+
+def test_a_side_with_no_span_draws_a_grey_placeholder(raw_dir, tmp_path):
+    # docs/VALIDATION.md §5: a blank map reads as "nothing here", not "unknown".
+    # The placeholder is what lets SPEC §11's grey state cover the whole city.
+    write_raw(
+        raw_dir,
+        [
+            *SIGN_ROWS,
+            sign_row(
+                "P-9",
+                "NO STANDING ANYTIME",
+                from_street="E 3 STREET",
+                to_street="HIDDEN PLAZA",
+                side_of_street="E",
+            ),
+        ],
+    )
+
+    _stats, out_path = build(raw_dir, tmp_path)
+
+    placeholders = rows(out_path, "SELECT * FROM regulation_segment WHERE gap_kind IS NOT NULL")
+    kinds = Counter(row["gap_kind"] for row in placeholders)
+    meta = {row["key"]: row["value"] for row in rows(out_path, "SELECT key, value FROM sync_meta")}
+
+    # The unmatched sign names E 3 ST and a plaza CSCL has never heard of, so
+    # both BROAD AVE sides touching E 3 ST are a matching gap, not a data gap.
+    assert kinds["unmatched_signs"] == 2
+    assert {
+        (row["segment_id"], row["side"])
+        for row in placeholders
+        if row["gap_kind"] == "unmatched_signs"
+    } == {
+        ("avenue-1", "E"),
+        ("avenue-2", "E"),
+    }
+    # The side the matched sign governs keeps its real span and gets no placeholder.
+    assert ("avenue-0", "W") not in {(row["segment_id"], row["side"]) for row in placeholders}
+    for row in placeholders:
+        assert row["capacity_cars"] is None
+        assert row["confidence"] == 0.0
+        assert json.loads(row["derived_from"]) == []
+    assert meta["coverage.sides_with_rules"] == "1"
+    assert meta["coverage.unmatched_sides"] == "2"
+    assert int(meta["coverage.no_signs_sides"]) == len(placeholders) - 2
 
 
 def test_the_previous_database_is_kept_for_rollback(raw_dir, tmp_path):

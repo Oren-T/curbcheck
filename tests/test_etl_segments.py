@@ -324,3 +324,71 @@ def test_repeated_posts_whose_spans_do_not_touch_stay_separate():
 
     assert spans(segments) == [(0, 100), (900, WHOLE_SIDE_FT)]
     assert report.merged_repeat_spans == 0
+
+
+def resolve_with_placeholders(*signs):
+    graph = grid_graph()
+    snaps = [snap_sign(sign, graph) for sign in signs]
+    return resolve_segments(snaps, graph=graph)
+
+
+def placeholder_sides(segments):
+    return {(s.segment_id, s.side): s.gap_kind for s in segments if s.gap_kind is not None}
+
+
+def test_every_street_side_without_a_span_gets_a_grey_placeholder():
+    # SPEC §11: a side with no data has to say so. Before this it drew nothing,
+    # which a driver reads as "no restriction" (docs/VALIDATION.md §5).
+    segments, report = resolve_with_placeholders(
+        staged_sign("a", to_street="E 2 STREET", description=NO_PARKING, side="W")
+    )
+
+    sides = placeholder_sides(segments)
+    assert ("avenue-0", "W") not in sides
+    assert sides[("avenue-0", "E")] == "no_signs"
+    # 12 fixture segments, two sides each, less the one side the sign governs.
+    assert len(sides) == 23
+    assert report.sides_with_rules == 1
+    assert report.no_signs_sides == 23
+    assert report.unmatched_sides == 0
+
+
+def test_a_placeholder_carries_no_rule_no_capacity_and_no_confidence():
+    segments, _ = resolve_with_placeholders(
+        staged_sign("a", to_street="E 2 STREET", description=NO_PARKING)
+    )
+
+    placeholder = next(segment for segment in segments if segment.gap_kind is not None)
+    assert placeholder.derived_from == ()
+    assert placeholder.capacity_cars is None
+    assert placeholder.confidence == 0.0
+    assert placeholder.start_ft == 0.0
+    assert placeholder.geometry["type"] == "LineString"
+
+
+def test_a_side_whose_own_signs_never_snapped_is_a_matching_gap_not_a_data_gap():
+    segments, report = resolve_with_placeholders(
+        staged_sign(
+            "unmatched",
+            from_street="E 3 STREET",
+            to_street="HIDDEN PLAZA",
+            side="E",
+            description=NO_STANDING,
+        )
+    )
+
+    sides = placeholder_sides(segments)
+    assert sides[("avenue-1", "E")] == "unmatched_signs"
+    assert sides[("avenue-1", "W")] == "no_signs"
+    assert report.unmatched_sides == 2
+
+
+def test_a_whole_chain_span_leaves_no_placeholder_on_the_segments_it_crosses():
+    # The span is filed under the segment covering its midpoint, but it covers
+    # all three, and a placeholder on the other two would double-draw the curb.
+    segments, _ = resolve_with_placeholders(
+        staged_sign("a", to_street="E 4 STREET", description=NO_PARKING, side="W")
+    )
+
+    sides = placeholder_sides(segments)
+    assert not {("avenue-0", "W"), ("avenue-1", "W"), ("avenue-2", "W")} & set(sides)

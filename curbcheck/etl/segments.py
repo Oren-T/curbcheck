@@ -24,7 +24,13 @@ from shapely.ops import substring
 from curbcheck.config import CAR_LENGTH_FT
 from curbcheck.etl.snap import COMPASS_UNITS, SnapResult, side_offset_sign
 from curbcheck.etl.stage import StagedSign
-from curbcheck.etl.streets import BlockMatch, to_degrees
+from curbcheck.etl.streets import (
+    BlockMatch,
+    StreetGraph,
+    StreetSegment,
+    normalize_street_name,
+    to_degrees,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -43,6 +49,17 @@ _LEADING_SYMBOL = re.compile(r"^\([^)]*\)\s*|^[A-Z /&]+\(SYMBOLS?\)\s*")
 # A span shorter than this is a sign pointing off the end of its own block,
 # which means the distance or the bearing is wrong; fall back to the whole side.
 MIN_SPAN_FT = 1.0
+
+# `gap_kind` values on a placeholder span: the source carries no active sign
+# rows for that blockface-side at all, or it carries them and none could be
+# snapped. SPEC §11 asks for exactly this split.
+NO_SIGNS = "no_signs"
+UNMATCHED_SIGNS = "unmatched_signs"
+
+# Placeholders are drawn for the street network only. rw_type 2 (highway), 3
+# (bridge) and 10 (connector) are snappable because signs are posted along them,
+# but there is no parkable curb there to leave grey (docs/DATA.md §2.1).
+PLACEHOLDER_RW_TYPE = "1"
 
 # Vertex spacing when shapely's offset_curve degenerates and the curb line has
 # to be rebuilt by hand.
@@ -69,10 +86,13 @@ class RegulationSegment:
     length_ft: float
     geometry: dict[str, Any]
     bbox: tuple[float, float, float, float]
-    capacity_cars: int
+    capacity_cars: int | None
+    """None on a placeholder: an unknown stretch of curb holds an unknown number of cars."""
     capacity_approximate: bool
     confidence: float
     derived_from: tuple[str, ...]
+    gap_kind: str | None = None
+    """None on a real span; `no_signs` or `unmatched_signs` on a coverage placeholder."""
 
 
 @dataclass(frozen=True)
@@ -88,6 +108,10 @@ class SegmentReport:
     degenerate_spans: int
     offset_curve_fallbacks: int
     signs_used: int
+    sides_with_rules: int
+    """Centerline `(segment_id, side)` pairs a resolved span covers."""
+    no_signs_sides: int
+    unmatched_sides: int
 
 
 def strip_supersedes(description: str) -> str:
@@ -136,24 +160,38 @@ def _description_head(description: str) -> str:
 
 
 def resolve_segments(
-    snaps: Iterable[SnapResult], *, parsed_actions: Mapping[str, str] | None = None
+    snaps: Iterable[SnapResult],
+    *,
+    parsed_actions: Mapping[str, str] | None = None,
+    graph: StreetGraph | None = None,
 ) -> tuple[list[RegulationSegment], SegmentReport]:
     """Group snapped regulation signs into curb spans, one per distinct span.
 
     Only matched regulation panels take part (docs/DECISIONS.md D10). Signs
     whose spans come out identical — the usual case being several panels on one
     post — collapse into a single segment carrying all their sign ids.
+
+    With `graph`, every street side that ends up with no span also gets a
+    placeholder so the map can draw SPEC §11's grey "no sign data" state there
+    instead of nothing at all. Without it — the unit tests — only real spans
+    come back.
     """
+    all_snaps = list(snaps)
     faces: dict[tuple[str, str], list[SnapResult]] = {}
-    for snap in snaps:
+    for snap in all_snaps:
         if snap.block is None or not snap.sign.is_regulation:
             continue
         faces.setdefault((_chain_key(snap), snap.side), []).append(snap)
 
     segments: list[RegulationSegment] = []
     counts = {"whole": 0, "arrow": 0, "merged": 0, "degenerate": 0, "fallback": 0, "signs": 0}
+    covered: set[tuple[str, str]] = set()
     for (chain_key, side), members in sorted(faces.items()):
-        segments.extend(_resolve_face(chain_key, side, members, parsed_actions or {}, counts))
+        segments.extend(
+            _resolve_face(chain_key, side, members, parsed_actions or {}, counts, covered)
+        )
+    placeholders = [] if graph is None else coverage_placeholders(graph, covered, all_snaps)
+    segments.extend(placeholders)
     report = SegmentReport(
         blockface_sides=len(faces),
         segments=len(segments),
@@ -163,6 +201,9 @@ def resolve_segments(
         degenerate_spans=counts["degenerate"],
         offset_curve_fallbacks=counts["fallback"],
         signs_used=counts["signs"],
+        sides_with_rules=len(covered),
+        no_signs_sides=sum(1 for span in placeholders if span.gap_kind == NO_SIGNS),
+        unmatched_sides=sum(1 for span in placeholders if span.gap_kind == UNMATCHED_SIGNS),
     )
     LOGGER.info(
         "segments.resolve faces=%d segments=%d whole_side=%d arrow=%d merged=%d degenerate=%d",
@@ -174,6 +215,119 @@ def resolve_segments(
         report.degenerate_spans,
     )
     return segments, report
+
+
+def coverage_placeholders(
+    graph: StreetGraph, covered: set[tuple[str, str]], snaps: Sequence[SnapResult]
+) -> list[RegulationSegment]:
+    """One empty span per street side that no resolved span covers (SPEC §11).
+
+    A blank map is read by a driver as "nothing here", not as "unknown", which
+    is the hazard SPEC §11 exists to prevent; 10,208 of Manhattan's 22,204
+    centerline sides drew nothing at all before this (docs/VALIDATION.md §5).
+    Each placeholder carries no rules, zero confidence, no car count, and a
+    `gap_kind` saying whether the source has no signs for that blockface-side
+    (`no_signs`) or has them and could not snap them (`unmatched_signs`).
+
+    Only `rw_type` 1 — the street network — gets placeholders. Highways (2),
+    bridges (3) and connectors (10) are in the snap pool because signs are
+    posted along them, but they have no parkable curb to leave grey.
+    """
+    unmatched = _unmatched_faces(graph, snaps)
+    placeholders = []
+    for segment in graph.segments.values():
+        if segment.rw_type != PLACEHOLDER_RW_TYPE:
+            continue
+        crossing = graph.node_streets(segment.from_node) | graph.node_streets(segment.to_node)
+        for side in _sides_of(segment.line_ft):
+            if (segment.segment_id, side) in covered:
+                continue
+            placeholders.append(
+                _placeholder(segment, side, _gap_kind(unmatched, segment, crossing, side))
+            )
+    return placeholders
+
+
+def _placeholder(segment: StreetSegment, side: str, gap_kind: str) -> RegulationSegment:
+    offset_sign, _ = side_offset_sign(segment.line_ft, side)
+    geometry, _ = _curb_geometry(
+        segment.line_ft, 0.0, segment.length_ft, segment.width_ft / 2.0, offset_sign
+    )
+    return RegulationSegment(
+        reg_seg_id=_reg_seg_id(f"gap|{segment.segment_id}", side, 0.0, segment.length_ft),
+        segment_id=segment.segment_id,
+        side=side,
+        start_ft=0.0,
+        end_ft=round(segment.length_ft, 2),
+        length_ft=round(segment.length_ft, 2),
+        geometry=geometry,
+        bbox=_bbox(geometry),
+        capacity_cars=None,
+        capacity_approximate=True,
+        confidence=0.0,
+        derived_from=(),
+        gap_kind=gap_kind,
+    )
+
+
+def _sides_of(line_ft: LineString) -> tuple[str, str]:
+    """The two curb letters a run can carry, read off its bearing, not its name.
+
+    Broadway and St Nicholas Ave are diagonals and DOT sides them E/W because
+    they run more north than east, which is what comparing the components does.
+    """
+    start, end = line_ft.coords[0], line_ft.coords[-1]
+    east_west = abs(end[0] - start[0]) > abs(end[1] - start[1])
+    return ("N", "S") if east_west else ("E", "W")
+
+
+@dataclass(frozen=True)
+class _UnmatchedFace:
+    """One `(on, from, to, side)` group DOT posts signs on that none of ours snapped."""
+
+    crosses: frozenset[str]
+    has_unknown_cross: bool
+
+
+def _unmatched_faces(
+    graph: StreetGraph, snaps: Sequence[SnapResult]
+) -> dict[tuple[str, str], list[_UnmatchedFace]]:
+    faces: dict[tuple[str, str], list[_UnmatchedFace]] = {}
+    seen: set[tuple[str, str, str, str]] = set()
+    for snap in snaps:
+        sign = snap.sign
+        if snap.matched or not sign.is_regulation or sign.blockface_key in seen:
+            continue
+        seen.add(sign.blockface_key)
+        crosses = {normalize_street_name(sign.from_street), normalize_street_name(sign.to_street)}
+        key = (normalize_street_name(sign.on_street), sign.side_of_street)
+        faces.setdefault(key, []).append(
+            _UnmatchedFace(
+                crosses=frozenset(crosses),
+                has_unknown_cross=any(name not in graph.street_names for name in crosses),
+            )
+        )
+    return faces
+
+
+def _gap_kind(
+    unmatched: Mapping[tuple[str, str], Sequence[_UnmatchedFace]],
+    segment: StreetSegment,
+    crossing: set[str],
+    side: str,
+) -> str:
+    """Which kind of gap a side is: no signs in the source, or signs that never snapped.
+
+    A blockface-side is matched to a centerline side by name, because an
+    unmatched sign has no geometry by definition. Both cross streets have to
+    meet this segment, unless one of the names is in no centerline row at all —
+    the case that produced the miss in the first place (docs/VALIDATION.md §4 D4).
+    """
+    for face in unmatched.get((segment.street_norm, side), ()):
+        shared = face.crosses & crossing
+        if face.crosses <= crossing or (shared and face.has_unknown_cross):
+            return UNMATCHED_SIGNS
+    return NO_SIGNS
 
 
 @dataclass(frozen=True)
@@ -194,6 +348,7 @@ def _resolve_face(
     members: Sequence[SnapResult],
     parsed_actions: Mapping[str, str],
     counts: dict[str, int],
+    covered: set[tuple[str, str]],
 ) -> list[RegulationSegment]:
     block = _block_of(members[0])
     line_ft = _canonical_line(block)
@@ -225,6 +380,11 @@ def _resolve_face(
             counts["fallback"] += 1
         sign_ids = tuple(sorted(post.snap.sign.sign_id for post in group))
         span_length = end_ft - start_ft
+        # A span that runs over a chain covers every segment it crosses, not
+        # only the one it is filed under, or the rest would look uncovered.
+        covered.update(
+            (segment_id, side) for segment_id in _segments_between(chain, start_ft, end_ft)
+        )
         resolved.append(
             RegulationSegment(
                 reg_seg_id=_reg_seg_id(chain_key, side, start_ft, end_ft),
@@ -493,6 +653,20 @@ def _canonical_distance(snap: SnapResult, block: BlockMatch, length_ft: float) -
     if _is_canonical(block):
         return snap.distance_ft
     return max(0.0, length_ft - snap.distance_ft)
+
+
+def _segments_between(
+    chain: tuple[tuple[str, ...], tuple[float, ...]], start_ft: float, end_ft: float
+) -> list[str]:
+    """Every centerline segment a span touches, in chain order."""
+    ids, lengths = chain
+    touched = []
+    travelled = 0.0
+    for segment_id, length in zip(ids, lengths, strict=True):
+        if travelled < end_ft and start_ft < travelled + length:
+            touched.append(segment_id)
+        travelled += length
+    return touched or [ids[-1]]
 
 
 def _segment_at(chain: tuple[tuple[str, ...], tuple[float, ...]], distance_ft: float) -> str:

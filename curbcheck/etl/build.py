@@ -100,7 +100,7 @@ _INSERT_SIGN = (
 _INSERT_REG_SEGMENT = (
     "INSERT OR REPLACE INTO regulation_segment (reg_seg_id, segment_id, side, start_ft, end_ft,"
     " geom, min_lon, min_lat, max_lon, max_lat, length_ft, capacity_cars, capacity_approximate,"
-    " confidence, derived_from) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    " confidence, derived_from, gap_kind) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 _INSERT_METER_RATE = (
     "INSERT OR REPLACE INTO meter_rate (blockface_id, segment_id, side, rate_label, hour_rates,"
@@ -187,7 +187,9 @@ def run_geometry(
     signs, stage_report = stage_signs(fetch.load_rows("signs_manhattan", raw_dir))
     snaps, snap_report = snap_signs(signs, resolved_graph)
     actions = parsed_actions(snap.sign.sign_description for snap in snaps)
-    reg_segments, segment_report = resolve_segments(snaps, parsed_actions=actions)
+    reg_segments, segment_report = resolve_segments(
+        snaps, parsed_actions=actions, graph=resolved_graph
+    )
 
     _write_nodes(conn, resolved_graph)
     _write_segments(conn, resolved_graph.segments.values())
@@ -712,6 +714,12 @@ def _geometry_meta(stats: GeometryStats) -> dict[str, object]:
         "street_segments": stats.street_segments,
         "street_nodes": stats.street_nodes,
         "regulation_segments": asdict(stats.segments),
+        # SPEC §11's grey state, per centerline side: how many sides a rule
+        # covers, and how many draw a placeholder because the source has no
+        # signs there or because none of its signs could be snapped.
+        "coverage.sides_with_rules": stats.segments.sides_with_rules,
+        "coverage.no_signs_sides": stats.segments.no_signs_sides,
+        "coverage.unmatched_sides": stats.segments.unmatched_sides,
         "geometry_elapsed_s": stats.elapsed_s,
     }
 
@@ -825,6 +833,7 @@ def _write_regulation_segments(
                 int(segment.capacity_approximate),
                 segment.confidence,
                 json.dumps(list(segment.derived_from)),
+                segment.gap_kind,
             )
             for segment in segments
         ],
