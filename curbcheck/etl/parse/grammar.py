@@ -233,14 +233,24 @@ def _build_clauses(tokens: list[str]) -> tuple[list[_Clause], list[str]]:
 
 
 def _skip_except_rider(tokens: list[str], index: int) -> int:
-    """Consume `EXCEPT <class phrase>`; the prohibition it qualifies stands unchanged."""
+    """Consume `EXCEPT <class phrase>`; the prohibition it qualifies stands unchanged.
+
+    The class phrase may itself be a reservation head (`NO STANDING 5PM-MIDNIGHT
+    MON-FRI EXCEPT TLC LICENSED VEHICLES PRE-ARRANGED SERVICE ONLY`). It is
+    swallowed with the rest of the rider: the sign said `EXCEPT`, so the
+    reservation is the exception to this prohibition, not a second rule covering
+    the hours this one leaves open.
+    """
     index += 1
     while index < len(tokens):
         if times.is_time_token(tokens[index]) or times.is_season_token(tokens[index]):
             break
-        if scan_days(tokens, index) is not None or _match_head(tokens, index)[0] is not None:
+        if scan_days(tokens, index) is not None:
             break
-        index += 1
+        head, length = _match_head(tokens, index)
+        if head is not None and not head.exclusive:
+            break
+        index += length if head is not None else 1
     return index
 
 
@@ -258,15 +268,26 @@ def _merge_head(clause: _Clause, head: Head) -> bool:
     `3 HMP COMMERCIAL VEHICLES ONLY` and `BUS STOP SIGN NO STANDING` are each one
     rule written as two phrases. DOT puts the class either side of the schedule
     (`3 HOUR PARKING 9AM-6PM MON-FRI COMMERCIAL VEHICLES ONLY`), so naming a class
-    folds in wherever it appears; a second *rule* head only folds in before the
-    clause has a schedule of its own.
+    folds into a *permission* wherever it appears; a second *rule* head, and a
+    class named after a prohibition's hours, only fold in before the clause has a
+    schedule of its own.
     """
     if head.meta or clause.head.meta:
         return False
+    if head.exclusive and clause.head.exclusive and not clause.groups:
+        # Two names for one reservation: `FOR-HIRE VEHICLES ONLY PICK-UP/DROP-OFF
+        # ONLY`, `MICROHUB ZONE VEHICLES WITH PERMIT ONLY`. The first names the
+        # party the curb is held for, so it is the one that is kept.
+        return True
     if (
         head.exclusive
         and not clause.head.exclusive
         and clause.head.vehicle_class is VehicleClass.ALL
+        # `NO STANDING 8AM-6PM EXCEPT SUNDAY W/ ACCESS-A-RIDE BUS STOP`: folding
+        # the class into a prohibition that already carries hours would confine
+        # the reservation to those hours and leave the rest of the week unposted,
+        # which is the one direction a parse must never move in.
+        and not (clause.groups and not clause.head.permitted)
     ):
         clause.head = Head(
             action=head.action if clause.head.permitted else clause.head.action,

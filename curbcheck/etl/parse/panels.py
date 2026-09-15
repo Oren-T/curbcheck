@@ -23,7 +23,8 @@ from __future__ import annotations
 
 import re
 
-from curbcheck.etl.parse.tokens import lex, normalize
+from curbcheck.etl.parse.tokens import lex, normalize, tokenize
+from curbcheck.etl.parse.vocabulary import HEAD_PHRASES, LONGEST_HEAD
 
 # DOT's blank template drawings use these placeholders for the text a work order
 # fills in, so a string containing one describes no particular regulation.
@@ -59,6 +60,8 @@ _ADVISORY = re.compile(
     r"|\bCODING RIDER\b"
     r"|\bTEMPORARY CONSTRUCTION REGULATION\b"
     r"|\bDESCRIPTION NOT AVAILABLE\b"
+    # Bike-path guide signs name the greenway they point along and regulate no curb.
+    r"|\bGREENWAY\b"
 )
 
 
@@ -74,11 +77,30 @@ def panel_class(raw: str) -> str | None:
     # a panel often sit inside a parenthetical the lexer strips out.
     text = normalize(raw)
     if _PLACEHOLDER.search(text):
-        return "panel:template"
+        # A blank template that still names a rule ("DAY - DAY XYY-XYY (FOR BUS
+        # STOP ONLY)") describes a real regulation whose days and hours are
+        # unspecified. Calling it a panel would tell the engine the curb is
+        # free; it goes to the grammar, and from there to `unparsed` (SPEC §11).
+        return None if _names_a_rule(text) else "panel:template"
     for label, pattern in _PRE_GRAMMAR:
         if pattern.search(text):
             return label
     return None
+
+
+def _names_a_rule(text: str) -> bool:
+    """True when a rule head phrase appears anywhere in the full description.
+
+    Read from the whole normalized string rather than the lexer's tokens,
+    because DOT parks the rule a template rider belongs to inside a
+    parenthetical the lexer strips out.
+    """
+    tokens = tokenize(text)
+    return any(
+        tuple(tokens[start : start + length]) in HEAD_PHRASES
+        for start in range(len(tokens))
+        for length in range(1, LONGEST_HEAD + 1)
+    )
 
 
 def advisory_class(text: str) -> str | None:

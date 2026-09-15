@@ -189,8 +189,11 @@ def test_marked_tokens_are_recognized_and_read_back():
         ("PAY-BY-CELL LOCATOR NUMBER", "panel:pay_by_cell"),
         ("6TH AVE PAY-BY-APP INFORMATION SIGN", "panel:pay_by_cell"),
         ("14 STREET & UNION SQ (BOTTOM LOCATION PANEL)", "panel:location"),
-        ("DAY - DAY XYY-XYY (FOR BUS STOP ONLY)", "panel:template"),
         ("WEIGHT LIMIT XXXX LBS INCLUDING PASSENGERS AND CARGO", "panel:template"),
+        ("(PARKNYC LOGO) PARKNYC APP PAYMENT ONLY ZONE # 999999", "panel:template"),
+        # A template that still names a rule is not a panel; it goes to the
+        # grammar and from there to `unparsed` (tests/gold/ADJUDICATIONS.md).
+        ("DAY - DAY XYY-XYY (FOR BUS STOP ONLY)", None),
         ("BACK IN ANGLE PARKING ONLY <->", "panel:parking_geometry"),
         ("(SUPERSEDES SP-854C)", "panel:supersedes_only"),
         ("", "panel:blank"),

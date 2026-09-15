@@ -238,6 +238,75 @@ def test_class_reservations_use_the_exclusive_representation(raw, vehicle_class)
     assert rule.applies_to_passenger() is False
 
 
+# Regressions found by scoring the grammar against tests/gold/gold_set.jsonl.
+# Each is a shape the gold set disagreed with; see tests/gold/ADJUDICATIONS.md.
+
+
+def test_day_range_survives_a_space_on_one_side_of_the_joiner():
+    # `MONDAY -FRIDAY` read as the single day Monday left four weekdays unposted.
+    rule = only_rule(
+        "FOR HIRE VEHICLE (SYMBOL) FOR HIRE VEHICLES ONLY MONDAY -FRIDAY 8AM-MIDNIGHT <->"
+    )
+    assert rule.days == WEEKDAYS
+
+
+def test_a_class_named_after_a_prohibitions_hours_does_not_take_over_its_schedule():
+    """The reservation covers the whole week; only the no-standing part is timed."""
+    parsed = parse_description(
+        "NO STANDING 8AM-6PM EXCEPT SUNDAY --> W/ ACCESS-A-RIDE (SYMBOL) ACCESS-A-RIDE BUS STOP"
+    )
+    prohibition, reservation = parsed.regulations
+    assert (prohibition.permitted, prohibition.time_from, prohibition.days) == (
+        False,
+        "08:00",
+        MON_TO_SAT,
+    )
+    assert (reservation.vehicle_class, reservation.exclusive) == (VehicleClass.BUS, True)
+    assert (reservation.time_from, reservation.days) == (None, list(ALL_DAYS))
+
+
+def test_an_except_rider_that_names_a_reservation_stays_one_prohibition():
+    """The reservation is the exception to these hours, not a rule of its own."""
+    rule = only_rule(
+        "NO STANDING 5PM-MIDNIGHT MON-FRI EXCEPT TLC LICENSED VEHICLES"
+        " PRE-ARRANGED SERVICE ONLY W/ SINGLE ARROW"
+    )
+    assert (rule.permitted, rule.vehicle_class, rule.exclusive) == (False, VehicleClass.ALL, False)
+    assert (rule.days, rule.time_from, rule.time_to) == (WEEKDAYS, "17:00", "00:00")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "FHV (SYMBOL) FOR-HIRE VEHICLES ONLY PICK-UP / DROP-OFF ONLY -->",
+        "MICROHUB (SYMBOL) MICROHUB ZONE VEHICLES WITH PERMIT ONLY <->",
+    ],
+)
+def test_two_names_for_one_reservation_yield_one_regulation(raw):
+    assert only_rule(raw).exclusive is True
+
+
+def test_a_blank_template_that_still_names_a_rule_is_unparsed_not_a_panel():
+    # `panel:template` tells the engine the curb is free. These two say a bus
+    # stop and a no-standing zone are there, with the schedule left blank.
+    parsed = parse_description("DAY - DAY XYY-XYY (FOR BUS STOP ONLY)")
+    assert parsed.parse_method is ParseMethod.UNPARSED
+    assert parsed.regulations == []
+
+    blank_schedule = parse_description(
+        "NO STANDING W/ SINGLE ARROW ZZZ THRU ZZZ XX:XXYY-XX:XXYY W/ BUS & HANDICAP (SYMBOLS)"
+        " (TWO ROUTES) (DAYS AND TIMES TO BE SPECIFIED)"
+    )
+    assert blank_schedule.confidence == PARTIAL_CONFIDENCE
+    assert blank_schedule.regulations[0].applies_to_passenger() is False
+
+
+def test_a_greenway_guide_sign_regulates_no_curb():
+    parsed = parse_description("BIKE (SYMBOL) LATOURETTE PARK GREENWAY W/ 9M O'CLOCK ARROW")
+    assert parsed.parse_method is ParseMethod.GRAMMAR
+    assert parsed.regulations == []
+
+
 def test_two_metered_clauses_become_two_regulations():
     parsed = parse_description("2 HMP 7AM-6PM EXCEPT SUNDAY 6 HMP 6PM-MIDNIGHT EXCEPT SUNDAY <->")
     assert parsed.confidence == 1.0

@@ -106,7 +106,7 @@ def _scan_named_set(tokens: list[str], start: int) -> DaySpec | None:
 
 
 def _scan_range(tokens: list[str], start: int) -> DaySpec | None:
-    """`MONDAY-FRIDAY`, `MON THRU FRI`, `MONDAY - FRIDAY`."""
+    """`MONDAY-FRIDAY`, `MON THRU FRI`, `MONDAY - FRIDAY`, `MONDAY -FRIDAY`."""
     token = tokens[start] if start < len(tokens) else ""
     if "-" in token:
         head, _, tail = token.partition("-")
@@ -116,6 +116,12 @@ def _scan_range(tokens: list[str], start: int) -> DaySpec | None:
     window = tokens[start : start + 3]
     if len(window) == 3 and window[1] in _RANGE_JOINERS:
         return _range_between(window[0], window[2], length=3)
+    # DOT also writes the joiner with a space on one side only
+    # (`MONDAY -FRIDAY`), which splits the range across two tokens.
+    pair = tokens[start : start + 2]
+    if len(pair) == 2 and (pair[0].endswith("-") or pair[1].startswith("-")):
+        head, _, tail = "".join(pair).partition("-")
+        return _range_between(head, tail, length=2)
     return None
 
 
