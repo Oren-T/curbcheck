@@ -18,10 +18,10 @@ from typing import Any
 from fastapi import APIRouter, Query, Request
 
 from curbcheck.api.errors import ApiError, database_unavailable
-from curbcheck.api.schemas import MAX_QUERY_CHARS, REG_SEG_ID_PATTERN, SearchRequest
+from curbcheck.api.schemas import REG_SEG_ID_PATTERN, SearchRequest
 from curbcheck.db import connect, json_string_list, regulation_from_row
 from curbcheck.engine.search import SearchResult, calendar_is_missing, search
-from curbcheck.geocode import GeocodeCandidate, geocode
+from curbcheck.geocode import MAX_QUERY_CHARS, GeocodeCandidate, geocode
 
 # SPEC §17, the persistent banner. Kept verbatim except for the markdown bold,
 # which is the frontend's job.

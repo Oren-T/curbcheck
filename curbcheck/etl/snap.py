@@ -233,10 +233,10 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
         )
 
     notes: list[str] = []
-    name_quality = min(
-        _NAME_QUALITY[lookup.on.match],
-        _NAME_QUALITY[lookup.from_.match],
-        _NAME_QUALITY[lookup.to.match],
+    best_name_quality = min(
+        name_quality(lookup.on.match),
+        name_quality(lookup.from_.match),
+        name_quality(lookup.to.match),
     )
     for label, name in (("on", lookup.on), ("from", lookup.from_), ("to", lookup.to)):
         if name.match is NameMatch.FUZZY:
@@ -273,7 +273,7 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
 
     published_offset, coord_quality = _coordinate_agreement(sign, x_ft, y_ft, notes)
     confidence = (
-        _WEIGHT_NAME * name_quality
+        _WEIGHT_NAME * best_name_quality
         + _WEIGHT_CHAIN * chain_quality
         + _WEIGHT_DISTANCE * distance_quality
         + _WEIGHT_COORD * coord_quality

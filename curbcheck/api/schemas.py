@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 from curbcheck.config import NYC_TZ
 from curbcheck.engine.cost import Weights
 from curbcheck.engine.search import DEFAULT_LIMIT, DEFAULT_MAP_LIMIT, MAX_MAP_LIMIT
+from curbcheck.geocode import MAX_QUERY_CHARS
 
 # A Manhattan-ish bounding box, generous at every edge: Battery Park to Inwood,
 # the Hudson to the East River. An input sanity check, not a service area --
@@ -29,10 +30,9 @@ MIN_LON, MAX_LON = -74.05, -73.88
 MIN_WINDOW = timedelta(minutes=5)
 MAX_WINDOW = timedelta(hours=24)
 
-MAX_QUERY_CHARS = 200
-
-# Ids the ETL mints look like "3681:W:0". Anything outside this charset cannot
-# be a real id, so it is rejected before a query is built rather than after.
+# Ids the ETL mints are 16 hex characters (`segments._reg_seg_id`). The charset
+# is wider than that so an older snapshot's ids still resolve; anything outside
+# it cannot be a real id, so it is rejected before a query is built.
 REG_SEG_ID_PATTERN = re.compile(r"^[A-Za-z0-9:_.-]{1,80}$")
 
 

@@ -49,7 +49,7 @@ LOGGER = logging.getLogger(__name__)
 DEFAULT_LIMIT = 100
 DEFAULT_MAP_LIMIT = 2000
 # 5,000 line features is about where MapLibre's first paint starts to lag on a
-# laptop, and the whole of Manhattan holds 36,518 spans, so the map cap needs a
+# laptop, and the whole of Manhattan holds 34,016 spans, so the map cap needs a
 # ceiling a request cannot raise.
 MAX_MAP_LIMIT = 5000
 

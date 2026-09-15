@@ -25,9 +25,9 @@ export const VERDICT_EXPLANATION = {
  *
  * The two are not the same state and must not read the same. `no_signs` is
  * curb DOT publishes no sign for; `unmatched_signs` is curb DOT *does* publish
- * signs for that CurbCheck could not place on the centerline — 722 blockface-
- * sides, 520 of them carrying a NO STANDING/PARKING/STOPPING ANYTIME sign
- * (docs/VALIDATION.md §5). Telling the second one "no signs here" would be a
+ * signs for that CurbCheck could not place on the centerline — 499 blockface-
+ * sides, 332 of them carrying a NO STANDING/PARKING/STOPPING ANYTIME sign, on
+ * the 2026-09-15 snapshot. Telling the second one "no signs here" would be a
  * false statement about the curb, not merely a vague one.
  */
 export const NO_DATA_EXPLANATION = {

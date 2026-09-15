@@ -390,7 +390,7 @@ def _line(geom: str) -> LineString | None:
     """The segment as one line. CSCL publishes MultiLineStrings (docs/DATA.md §2.2)."""
     try:
         parsed = json.loads(geom)
-    except (TypeError, ValueError, json.JSONDecodeError):
+    except (TypeError, ValueError):
         return None
     if not isinstance(parsed, dict):
         return None
