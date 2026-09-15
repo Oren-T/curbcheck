@@ -517,8 +517,8 @@ Measured result — **no planet download needed**:
 | OSM replication time | 2026-09-14T04:00:00Z |
 | SHA-256 | `881ccd17a4ae3498b1554dbc3400b09808297bd44f680d6efba38cc1c4f1e360` |
 
-`scripts/explore_basemap.py` resolves the current build and prints the command;
-`--extract` runs it. The archive's own metadata carries the required
+`scripts/fetch_basemap_tiles.py` resolves the current build and runs that
+command; `--dry-run` prints it instead. The archive's own metadata carries the required
 attribution string, `© OpenStreetMap`.
 
 Fonts and sprites are in `github.com/protomaps/basemaps-assets` (no releases;
@@ -546,14 +546,14 @@ The `explore_*` profilers that produced every number above:
 | `explore_snap_feasibility.py` | `snap_feasibility.txt` |
 | `explore_meters.py` | `meters_parknyc.txt`, `meters_points.txt`, `meter_rate_zones.txt`, `meters_join.txt` |
 | `explore_calendar.py` | `data/raw/calendar/*`, `asp_calendar_2026.txt` |
-| `explore_basemap.py` | `data/basemap/manhattan.pmtiles` |
 
 They are stdlib-only (shapely and pyproj are pinned for the package but were
 not importable while this profile was made) and read-only against `data/raw/`.
 
-`scripts/` also holds four scripts that are not profilers and do write:
-`fetch_basemap_assets.py` vendors the style, glyphs and sprites into
-`web/basemap/` (§5, `--check` verifies instead of writing), `parse_report.py`
+`scripts/` also holds five scripts that are not profilers and do write:
+`fetch_basemap_tiles.py` extracts `data/basemap/manhattan.pmtiles` from the
+daily planet build (§5), `fetch_basemap_assets.py` vendors the style, glyphs and
+sprites into `web/basemap/` (§5, `--check` verifies instead of writing), `parse_report.py`
 and `eval_gold.py` score the grammar against the corpus and the gold set, and
 `smoke_search.py` runs a query against the built database. `dev_mock_server.py`
 serves canned API responses for working on the frontend alone.

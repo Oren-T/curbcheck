@@ -139,6 +139,16 @@ vendored from the `@protomaps/basemaps` npm package. `build-metadata.protomaps.d
 and `raw.githubusercontent.com` are added to the allowlist for the basemap
 step only.
 
+**Corrected 2026-09-15:** they were not, and should not be.
+`config.ALLOWED_HOSTS` still holds six hosts and neither of these is among
+them. Nothing in `curbcheck sync` or `curbcheck serve` fetches a basemap: the
+tiles come from `scripts/fetch_basemap_tiles.py` and the style, glyphs and
+sprites from `scripts/fetch_basemap_assets.py`, both developer-time scripts
+outside the package, each carrying its own https-and-host check over its own
+two- or one-host list. Adding these hosts to the application allowlist would
+widen the app's egress surface for a step the app never performs
+(docs/SECURITY.md residual 6).
+
 ## D12. Engine readings of three under-specified rules
 
 **Decided:** 2026-09-14. (a) `including_sunday` overrides the holiday meter

@@ -14,8 +14,10 @@ from curbcheck.config import BIND_HOST, DATA_DIR, DB_PATH, PORT, RAW_DIR, REPO_R
 from curbcheck.etl import build, fetch
 from curbcheck.etl.parse import report as parse_report
 
-# The frontend is checked in; the basemap is a 23 MB gitignored artifact that
-# `scripts/fetch_basemap.py` drops next to the database (docs/DECISIONS.md D11).
+# The frontend is checked in, including the style, glyphs and sprites that
+# `scripts/fetch_basemap_assets.py` vendors. The tile archive is not: it is a
+# 23 MB gitignored artifact `scripts/fetch_basemap_tiles.py` drops next to the
+# database (docs/DECISIONS.md D11).
 WEB_DIR = REPO_ROOT / "web"
 BASEMAP_PATH = DATA_DIR / "basemap" / "manhattan.pmtiles"
 

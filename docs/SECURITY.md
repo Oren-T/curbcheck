@@ -140,12 +140,16 @@ and pan the map: there should be zero requests off `127.0.0.1`.
 6. **`scripts/` does not go through `curbcheck/net.py`.** The exploration and
    basemap scripts use `urllib` with their own https-and-host checks. They are
    developer tools, are excluded from lint and from the package, and are not
-   reachable from `curbcheck sync` or `curbcheck serve`. Two rough edges:
-   `scripts/explore_basemap.py` has no host check on its one constant URL and
-   passes a field from a remote JSON document into a `subprocess` argv (argv,
-   not a shell), and the hosts these scripts use — `registry.npmjs.org`,
-   `raw.githubusercontent.com`, `build-metadata.protomaps.dev` — are not in
-   `config.ALLOWED_HOSTS`, though `docs/DECISIONS.md` D11 says they are.
+   reachable from `curbcheck sync` or `curbcheck serve`. The two rough edges
+   recorded here are fixed: `scripts/fetch_basemap_tiles.py` (was
+   `explore_basemap.py`) checks scheme and host on its one constant URL, and
+   matches the build key it takes from the remote manifest against
+   `\d{8}\.pmtiles` before it reaches the `subprocess` argv
+   (`tests/test_scripts_basemap.py`). What remains, by design: the hosts these
+   scripts use — `registry.npmjs.org`, `raw.githubusercontent.com`,
+   `build-metadata.protomaps.dev` — are **not** in `config.ALLOWED_HOSTS` and
+   should not be, because nothing in the app fetches them; `docs/DECISIONS.md`
+   D11 said they were added to the allowlist and carries the correction.
 7. **`AllowlistedClient(transport=…)` accepts any transport.** It exists so
    tests can inject a `MockTransport`. Passing a real transport with
    `verify=False` would defeat the module; nothing does, and

@@ -67,9 +67,9 @@ mkdir -p data/basemap
     --bbox=-74.03,40.68,-73.90,40.88 --maxzoom=15
 ```
 
-`python scripts/explore_basemap.py` resolves the current daily build and prints
-the exact command for it; `--extract` runs it. To re-vendor the style, glyphs
-and sprites from upstream, run `python scripts/fetch_basemap_assets.py`
+`python scripts/fetch_basemap_tiles.py` resolves the current daily build and
+runs that command for you; `--dry-run` prints it instead. To re-vendor the
+style, glyphs and sprites from upstream, run `python scripts/fetch_basemap_assets.py`
 (`--check` verifies the checked-in bytes against
 `web/basemap/MANIFEST.md` without writing). Without the archive the app still
 runs; the map panel is simply blank. See `docs/DATA.md` §5.
