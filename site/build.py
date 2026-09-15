@@ -350,6 +350,25 @@ def print_sizes(out: Path) -> None:
 
 
 def build(out: Path, pack: Path, tiles: Path, base_path: str) -> None:
+    """Assemble into a sibling `<out>.building` and swap it in only when whole.
+
+    Step 1 copies `web/` as it is, `pmtiles://` style and all, and steps 4 to 6
+    rewrite it; a server pointed at `out` during that gap would hand out a
+    page whose map throws. The swap is a rename, so it never is.
+    """
+    staging = out.with_name(out.name + ".building")
+    if staging.exists():
+        shutil.rmtree(staging)
+    _assemble(staging, pack, tiles, base_path)
+    if out.exists():
+        if out.is_file() or (any(out.iterdir()) and not (out / "index.html").is_file()):
+            raise BuildError(f"{out} exists and is not a previous dist/; remove it yourself")
+        shutil.rmtree(out)
+    staging.rename(out)
+    print_sizes(out)
+
+
+def _assemble(out: Path, pack: Path, tiles: Path, base_path: str) -> None:
     verified = copy_web(out)
     print(f"web         copied, {sum(verified.values())} manifest files verified")
 
@@ -371,8 +390,6 @@ def build(out: Path, pack: Path, tiles: Path, base_path: str) -> None:
     rewrite_index(out)
     drop_pmtiles(out)
     print("index.html  CSP and referrer injected, pmtiles.js removed")
-
-    print_sizes(out)
 
 
 def _base_path(value: str) -> str:

@@ -503,9 +503,17 @@ Recorded so the doc and the code do not silently disagree:
   a number and never branch on the array class.
 - `segment.derived_from` returns only ids that name a sign row; the server
   returns the stored JSON list. Equal on every current row.
-- `health()` in the static `api.js` waits up to 120 s for the pack to load;
+- `health()` in the static `api.js` waits up to 300 s for the pack to load;
   every other call queues behind that load without a timer of its own, then
-  gets the server's budgets.
+  gets the server's budgets. A load that outlasts the budget is reported as
+  `pack_unavailable` ("still downloading") and is retried by the next call,
+  because at 3G speeds the 8 MB pack sits right on the old 120 s.
+- The search card carries the window as a wall clock (a `Date` read through
+  its UTC fields), so a 24-hour chip on either daylight-saving Sunday ends at
+  the next midnight; this was a shared-UI bug the QA pass found and it is
+  fixed for the local server too.
+- `site/build.py` assembles into `<out>.building` and renames it into place,
+  so a served directory is never half-rewritten.
 - `site/tests/geocode.test.js` carries its own 400-line synthetic pack
   builder; a shared `site/tests/helpers/synthetic_pack.js` is the split to make
   if another test needs it.

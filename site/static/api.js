@@ -19,7 +19,7 @@ const DEFAULT_TIMEOUT_MS = 20_000;
 // 8 MB gzipped, so on a slow connection it is the download, not the engine,
 // that takes the time, and every other call queues behind it without a timer.
 const QUICK_TIMEOUT_MS = 5000;
-const PACK_LOAD_TIMEOUT_MS = 120_000;
+const PACK_LOAD_TIMEOUT_MS = 300_000;
 
 /** An error from the engine, or from failing to reach it. */
 export class ApiError extends Error {
@@ -93,7 +93,18 @@ let ready = null;
 /** Resolves once the worker has answered its first `health`, i.e. the pack is loaded. */
 function packReady() {
   if (ready === null) {
-    ready = send("health", {}, { timeoutMs: PACK_LOAD_TIMEOUT_MS });
+    ready = send("health", {}, { timeoutMs: PACK_LOAD_TIMEOUT_MS }).catch((error) => {
+      // Not memoised: a load that outlasted the budget on a slow connection
+      // may well finish a moment later, and the next call should find it.
+      ready = null;
+      if (error.code === "timeout") {
+        throw new ApiError(
+          "The parking data is still downloading. Reload the page once it has had time to arrive.",
+          { code: "pack_unavailable" },
+        );
+      }
+      throw error;
+    });
   }
   return ready;
 }
