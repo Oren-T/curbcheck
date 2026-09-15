@@ -79,7 +79,11 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         derived_lat                REAL,
         segment_id                 TEXT REFERENCES street_segment(segment_id),
         snap_confidence            REAL,
-        snap_notes                 TEXT
+        snap_notes                 TEXT,
+        -- docs/DECISIONS.md D10: panels that carry no regulation stay in this
+        -- table for audit but never reach the parser or a verdict.
+        is_regulation              INTEGER NOT NULL DEFAULT 1,
+        panel_class                TEXT NOT NULL DEFAULT 'regulation'
     )
     """,
     """
@@ -96,6 +100,9 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         max_lat       REAL NOT NULL,
         length_ft     REAL,
         capacity_cars INTEGER,
+        -- Always 1 in v1: hydrant, driveway and crosswalk setbacks are not in
+        -- the data, so a car count is an upper bound (SPEC §8.5).
+        capacity_approximate INTEGER NOT NULL DEFAULT 1,
         confidence    REAL NOT NULL DEFAULT 0.0,
         derived_from  TEXT NOT NULL DEFAULT '[]'
     )
