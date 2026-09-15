@@ -754,3 +754,29 @@ def test_a_point_off_the_street_network_is_refused_as_coverage_not_as_arithmetic
     assert "outsideCoverage(where)" in submit, "a pin off the box is sent as a search again"
     guard = app.split("function outsideCoverage(where)")[1].split("\n}")[0]
     assert "state.coverage" in guard, "the guard invented its own bounding box"
+
+
+def test_the_suggestion_list_announces_how_long_it_is() -> None:
+    """An ARIA 1.2 combobox keeps focus on the input.
+
+    So a list appearing under it is silent to a screen reader until the user
+    arrows into it, and there is no way to learn that four candidates arrived
+    rather than one — or none, which matters most, because the "Drop a pin
+    instead" row means the popup is never actually empty (UX_AUDIT (e) 7).
+    """
+    index = INDEX_HTML.read_text(encoding="utf-8")
+    assert 'id="autocomplete-status"' in index
+    region = index.split('id="autocomplete-status"')[1].split(">")[0]
+    assert 'role="status"' in region and 'aria-live="polite"' in region
+    assert "visually-hidden" in region, "the count is duplicated on screen"
+
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    assert "export const CANDIDATE_COUNT" in copy
+
+    auto = (WEB_DIR / "autocomplete.js").read_text(encoding="utf-8")
+    assert "announce(CANDIDATE_COUNT(found.length))" in auto, "the list stopped announcing itself"
+    # Counted from the candidates, not from the rows: the pin row is always one
+    # of those and would turn "no matches" into "1 suggestion".
+    assert "CANDIDATE_COUNT(rows.length)" not in auto
+    close = auto.split("  function close()")[1].split("\n  }")[0]
+    assert 'announce("")' in close, "the announcement outlives the list it describes"

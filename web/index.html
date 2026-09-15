@@ -100,6 +100,15 @@
                   aria-label="Address suggestions"
                   hidden
                 ></ul>
+                <!-- ARIA 1.2 combobox: the input keeps focus, so nothing tells a
+                     screen reader that a list appeared or how long it is until
+                     the user arrows into it. This says so, politely. -->
+                <p
+                  id="autocomplete-status"
+                  class="visually-hidden"
+                  role="status"
+                  aria-live="polite"
+                ></p>
               </div>
               <p id="pin-readout" class="hint"></p>
             </div>

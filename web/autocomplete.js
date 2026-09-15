@@ -13,7 +13,7 @@
  */
 
 import * as api from "./api.js";
-import { DROP_A_PIN, NO_CANDIDATES } from "./copy.js";
+import { CANDIDATE_COUNT, DROP_A_PIN, NO_CANDIDATES } from "./copy.js";
 import { el, replaceChildren } from "./dom.js";
 import { placeLabel } from "./format.js";
 
@@ -37,7 +37,7 @@ const KIND_GLYPH = {
  *          onDropPin: Function, onError?: Function}} options
  * @returns {{close: Function, cancel: Function}}
  */
-export function createAutocomplete({ input, list, onPick, onDropPin, onError = () => {} }) {
+export function createAutocomplete({ input, list, status, onPick, onDropPin, onError = () => {} }) {
   let candidates = [];
   let rows = [];
   let activeIndex = -1;
@@ -49,6 +49,14 @@ export function createAutocomplete({ input, list, onPick, onDropPin, onError = (
     input.setAttribute("aria-expanded", "false");
     input.removeAttribute("aria-activedescendant");
     activeIndex = -1;
+    announce("");
+  }
+
+  /** Say how many suggestions there are; the popup itself is silent. */
+  function announce(message) {
+    if (status && status.textContent !== message) {
+      status.textContent = message;
+    }
   }
 
   function cancel() {
@@ -103,6 +111,7 @@ export function createAutocomplete({ input, list, onPick, onDropPin, onError = (
     list.hidden = false;
     input.setAttribute("aria-expanded", "true");
     setActive(-1);
+    announce(CANDIDATE_COUNT(found.length));
   }
 
   function optionRow(candidate, index) {
@@ -207,6 +216,8 @@ export function createAutocomplete({ input, list, onPick, onDropPin, onError = (
   input.addEventListener("focus", () => {
     if (input.value.trim().length < MIN_QUERY_CHARS && list.hidden) {
       render([], null);
+      // Nothing has been typed, so there is nothing to have failed to match.
+      announce("");
     }
   });
 

@@ -55,6 +55,7 @@ const dom = {
   form: byId("search-form"),
   destination: byId("destination"),
   autocompleteList: byId("autocomplete-list"),
+  autocompleteStatus: byId("autocomplete-status"),
   pinReadout: byId("pin-readout"),
   date: byId("date"),
   startTime: byId("start-time"),
@@ -735,6 +736,7 @@ const searchCard = createSearchCard({
 createAutocomplete({
   input: dom.destination,
   list: dom.autocompleteList,
+  status: dom.autocompleteStatus,
   onPick: (candidate) => pickCandidate(candidate),
   onDropPin: () => setPinMode(true),
 });

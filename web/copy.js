@@ -210,6 +210,18 @@ export const NEEDS_DESTINATION = "Type an address or a cross street, or drop a p
 
 export const DROP_A_PIN = "Drop a pin instead";
 
+/**
+ * What a screen reader hears when the suggestion list changes.
+ *
+ * The combobox keeps focus on the input (ARIA 1.2), so a list appearing under
+ * it is silent until the user arrows into it — and the pin row means the list
+ * is never empty, so "no matches" has to be said rather than inferred.
+ */
+export const CANDIDATE_COUNT = (found) =>
+  found === 0
+    ? "No matches. Drop a pin instead is the only suggestion."
+    : `${found} suggestion${found === 1 ? "" : "s"}. Use the arrow keys to review.`;
+
 export const NO_CANDIDATES = "No Manhattan match for that. Try a cross street, or drop a pin.";
 
 /**
