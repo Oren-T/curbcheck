@@ -201,7 +201,8 @@ tradeoff and the `./data` ownership note are documented in `docker-compose.yml`.
 
 ## The public copy
 
-The same app runs with no server at `curbcheck.orentirschwell.com`: the
+The same app is built to run with no server at `curbcheck.orentirschwell.com`
+(not yet live; `site/README.md` has the go-live checklist): the
 engine and the address index are ported to JavaScript and run inside the
 browser over a data pack compiled from the database, so no search leaves the
 browser. A weekly GitHub Actions job rebuilds the database, replays the Python

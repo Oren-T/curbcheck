@@ -675,7 +675,10 @@ def _sync_meta(conn: sqlite3.Connection) -> dict[str, str]:
 
 def _write_table_file(out_dir: Path, label: str, payload: Mapping[str, Any]) -> PackFile:
     """Write one gzipped table file, named by the sha256 of the bytes it holds."""
-    raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+    # allow_nan=False: a NaN or Infinity double would be written as a bare
+    # `NaN`, which JSON.parse rejects, so the whole pack would fail in every
+    # browser instead of failing this build.
+    raw = json.dumps(payload, separators=(",", ":"), allow_nan=False).encode("utf-8")
     compressed = gzip.compress(raw, compresslevel=_GZIP_LEVEL, mtime=0)
     digest = hashlib.sha256(compressed).hexdigest()[:_HASH_CHARS]
     name = label + "." + digest + ".json.gz"
@@ -685,7 +688,7 @@ def _write_table_file(out_dir: Path, label: str, payload: Mapping[str, Any]) -> 
 
 def _write_meta(out_dir: Path, meta: Mapping[str, Any]) -> int:
     """Write `meta.json`, indented: it is small, fetched fresh every time, and read by people."""
-    raw = (json.dumps(meta, indent=2) + "\n").encode("utf-8")
+    raw = (json.dumps(meta, indent=2, allow_nan=False) + "\n").encode("utf-8")
     (out_dir / META_NAME).write_bytes(raw)
     return len(raw)
 

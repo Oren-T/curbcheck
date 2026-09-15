@@ -32,6 +32,7 @@ export class ApiError extends Error {
 }
 
 let worker = null;
+let dead = false;
 let nextId = 1;
 const pending = new Map();
 
@@ -67,6 +68,8 @@ function engine() {
     });
     worker.addEventListener("error", () => {
       // The worker script itself failed to start, so there is no engine at all.
+      // Later calls fail at once rather than posting into the void and timing out.
+      dead = true;
       failAll(
         new ApiError("CurbCheck could not start its parking engine.", {
           code: "pack_unavailable",
@@ -106,6 +109,12 @@ async function call(op, args, options = {}) {
 
 function send(op, args, { timeoutMs = DEFAULT_TIMEOUT_MS, signal = null } = {}) {
   return new Promise((resolve, reject) => {
+    if (dead) {
+      reject(
+        new ApiError("CurbCheck could not start its parking engine.", { code: "pack_unavailable" }),
+      );
+      return;
+    }
     const id = nextId;
     nextId += 1;
 

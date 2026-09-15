@@ -376,9 +376,20 @@ def build(out: Path, pack: Path, tiles: Path, base_path: str) -> None:
 
 
 def _base_path(value: str) -> str:
-    if not value.startswith("/") or not value.endswith("/"):
-        raise argparse.ArgumentTypeError(f"base path {value!r} must start and end with '/'")
-    return value
+    """`/curbcheck/` from `/curbcheck`, `curbcheck/` or `//curbcheck//`; `/` from `` or `/`.
+
+    Normalised rather than validated because the value comes from
+    `actions/configure-pages`, which reports `/repo` for a project site and
+    `/` for a custom domain; a caller appending its own slash would otherwise
+    produce `//`, and `//basemap/...` is a protocol-relative URL to a host
+    called basemap.
+    """
+    inner = value.strip("/")
+    if not inner:
+        return "/"
+    if "//" in inner or any(ch.isspace() for ch in inner):
+        raise argparse.ArgumentTypeError(f"base path {value!r} is not one path prefix")
+    return f"/{inner}/"
 
 
 def main(argv: list[str]) -> int:

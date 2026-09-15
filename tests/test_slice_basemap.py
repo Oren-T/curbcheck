@@ -179,7 +179,9 @@ def write_archive(
         tile_data_offset,
         len(tile_section),
     )
-    struct.pack_into("<3Q", header, 72, len(blobs), len(entries), len(entries))
+    # addressed_tiles counts every id a run answers for, not every entry.
+    addressed = sum(run_length for _, run_length, _ in blobs)
+    struct.pack_into("<3Q", header, 72, addressed, len(entries), len(entries))
     header[96] = 1  # clustered
     header[97] = internal_compression
     header[98] = tile_compression
@@ -292,6 +294,18 @@ def test_a_run_writes_every_tile_id_it_addresses(tmp_path: Path) -> None:
     assert result.tiles == 5
     for zoom, x, y in [(1, 0, 0), (1, 0, 1), (1, 1, 1), (1, 1, 0)]:
         assert (out / str(zoom) / str(x) / f"{y}.pbf").read_bytes() == b"same"
+
+
+def test_a_run_longer_than_the_archive_addresses_is_refused(tmp_path: Path) -> None:
+    """A 170-byte archive claiming a run of a billion ids would write a billion files."""
+    archive = write_archive(tmp_path / "a.pmtiles", [(zxy_to_tile_id(0, 0, 0), 20_000, b"x")])
+    raw = bytearray(archive.read_bytes())
+    struct.pack_into("<Q", raw, 72, 1)  # the header says one tile
+    archive.write_bytes(raw)
+
+    with pytest.raises(slicer.PMTilesError, match="runs 20000 tiles"):
+        slicer.slice_archive(archive, tmp_path / "tiles")
+    assert not (tmp_path / "tiles").exists() or not any((tmp_path / "tiles").rglob("*.pbf"))
 
 
 def test_an_uncompressed_archive_is_read_as_is(tmp_path: Path) -> None:

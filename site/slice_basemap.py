@@ -232,8 +232,11 @@ def deserialize_directory(data: bytes) -> list[Entry]:
     """Decode the five varint sections of a directory into entries, in stored order."""
     cursor = _Varints(data)
     count = cursor.read()
-    if count > MAX_DIRECTORY_BYTES:
-        raise PMTilesError(f"directory claims {count} entries")
+    # Every entry is at least four one-byte varints, so a count the bytes in
+    # hand cannot hold is a lie, and one to refuse before the lists below are
+    # allocated for it.
+    if count > len(data) // 4:
+        raise PMTilesError(f"directory claims {count} entries in {len(data)} bytes")
 
     tile_ids: list[int] = []
     tile_id = 0
@@ -363,6 +366,17 @@ def slice_archive(archive: Path, out_dir: Path) -> SliceResult:
         metadata = read_metadata(stream, header)
 
         for entry in _tile_entries(stream, header, root):
+            # A run addresses consecutive ids and writes a file for each, so
+            # its length is a file count the header has already bounded: no
+            # entry can address more tiles than the whole archive says it has.
+            if (
+                entry.run_length > header.addressed_tiles
+                or tiles + entry.run_length > header.addressed_tiles
+            ):
+                raise PMTilesError(
+                    f"entry at tile {entry.tile_id} runs {entry.run_length} tiles,"
+                    f" past the {header.addressed_tiles} the header addresses"
+                )
             raw = _read_at(
                 stream,
                 header.tile_data_offset + entry.offset,

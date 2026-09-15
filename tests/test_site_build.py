@@ -292,8 +292,22 @@ def test_no_shipped_script_builds_markup_or_code_from_data(dist: Path) -> None:
 # --- Refusals and the report -----------------------------------------------
 
 
-def test_a_base_path_without_both_slashes_is_refused() -> None:
-    for value in ("curbcheck/", "/curbcheck", ""):
+def test_a_base_path_is_normalised_to_one_slash_at_each_end() -> None:
+    """`actions/configure-pages` says `/repo` or `/`; a caller once appended its own slash."""
+    for value, expected in (
+        ("/curbcheck/", "/curbcheck/"),
+        ("/curbcheck", "/curbcheck/"),
+        ("curbcheck/", "/curbcheck/"),
+        ("//curbcheck//", "/curbcheck/"),
+        ("/", "/"),
+        ("//", "/"),
+        ("", "/"),
+    ):
+        assert build_module._base_path(value) == expected
+
+
+def test_a_base_path_that_is_not_one_prefix_is_refused() -> None:
+    for value in ("/a//b/", "/curb check/"):
         with pytest.raises(SystemExit):
             build_module.main(["--pack", "p", "--tiles", "t", "--base-path", value])
 

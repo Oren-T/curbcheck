@@ -160,10 +160,7 @@ export function validateRegSegId(value) {
  * hours here and 25 hours of real time, and the server accepts it.
  */
 export function wallSpanMs(from, to) {
-  return (
-    Date.UTC(to.year, to.month - 1, to.day, to.hour, to.minute, to.second) -
-    Date.UTC(from.year, from.month - 1, from.day, from.hour, from.minute, from.second)
-  );
+  return wallAsUtcMs(to) - wallAsUtcMs(from);
 }
 
 /**
@@ -276,4 +273,17 @@ function optionalText(value, field, maxChars) {
 
 function invalid(message) {
   return new HandlerError("validation_error", message);
+}
+
+/**
+ * A wall clock read as if it were UTC, in milliseconds.
+ *
+ * `Date.UTC` maps a year of 0–99 to 1900–1999; `setUTCFullYear` does not, so
+ * this agrees with Python's `datetime` arithmetic for every year it accepts.
+ */
+function wallAsUtcMs(wall) {
+  const date = new Date(0);
+  date.setUTCFullYear(wall.year, wall.month - 1, wall.day);
+  date.setUTCHours(wall.hour, wall.minute, wall.second, 0);
+  return date.getTime();
 }

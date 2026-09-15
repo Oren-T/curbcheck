@@ -48,7 +48,7 @@ pack:
 	curbcheck pack --out build/pack
 
 site: pack
-	python site/tests/harness/make_fixtures.py
+	python site/tests/harness/make_fixtures.py --pack build/pack
 	node --test site/tests/*.test.js site/tests/harness/*.test.js
 	python site/slice_basemap.py data/basemap/manhattan.pmtiles build/tiles
 	python site/build.py --out build/dist --pack build/pack --tiles build/tiles

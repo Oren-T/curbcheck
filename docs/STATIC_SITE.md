@@ -440,7 +440,10 @@ shipped.
 and `push` to `main` when `web/`, `site/`, `curbcheck/`, `requirements*.txt`
 or the workflow changed. `permissions: contents: read, pages: write, id-token:
 write`; `concurrency: { group: pages, cancel-in-progress: false }`;
-`timeout-minutes: 30` on build, 10 on deploy.
+`timeout-minutes: 30` on build, 10 on deploy. `--max-age-days 0` because the
+restored cache keeps last week's mtimes and the default freshness rule would
+skip every download on a run under a week after the last, then stamp
+`built_at` now.
 
 ```
 build:
@@ -448,14 +451,14 @@ build:
   actions/configure-pages  (id: pages)
   actions/cache data/raw           key: raw-<ISO week>, restore-keys: raw-
   actions/cache data/raw/manifest.jsonl separately   key: manifest-<run id>, restore-keys: manifest-
-  curbcheck sync                    # net.py allowlist; the drift check compares against the restored manifest
+  curbcheck sync --max-age-days 0   # net.py allowlist; the drift check compares against the restored manifest
   actions/cache data/basemap        key: basemap-<YYYY-MM>
   (miss) download go-pmtiles 1.31.2 Linux x86_64, verify sha256
          3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f, run scripts/fetch_basemap_tiles.py
   curbcheck pack --out build/pack
   python site/tests/harness/make_fixtures.py --pack build/pack
   node --test site/tests            # unit + differential
-  python site/slice_basemap.py …; python site/build.py … --base-path "${{ steps.pages.outputs.base_path }}/"
+  python site/slice_basemap.py …; python site/build.py … --base-path "${{ steps.pages.outputs.base_path }}"
   upload-pages-artifact dist
 deploy: deploy-pages, environment github-pages
 ```
@@ -474,7 +477,7 @@ outputs (STYLE_GUIDE §6).
 
 | | Server (`docs/SECURITY.md`) | Static site |
 |---|---|---|
-| T1 dependencies | hash-pinned pip, vendored JS | the same code and the same lockfiles run on the runner; the build adds no npm package. Actions are pinned by version tag like `ci.yml`; go-pmtiles by sha256. The tile archive it cuts from the Protomaps daily build is the one shipped artifact with no recorded hash. |
+| T1 dependencies | hash-pinned pip, vendored JS | the same code and the same lockfiles run on the runner; the build adds no npm package. Actions are pinned by commit SHA; go-pmtiles by sha256. The tile archive it cuts from the Protomaps daily build is the one shipped artifact with no recorded hash. |
 | T2 data endpoints | `net.py` allowlist during sync | the same `net.py` on the runner; `scripts/fetch_basemap_tiles.py` runs outside it against its own two-host allowlist, which promotes that script from developer tool to release step (residual risk 6 in SECURITY.md is amended). The browser fetches nothing but same-origin files. |
 | T3 hostile data | Pydantic at the ETL boundary; `textContent` in the UI | the same ETL; the same `web/dom.js`; the pack is data the worker reads, never code it evaluates |
 | T4 local surface | loopback bind, no CORS, CSP header | no server. CSP as a meta tag, without `frame-ancestors`; no `X-Content-Type-Options` (Pages sends none). Clickjacking is therefore possible and accepted: an overlay could misrepresent a verdict. The only header-capable fix is a different host. |
