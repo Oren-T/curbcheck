@@ -9,6 +9,12 @@ and looks up second. One prefix range-scan over `street_variant` resolves the
 street and an index seek does the rest, which is what holds a keystroke under
 a millisecond (docs/ux/AUTOCOMPLETE_RESEARCH.md §2).
 
+A name is also indexed word by word, because a person types the word they
+remember and not the start of the legal name: `street_token` and `place_token`
+hold one row per (word, position, spelling), and a spelling is any way the name
+can be written — the canonical one, the variants, the aliases and nicknames
+(docs/ux/AUTOCOMPLETE_RESEARCH.md §6, docs/DECISIONS.md D31).
+
 `fold` is the one normalizer both sides share: the ETL folds the source text
 with it here and `curbcheck.geocode` folds the user's text with it there, so
 the two can only ever meet on the same key.
@@ -27,13 +33,14 @@ import re
 import sqlite3
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import cache
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
 from curbcheck.db import json_string_list
 from curbcheck.etl.stage import neutralize_formula
-from curbcheck.etl.streets import WORD_FORMS, normalize_street_name
+from curbcheck.etl.streets import NAME_ALIASES, WORD_FORMS, normalize_street_name
 
 LOGGER = logging.getLogger(__name__)
 
@@ -56,6 +63,9 @@ NICKNAMES: dict[str, str] = {
     "PARK": "PARK AVE",
     "PAS": "PARK AVE S",
     "RSD": "RIVERSIDE DR",
+    # `streets.NAME_ALIASES` already carries the city's own shorthand for this
+    # honorific, `DR M L KING JR BLVD`; nobody types the initials.
+    "MARTIN LUTHER KING JR BLVD": "W 125 ST",
 }
 
 # Buildings are written "1 WORLD TRADE CENTER" in CommonPlace and said "One
@@ -86,8 +96,35 @@ STREET_SUFFIXES = frozenset(WORD_FORMS.values()) | frozenset(
 # much as on numbered ones ("86 ST").
 DIRECTIONALS = frozenset({"E", "W", "N", "S"})
 
-# Words too common in a place name to narrow anything down.
-PLACE_STOPWORDS = frozenset({"THE", "OF", "AND", "AT", "A"})
+# Words too common in a name to narrow anything down. Dropped from the index
+# and from the query alike, so they can neither be required nor get in the way:
+# "high school of fashion" and "fashion high school" ask the same question.
+NAME_STOPWORDS = frozenset({"THE", "OF", "AND", "AT", "A"})
+
+# What a New Yorker types for a landmark CommonPlace files under its legal
+# name. Every target was read out of the 2026-09-15 `feature_name` snapshot and
+# an alias whose target is not in the data is dropped rather than guessed at
+# (`tests/test_geocode_real.py` checks each one against the live index). The
+# list is deliberately tiny: these are the names whose colloquial form shares
+# no word with the legal one, or where the legal form belongs to a different
+# building on the same block (MoMA's garden, the Port Authority's post office).
+PLACE_ALIASES: dict[str, str] = {
+    "MOMA": "MUSEUM OF MODERN ART (MOMA)",
+    "THE MET": "METROPOLITAN MUSEUM OF ART",
+    "MET MUSEUM": "METROPOLITAN MUSEUM OF ART",
+    "PORT AUTHORITY": "PORT AUTHORITY BUS TERMINAL",
+    "GRAND CENTRAL": "GRAND CENTRAL TERMINAL",
+    "MSG": "MADISON SQUARE GARDEN",
+}
+
+# CommonPlace writes a school both ways — 121 names begin "PS", 91 spell out
+# "HIGH SCHOOL" — so each name is also indexed under the other spelling and it
+# does not matter which one the user learned.
+PLACE_SHORTHAND: dict[tuple[str, ...], str] = {
+    ("PUBLIC", "SCHOOL"): "PS",
+    ("HIGH", "SCHOOL"): "HS",
+    ("MIDDLE", "SCHOOL"): "MS",
+}
 
 _PUNCTUATION = re.compile(r"[^A-Z0-9 ]")
 _WHITESPACE = re.compile(r"\s+")
@@ -112,11 +149,16 @@ _INSERT_ZIP = (
     " SELECT zipcode, avg(lon), avg(lat), count(*) FROM address_point"
     " WHERE zipcode IS NOT NULL GROUP BY zipcode"
 )
-_INSERT_PLACE = (
-    "INSERT INTO place (place_id, display, lon, lat, token_count) VALUES (?, ?, ?, ?, ?)"
+_INSERT_PLACE = "INSERT INTO place (place_id, display, lon, lat) VALUES (?, ?, ?, ?)"
+# S105 reads "token" in these table names as a credential; it is a word of a name.
+_INSERT_PLACE_TOKEN = (
+    "INSERT OR IGNORE INTO place_token (token, position, place_id, search_name)"  # noqa: S105
+    " VALUES (?, ?, ?, ?)"
 )
-# S105 reads "token" in the table name as a credential; it is a word of a place name.
-_INSERT_PLACE_TOKEN = "INSERT OR IGNORE INTO place_token (token, place_id) VALUES (?, ?)"  # noqa: S105
+_INSERT_STREET_TOKEN = (
+    "INSERT OR IGNORE INTO street_token (token, position, street_norm, search_name)"  # noqa: S105
+    " VALUES (?, ?, ?, ?)"
+)
 
 
 class RawAddressPointRow(BaseModel):
@@ -163,12 +205,12 @@ class StagedAddressPoint:
 
 @dataclass(frozen=True)
 class StagedPlace:
-    """One named place, with the tokens its name is searched by."""
+    """One named place, with every word sequence it can be searched by."""
 
     display: str
     lon: float
     lat: float
-    tokens: frozenset[str]
+    spellings: tuple[tuple[str, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -185,6 +227,7 @@ class AddressReport:
     source_place_rows: int
     places: int
     place_tokens: int
+    street_tokens: int
     places_dropped_as_streets: int
 
 
@@ -232,22 +275,60 @@ def street_variants(street_norm: str) -> set[str]:
     return {variant for variant in variants if variant}
 
 
-def place_words(name: str) -> list[str]:
-    """Words of a place name in the order they were written, minus the common ones.
+def name_words(name: str) -> list[str]:
+    """Source text or user text -> the words it is searched by, in the order written.
 
-    The order matters on the query side: only the last word is still being
-    typed, so only the last word is matched as a prefix.
+    The one word list both sides share, so a typed word and an indexed word can
+    only ever meet in the same form. Order is kept because it is what separates
+    a name the query starts ("bryant park") from one it merely appears in
+    ("five bryant park").
+    """
+    return spelling_words(fold(name))
+
+
+def spelling_words(folded: str) -> list[str]:
+    """The same, for text `fold` has already been over.
+
+    Street variants and `streets.NAME_ALIASES` keys are stored in folded form
+    already, and folding them again would apply the alias map a second time and
+    turn the spelling back into the name it is an alternative to.
     """
     return [
-        CARDINALS.get(token, token)
-        for token in fold(name).split(" ")
-        if token and token not in PLACE_STOPWORDS
+        CARDINALS.get(word, word)
+        for word in folded.split(" ")
+        if word and word not in NAME_STOPWORDS
     ]
 
 
-def place_tokens(name: str) -> frozenset[str]:
-    """The distinct words a place name is indexed under."""
-    return frozenset(place_words(name))
+def search_name(words: Sequence[str]) -> str:
+    """The stored form of one spelling: its words, in order, single-spaced."""
+    return " ".join(words)
+
+
+def place_spellings(name: str) -> tuple[tuple[str, ...], ...]:
+    """Every word sequence a place answers to: its own name, its shorthand, its aliases."""
+    words = tuple(name_words(name))
+    spellings = {words} | _shorthand_spellings(words) | set(_aliases_by_name().get(words, ()))
+    return tuple(sorted(spelling for spelling in spellings if spelling))
+
+
+@cache
+def _aliases_by_name() -> dict[tuple[str, ...], tuple[tuple[str, ...], ...]]:
+    """`PLACE_ALIASES` inverted onto the word form its target is indexed under."""
+    inverted: dict[tuple[str, ...], list[tuple[str, ...]]] = {}
+    for alias, target in PLACE_ALIASES.items():
+        inverted.setdefault(tuple(name_words(target)), []).append(tuple(name_words(alias)))
+    return {target: tuple(aliases) for target, aliases in inverted.items()}
+
+
+def _shorthand_spellings(words: tuple[str, ...]) -> set[tuple[str, ...]]:
+    """The name again with "HIGH SCHOOL" written "HS", for every phrase it contains."""
+    found = set()
+    for phrase, short in PLACE_SHORTHAND.items():
+        for start in range(len(words) - len(phrase) + 1):
+            if words[start : start + len(phrase)] == phrase:
+                found.add((*words[:start], short, *words[start + len(phrase) :]))
+    return found
 
 
 def stage_address_points(
@@ -289,13 +370,17 @@ def stage_address_points(
 
 
 def stage_places(
-    raw_rows: Sequence[dict[str, Any]], street_norms: frozenset[str]
+    raw_rows: Sequence[dict[str, Any]], street_spellings: frozenset[str]
 ) -> tuple[list[StagedPlace], int]:
     """Validate CommonPlace rows, dropping the ones that only repeat a street we index.
 
-    CommonPlace carries a bare "BROADWAY" and a "BLEECKER ST". Keeping them
-    would push the street entry, which has a real centerline behind it, below a
-    point with no geometry.
+    CommonPlace carries a bare "BROADWAY", a "BLEECKER ST" and a "MADISON".
+    Keeping them would push the street entry, which has a real centerline
+    behind it, below a point with no geometry — and it is what lets a place
+    outrank the street a one-word query names, which the confidence ladder
+    otherwise guarantees it cannot (`geocode.candidates`). The comparison is
+    against every *spelling* of every street, not just the canonical name,
+    because "MADISON" is how a user reaches MADISON AVE.
     """
     staged: list[StagedPlace] = []
     dropped = 0
@@ -305,7 +390,10 @@ def stage_places(
         name = str(row.feature_name or "").strip()
         if point is None or not name:
             continue
-        if fold(name) in street_norms:
+        spellings = tuple(
+            words for words in place_spellings(name) if search_name(words) not in street_spellings
+        )
+        if not spellings or search_name(name_words(name)) in street_spellings:
             dropped += 1
             continue
         staged.append(
@@ -313,7 +401,7 @@ def stage_places(
                 display=neutralize_formula(name),
                 lon=point[0],
                 lat=point[1],
-                tokens=place_tokens(name),
+                spellings=spellings,
             )
         )
     return staged, dropped
@@ -339,25 +427,34 @@ def build_address_index(
     conn.execute(_INSERT_ZIP)
 
     intersections = _write_intersections(conn, displays)
-    places, dropped_places = stage_places(place_rows, frozenset(displays))
+    # The variants come before the places because a place whose name is one of
+    # them is dropped, and before the street tokens because they are what the
+    # word index is built from.
+    variants = _street_variant_pairs(conn, frozenset(displays))
+    conn.executemany(_INSERT_VARIANT, sorted(variants))
+    street_tokens_written = _write_street_tokens(conn, variants, frozenset(displays))
+    places, dropped_places = stage_places(
+        place_rows, _spelling_texts(variants, frozenset(displays))
+    )
     place_tokens_written = _write_places(conn, places)
-    variants = _write_street_variants(conn, frozenset(displays))
 
     report = AddressReport(
         source_address_rows=len(address_rows),
         address_points=len(addresses),
         dropped_address_rows=dropped_addresses,
         streets=len(street_points),
-        street_variants=variants,
+        street_variants=len(variants),
         intersections=intersections,
         zipcodes=int(conn.execute("SELECT count(*) FROM zip_centroid").fetchone()[0]),
         source_place_rows=len(place_rows),
         places=len(places),
         place_tokens=place_tokens_written,
+        street_tokens=street_tokens_written,
         places_dropped_as_streets=dropped_places,
     )
     LOGGER.info(
-        "addresses.index points=%d dropped=%d streets=%d variants=%d corners=%d places=%d zips=%d",
+        "addresses.index points=%d dropped=%d streets=%d variants=%d corners=%d places=%d"
+        " zips=%d place_tokens=%d street_tokens=%d",
         report.address_points,
         report.dropped_address_rows,
         report.streets,
@@ -365,6 +462,8 @@ def build_address_index(
         report.intersections,
         report.places,
         report.zipcodes,
+        report.place_tokens,
+        report.street_tokens,
     )
     return report
 
@@ -439,22 +538,51 @@ def _write_intersections(conn: sqlite3.Connection, displays: dict[str, str]) -> 
 
 
 def _write_places(conn: sqlite3.Connection, staged: Sequence[StagedPlace]) -> int:
+    """The places and their word index. Returns the number of token rows written."""
     conn.executemany(
         _INSERT_PLACE,
-        [
-            (index, place.display, place.lon, place.lat, len(place.tokens))
-            for index, place in enumerate(staged)
-        ],
+        [(index, place.display, place.lon, place.lat) for index, place in enumerate(staged)],
     )
     tokens = [
-        (token, index) for index, place in enumerate(staged) for token in sorted(place.tokens)
+        (word, position, index, search_name(words))
+        for index, place in enumerate(staged)
+        for words in place.spellings
+        for position, word in enumerate(words)
     ]
     conn.executemany(_INSERT_PLACE_TOKEN, tokens)
     return len(tokens)
 
 
-def _write_street_variants(conn: sqlite3.Connection, centerline: frozenset[str]) -> int:
-    """Variants for every street either source knows, plus the nicknames.
+def _write_street_tokens(
+    conn: sqlite3.Connection, variants: set[tuple[str, str]], centerline: frozenset[str]
+) -> int:
+    """One row per word of every spelling of every street that has a point to offer.
+
+    Built from the variants rather than from the canonical name alone, so the
+    directional and the suffix a person leaves off do not push the word they
+    did type off the front of the name: "HOUSTON" is the first word of a
+    spelling of E HOUSTON ST, not the second word of its only one. The
+    `streets.NAME_ALIASES` keys are added unfolded — folding one applies the
+    alias map again and turns it back into its target — which is what puts
+    "KING" and "MALCOLM" in the index at all.
+    """
+    spellings = {(variant, street_norm) for variant, street_norm in variants}
+    spellings |= {(alias, target) for alias, target in NAME_ALIASES.items() if target in centerline}
+    tokens = {
+        (word, position, street_norm, search_name(words))
+        for spelling, street_norm in spellings
+        if street_norm in centerline
+        for words in [spelling_words(spelling)]
+        for position, word in enumerate(words)
+    }
+    conn.executemany(_INSERT_STREET_TOKEN, sorted(tokens))
+    return len(tokens)
+
+
+def _street_variant_pairs(
+    conn: sqlite3.Connection, centerline: frozenset[str]
+) -> set[tuple[str, str]]:
+    """(spelling, street) for every street either source knows, plus the nicknames.
 
     AddressPoint files doors on names the centerline has no segment for
     (GOVERNORS ISLAND, POMANDER WALK), so the variant table is built from both
@@ -467,8 +595,22 @@ def _write_street_variants(conn: sqlite3.Connection, centerline: frozenset[str])
         (variant, street_norm) for street_norm in known for variant in street_variants(street_norm)
     }
     pairs |= {(fold(nick), target) for nick, target in NICKNAMES.items() if target in known}
-    conn.executemany(_INSERT_VARIANT, sorted(pairs))
-    return len(pairs)
+    return pairs
+
+
+def _spelling_texts(variants: set[tuple[str, str]], centerline: frozenset[str]) -> frozenset[str]:
+    """The word form of every street spelling, which is what a place may not repeat.
+
+    Only the streets with a centerline behind them. AddressPoint files doors on
+    BRYANT PARK and LINCOLN CENTER PLZ, which CSCL has no segment for and the
+    street rung therefore has no point to offer: dropping the CommonPlace
+    entries that name them would lose the name altogether.
+    """
+    return frozenset(
+        search_name(spelling_words(variant))
+        for variant, street_norm in variants
+        if street_norm in centerline
+    )
 
 
 def _middle_vertex(geom_json: str) -> tuple[float, float] | None:

@@ -18,6 +18,7 @@ import pytest
 from curbcheck.config import DB_PATH, RAW_DIR
 from curbcheck.db import connect
 from curbcheck.engine.geo import M_PER_DEG_LAT, meters_per_degree_lon
+from curbcheck.etl.addresses import PLACE_ALIASES
 from curbcheck.geocode import GeocodeKind, reverse_geocode, suggest
 
 pytestmark = pytest.mark.skipif(
@@ -46,6 +47,56 @@ DEMO_QUERIES = [
     ("fdr dr & 96", GeocodeKind.INTERSECTION, "E 96 ST & FRANKLIN D ROOSEVELT DR"),
     ("1 police plaza", GeocodeKind.ADDRESS, "1 POLICE PLZ"),
 ]
+
+# The word-matching matrix (docs/ux/AUTOCOMPLETE_RESEARCH.md §6.4): what a
+# person types, the answer they meant, and how near the top of the eight-row
+# dropdown it has to be. Three of them are `3` rather than `1` because the
+# index has no popularity signal and will not invent one: "fashion" alone puts
+# the Fashion Institute first because the name starts with the word, "king" is
+# two real King Streets before it is the boulevard CSCL files as W 125 ST, and
+# "guggenheim" is the bandshell before the museum for the same reason.
+TOP = 1
+TOP_THREE = 3
+MATRIX: list[tuple[str, str, int]] = [
+    ("fashion", "HIGH SCHOOL OF FASHION INDUSTRIES", TOP_THREE),
+    ("fashion high", "HIGH SCHOOL OF FASHION INDUSTRIES", TOP),
+    ("high fashion", "HIGH SCHOOL OF FASHION INDUSTRIES", TOP),
+    ("hs fashion", "HIGH SCHOOL OF FASHION INDUSTRIES", TOP),
+    ("high school of fashion", "HIGH SCHOOL OF FASHION INDUSTRIES", TOP),
+    ("trade center", "1 WORLD TRADE CENTER", TOP),
+    ("one world trade", "1 WORLD TRADE CENTER", TOP),
+    ("guggenheim", "SOLOMON R GUGGENHEIM MUSEUM", TOP_THREE),
+    ("port authority", "PORT AUTHORITY BUS TERMINAL", TOP),
+    ("grand central", "GRAND CENTRAL TERMINAL", TOP),
+    ("moma", "MUSEUM OF MODERN ART (MOMA)", TOP),
+    ("met museum", "METROPOLITAN MUSEUM OF ART", TOP),
+    ("bryant park", "BRYANT PARK", TOP),
+    ("penn station", "PENN STATION", TOP),
+    ("empire state", "EMPIRE STATE BUILDING", TOP),
+    ("carnegie", "CARNEGIE HALL", TOP),
+    ("radio city", "RADIO CITY MUSIC HALL", TOP),
+    ("art and design", "ART & DESIGN HIGH SCHOOL", TOP),
+    ("americas", "AVE OF THE AMERICAS", TOP),
+    ("riverside", "RIVERSIDE DR", TOP_THREE),
+    ("riverside blvd", "RIVERSIDE BLVD", TOP),
+    ("king", "W 125 ST", TOP_THREE),
+    ("lex", "LEXINGTON AVE", TOP),
+    ("broad", "BROAD ST", TOP),
+    ("broadwa", "BROADWAY", TOP),
+    ("madison", "MADISON AVE", TOP_THREE),
+    ("central park", "CENTRAL PARK W", TOP_THREE),
+    ("86th st", "E 86 ST", TOP),
+    ("5 ave", "5 AVE", TOP),
+    ("1519 3rd ave", "1519 3 AVE", TOP),
+    ("lex & 86", "E 86 ST & LEXINGTON AVE", TOP),
+    ("1 police plaza", "1 POLICE PLZ", TOP),
+    ("10021", "10021", TOP),
+]
+
+# A bare word that is also the start of a street spelling answers with the
+# street: this app searches both sides of a street for its whole length and a
+# place is one point, so the street is the safer reading of an ambiguous word.
+STREET_FIRST_QUERIES = ["lex", "broad", "w", "madison", "park", "riverside", "houston", "3"]
 
 # docs/DATA.md §5.1: every AddressPoint row is a ground-truth location for an
 # address string, so feeding the string back through the suggester measures the
@@ -85,6 +136,40 @@ def test_a_numbered_avenue_is_the_avenue_and_not_a_house_number_on_avenue_a(conn
     """ "5 ave" parses as house 5 on a street called "AVE"; the street is what was typed."""
     for query in ("5 ave", "1 ave", "86 st"):
         assert suggest(conn, query)[0].kind is GeocodeKind.STREET
+
+
+def test_the_word_matching_matrix_puts_the_meant_answer_at_the_top(conn):
+    """The 33 queries `docs/ux/AUTOCOMPLETE_RESEARCH.md` §6.4 fixed the ranking against."""
+    misplaced = []
+    print()
+    for query, expected, within in MATRIX:
+        labels = [candidate.label for candidate in suggest(conn, query)]
+        rank = labels.index(expected) + 1 if expected in labels else 0
+        mark = "ok " if 0 < rank <= within else "BAD"
+        print(f"{mark} {query:<24} #{rank} of {len(labels):<2} (needs <={within})  {labels[:3]}")
+        if not 0 < rank <= within:
+            misplaced.append((query, expected, rank))
+
+    assert not misplaced
+
+
+def test_the_reported_bug_is_fixed_and_one_word_of_a_name_finds_it(conn):
+    """ "fashion" returned nothing while "high school of fashion" autocompleted."""
+    assert suggest(conn, "fashion")
+    assert suggest(conn, "fashion") == suggest(conn, "FASHION")
+
+
+@pytest.mark.parametrize("query", STREET_FIRST_QUERIES)
+def test_a_bare_word_that_starts_a_street_answers_with_the_street(conn, query):
+    assert suggest(conn, query)[0].kind is GeocodeKind.STREET
+
+
+def test_every_landmark_alias_names_a_place_the_snapshot_still_carries(conn):
+    """An alias whose target left CommonPlace is a dangling name, not a shortcut."""
+    for alias, target in PLACE_ALIASES.items():
+        candidates = suggest(conn, alias)
+        assert candidates, alias
+        assert candidates[0].label == target, alias
 
 
 def test_a_pin_on_a_street_reads_back_as_the_nearest_door(conn):

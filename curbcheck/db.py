@@ -167,7 +167,7 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         label                  TEXT NOT NULL DEFAULT ''
     )
     """,
-    # The six tables below are the address suggester's vocabulary index
+    # The seven tables below are the address suggester's vocabulary index
     # (docs/ux/AUTOCOMPLETE_RESEARCH.md §2). They are written by
     # `etl.addresses` and read only by `curbcheck.geocode`; nothing in the
     # regulation pipeline joins to them.
@@ -223,15 +223,33 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         place_id    INTEGER PRIMARY KEY,
         display     TEXT NOT NULL,
         lon         REAL NOT NULL,
-        lat         REAL NOT NULL,
-        token_count INTEGER NOT NULL
+        lat         REAL NOT NULL
     )
     """,
+    # One row per (word, where it sits, which spelling it came from) for every
+    # place and every street. `token` leads the key so a half-typed word is a
+    # range scan and `LIMIT` can stop it early, `position` comes next so the
+    # rows that come back first are the ones where the word starts the name,
+    # and `search_name` rides along so scoring a candidate never leaves the
+    # index: reading the 200 matching `place` rows instead cost 55 ms warm and
+    # 2.5 s cold on the 9p data mount, against 1.5 ms for the scan
+    # (docs/ux/AUTOCOMPLETE_RESEARCH.md §6.3).
     """
     CREATE TABLE IF NOT EXISTS place_token (
-        token    TEXT NOT NULL,
-        place_id INTEGER NOT NULL,
-        PRIMARY KEY (token, place_id)
+        token       TEXT NOT NULL,
+        position    INTEGER NOT NULL,
+        place_id    INTEGER NOT NULL,
+        search_name TEXT NOT NULL,
+        PRIMARY KEY (token, position, place_id, search_name)
+    ) WITHOUT ROWID
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS street_token (
+        token       TEXT NOT NULL,
+        position    INTEGER NOT NULL,
+        street_norm TEXT NOT NULL,
+        search_name TEXT NOT NULL,
+        PRIMARY KEY (token, position, street_norm, search_name)
     ) WITHOUT ROWID
     """,
     """

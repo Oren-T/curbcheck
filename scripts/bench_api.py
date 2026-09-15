@@ -31,11 +31,23 @@ from curbcheck.api.app import create_app
 from curbcheck.config import REPO_ROOT
 
 # 1519 3 AVE is the worked example in docs/DATA.md §2.3 and the address the UX
-# audit's screenshots use. The first three are the house-number path mid-typing,
-# which is the call the autocomplete actually makes and the one the UX pass
-# measured at 339-498 ms against 20-44 ms for everything else; "86th st" is that
+# audit's screenshots use. "1519 3" is the house-number path mid-typing, which
+# is the call the autocomplete actually makes and the one the UX pass measured
+# at 339-498 ms against 20-44 ms for everything else; "86th st" is that
 # everything else, kept as the contrast the number only means something against.
-GEOCODE_QUERIES = ("1519 3", "1519 3 av", "100 w", "86th st")
+# The rest are the word-matching path (docs/ux/AUTOCOMPLETE_RESEARCH.md §6):
+# a rare word, a long multi-word query, the one-letter prefix that matches the
+# most rows in the index, and a word that is a street and a place at once.
+GEOCODE_QUERIES = (
+    "1519 3",
+    "1519 3 av",
+    "100 w",
+    "86th st",
+    "fashion",
+    "high school of f",
+    "w",
+    "lex",
+)
 
 SEARCH_BODY = {
     "address": "1519 3 ave",

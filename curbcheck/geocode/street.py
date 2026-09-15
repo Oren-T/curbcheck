@@ -5,6 +5,12 @@ pre-expands every street into the spellings a person might type
 (`etl.addresses`) and this module resolves a typed one in a prefix range-scan.
 Every other rung asks it first: an address, a corner and the street rung all
 start from the same `resolve_street` result.
+
+`street_name_candidates` is the second way in, for the word a person remembers
+rather than the one the name starts with: "americas" is Avenue of the Americas
+and "king" is the boulevard the centerline files as W 125 ST. It reads the
+word index instead of the variant table and shares its scoring with the place
+rung (`geocode.names`).
 """
 
 from __future__ import annotations
@@ -12,12 +18,16 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Sequence
 
+from curbcheck.db import placeholders
 from curbcheck.engine.labels import single_spaced
+from curbcheck.etl.addresses import name_words
 from curbcheck.geocode.candidates import (
     FUZZY_CONFIDENCE_PENALTY,
+    STREET_NAME_CONFIDENCE,
     GeocodeCandidate,
     GeocodeKind,
 )
+from curbcheck.geocode.names import search_names
 from curbcheck.geocode.query import prefix_bound
 
 # How far the street resolver will fan out. A half-typed street matches many
@@ -42,6 +52,13 @@ _VARIANTS_SQL = (
     " WHERE length(variant) >= ? AND length(variant) <= ?"
 )
 _STREET_SQL = "SELECT display, lon, lat FROM street WHERE street_norm = ?"
+_STREETS_BY_NORM_SQL = "SELECT street_norm, display, lon, lat FROM street WHERE street_norm IN ("
+# S105 reads "token" in this table and column name as a credential; it is a
+# word of a street name.
+_STREET_TOKEN_SQL = (
+    "SELECT street_norm, search_name FROM street_token"  # noqa: S105
+    " WHERE token >= ? AND token < ? ORDER BY token, position LIMIT ?"
+)
 
 
 def names_a_street(conn: sqlite3.Connection, folded: str) -> bool:
@@ -110,6 +127,40 @@ def street_candidates(
 ) -> list[GeocodeCandidate]:
     """The street itself. `base` drops when the street is only half of what was typed."""
     return streets_from(conn, resolve_street(conn, folded)[:limit], base)
+
+
+def street_name_candidates(
+    conn: sqlite3.Connection, cleaned: str, limit: int
+) -> list[GeocodeCandidate]:
+    """Streets every one of whose typed words prefix-matches a word of some spelling.
+
+    The rung that answers a name the user knows a word of rather than the
+    start of. It overlaps `street_candidates` on purpose — a street found both
+    ways keeps the better of the two scores, which `suggest._rank` does when it
+    folds the duplicate labels together.
+    """
+    tokens = name_words(cleaned)
+    if not tokens:
+        return []
+    hits = search_names(conn, _STREET_TOKEN_SQL, tokens, limit)
+    if not hits:
+        return []
+    keys = [hit.name_id for hit in hits]
+    rows = {
+        str(row[0]): row
+        for row in conn.execute(_STREETS_BY_NORM_SQL + placeholders(len(keys)) + ")", keys)
+    }
+    return [
+        GeocodeCandidate(
+            label=single_spaced(str(rows[key][1])),
+            lat=float(rows[key][3]),
+            lon=float(rows[key][2]),
+            kind=GeocodeKind.STREET,
+            confidence=STREET_NAME_CONFIDENCE[hit.match],
+        )
+        for hit, key in zip(hits, keys, strict=True)
+        if key in rows
+    ]
 
 
 def streets_from(

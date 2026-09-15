@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from curbcheck.engine.coverage import COVERAGE_AREA
+from curbcheck.geocode.names import NameMatch
 
 # Eight is the longest list a person scans without reading it as a search
 # result page rather than as a disambiguation (docs/ux/UX_AUDIT.md P1-5 asks
@@ -32,19 +33,37 @@ CONFIDENCE_ADDRESS_RANGE = 0.50
 # A street whose spelling the query matches exactly ("5 ave", "broadway") is
 # what the user is naming, and has to outrank a place whose name merely
 # contains those words: at 0.45 the query "5 ave" answered 5 AVE SYNAGOGUE
-# (0.85 x 2 of its 3 words) before Fifth Avenue. A street reached by prefix
-# ("broadwa") is still a guess about what is being typed, and one offered
-# because half of an unmatched intersection hit it is a consolation prize that
-# ranks below a partial place-name match.
+# before Fifth Avenue. A street reached by prefix ("broadwa") is still a guess
+# about what is being typed, and one offered because half of an unmatched
+# intersection hit it is a consolation prize that ranks below a partial
+# place-name match.
 CONFIDENCE_STREET_EXACT = 0.70
 CONFIDENCE_STREET_WHOLE_QUERY = 0.45
 CONFIDENCE_STREET_HALF_QUERY = 0.30
 CONFIDENCE_ZIP = 0.25
 
-# A place name matching only some of its own words is a weak hit ("86 ST"
-# matches "CTL PK W DR OV 86 ST TRNVS RD"), so the score scales with how much
-# of the place's name the query accounted for, and weak hits are dropped.
-MIN_PLACE_COVERAGE = 0.5
+# What a word match is worth, by where the typed words landed in the name
+# (`geocode.names`). Two bands, and the street band sits above the place band
+# at every rung on purpose: a street is a destination this app can search both
+# sides of for its whole length, a place is one point, so when the same word
+# names both the street is the safer answer — "lex" is Lexington Avenue, not
+# the Lex Hotel. The bands stay under CONFIDENCE_STREET_EXACT, so a street the
+# user spelled out whole still beats every name merely containing that word;
+# the only exception is a place named exactly what was typed, which cannot
+# collide with a street because `etl.addresses.stage_places` drops a place
+# whose name repeats a spelling of one.
+STREET_NAME_CONFIDENCE: dict[NameMatch, float] = {
+    NameMatch.WHOLE: CONFIDENCE_STREET_EXACT,
+    NameMatch.PREFIX: 0.69,
+    NameMatch.LEADING: 0.68,
+    NameMatch.INNER: 0.67,
+}
+PLACE_NAME_CONFIDENCE: dict[NameMatch, float] = {
+    NameMatch.WHOLE: CONFIDENCE_PLACE,
+    NameMatch.PREFIX: 0.66,
+    NameMatch.LEADING: 0.65,
+    NameMatch.INNER: 0.64,
+}
 
 # A fuzzy street match is a guess about what the user meant, so it costs a
 # fifth of the candidate's confidence rather than being silently as good.

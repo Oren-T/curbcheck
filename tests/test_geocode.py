@@ -168,6 +168,15 @@ def conn() -> sqlite3.Connection:
         left=("2", "20"),
         right=("1", "19"),
     )
+    # A street nobody reaches by the start of its name: "AMERICAS" is its
+    # third word and its only memorable one.
+    _add_segment(
+        connection,
+        segment_id="9200",
+        street_name="AVE OF THE AMERICAS",
+        start=(-73.9830, 40.7600),
+        end=(-73.9835, 40.7610),
+    )
     _add_node(connection, NODE_85, ["3 AVE", "E 85 ST"])
     _add_node(connection, NODE_86, ["3 AVE", "E 86 ST"])
     _add_node(connection, NODE_LEX_85, ["E 85 ST", "LEXINGTON AVE"])
@@ -197,6 +206,22 @@ def conn() -> sqlite3.Connection:
         {
             "feature_name": "WASHINGTON ARCH",
             "the_geom": {"type": "Point", "coordinates": [-73.9973, 40.7308]},
+        },
+        # The four rungs of a word match, on one word: ART is this name's
+        # fourth word and the next one's first, and neither is the whole name.
+        {
+            "feature_name": "HIGH SCHOOL OF ART AND DESIGN",
+            "the_geom": {"type": "Point", "coordinates": [-73.9720, 40.7590]},
+        },
+        {
+            "feature_name": "ART STUDENTS LEAGUE",
+            "the_geom": {"type": "Point", "coordinates": [-73.9800, 40.7650]},
+        },
+        # A place that starts with the word a street is buried in, which is the
+        # collision the street band of the ladder exists to settle.
+        {
+            "feature_name": "AMERICAS SOCIETY GALLERY",
+            "the_geom": {"type": "Point", "coordinates": [-73.9640, 40.7720]},
         },
     ]
     build_address_index(connection, address_rows=addresses, place_rows=places)
@@ -352,8 +377,13 @@ def test_a_typo_in_a_street_name_still_resolves_at_a_lower_confidence(conn):
 
 
 def test_a_query_too_short_to_correct_is_not_corrected(conn):
-    """Nearly every short variant is within one edit of every other one."""
-    assert suggest(conn, "3 A") == []
+    """Nearly every short variant is within one edit of every other one.
+
+    "A" is a prefix of AVE OF THE AMERICAS, so that street comes back; what
+    must not come back is 3 AVE or CHISUM PL, which an edit-distance pass over
+    a one-character name would reach.
+    """
+    assert [candidate.label for candidate in suggest(conn, "3 A")] == ["AVE OF THE AMERICAS"]
 
 
 def test_a_zip_returns_its_centre_and_says_how_coarse_that_is(conn):
@@ -375,9 +405,64 @@ def test_a_place_name_is_found_by_its_words(conn):
     ("typed", "label"),
     [("gracie mans", "GRACIE MANSION"), ("washington ar", "WASHINGTON ARCH")],
 )
-def test_a_half_typed_place_name_still_matches_on_the_last_word(conn, typed, label):
-    """Only the last word is a prefix, so the words have to stay in typed order."""
+def test_a_half_typed_place_name_still_matches(conn, typed, label):
+    """Every word is matched as a prefix, because any of them may still be being typed."""
     assert suggest(conn, typed)[0].label == label
+
+
+# --- matching a name by the words in it -----------------------------------
+
+
+@pytest.mark.parametrize(
+    "typed",
+    ["design", "art design", "design art", "hs art", "school of art", "art and design"],
+)
+def test_any_word_of_a_place_name_finds_it_in_any_order(conn, typed):
+    """The reported bug: "fashion" found nothing while "high school of fashion" did."""
+    assert "HIGH SCHOOL OF ART AND DESIGN" in {c.label for c in suggest(conn, typed)}
+
+
+def test_a_stopword_is_neither_required_nor_in_the_way(conn):
+    assert suggest(conn, "art and design") == suggest(conn, "art design")
+    assert suggest(conn, "the art students league") == suggest(conn, "art students league")
+
+
+def test_a_name_typed_whole_beats_one_it_only_starts(conn):
+    labels = [candidate.label for candidate in suggest(conn, "art students league")]
+
+    assert labels[0] == "ART STUDENTS LEAGUE"
+
+
+def test_a_name_the_query_starts_beats_one_the_word_sits_inside(conn):
+    """Google Maps ranks this way and the UX audit's testers expected it."""
+    labels = [candidate.label for candidate in suggest(conn, "art")]
+
+    assert labels.index("ART STUDENTS LEAGUE") < labels.index("HIGH SCHOOL OF ART AND DESIGN")
+
+
+def test_a_street_is_found_by_a_word_buried_in_its_name(conn):
+    [candidate] = [c for c in suggest(conn, "americas") if c.kind is GeocodeKind.STREET]
+
+    assert candidate.label == "AVE OF THE AMERICAS"
+
+
+def test_a_street_outranks_a_place_that_merely_starts_with_the_same_word(conn):
+    """A street is a destination with two sides and a length; a place is one point."""
+    [first, second] = suggest(conn, "americas")
+
+    assert (first.kind, first.label) == (GeocodeKind.STREET, "AVE OF THE AMERICAS")
+    assert (second.kind, second.label) == (GeocodeKind.PLACE, "AMERICAS SOCIETY GALLERY")
+
+
+def test_a_one_word_query_that_names_a_street_still_answers_with_the_street(conn):
+    """ "lex" is Lexington Avenue, not the Lex Hotel, however short the query is."""
+    for typed in ("lexington", "lexingt", "chisum"):
+        assert suggest(conn, typed)[0].kind is GeocodeKind.STREET
+
+
+def test_a_word_that_matches_nothing_takes_the_whole_query_with_it(conn):
+    """Every typed word has to land somewhere, or the name is not what was meant."""
+    assert suggest(conn, "art zeppelin") == []
 
 
 # --- hostile input --------------------------------------------------------
@@ -401,7 +486,7 @@ def test_a_half_typed_place_name_still_matches_on_the_last_word(conn, typed, lab
 )
 def test_hostile_queries_never_raise_and_never_mutate(conn, text):
     assert isinstance(suggest(conn, text), list)
-    assert conn.execute("SELECT count(*) FROM street_segment").fetchone()[0] == 6
+    assert conn.execute("SELECT count(*) FROM street_segment").fetchone()[0] == 7
     assert conn.execute("SELECT count(*) FROM address_point").fetchone()[0] == 5
 
 

@@ -38,6 +38,7 @@ from curbcheck.geocode.street import (
     names_a_street,
     resolve_street,
     street_candidates,
+    street_name_candidates,
     streets_from,
 )
 
@@ -99,10 +100,14 @@ def _lookup(
             return corners
         # Two streets that never share a centerline node. Offering each one
         # separately is honest; claiming a corner that is not in the data
-        # would not be.
+        # would not be. The word rungs run too, because "and" separates two
+        # streets and joins two words of a name — "art and design" is a school,
+        # not a corner — and only an empty corner says which was meant.
         return [
             *street_candidates(conn, query.first, limit, CONFIDENCE_STREET_HALF_QUERY),
             *street_candidates(conn, query.second, limit, CONFIDENCE_STREET_HALF_QUERY),
+            *street_name_candidates(conn, cleaned, limit),
+            *place_candidates(conn, cleaned, limit),
         ]
     whole = fold(cleaned)
     named_exactly = names_a_street(conn, whole)
@@ -118,6 +123,7 @@ def _lookup(
     base = CONFIDENCE_STREET_EXACT if named_exactly else CONFIDENCE_STREET_WHOLE_QUERY
     return [
         *street_candidates(conn, whole, limit, base),
+        *street_name_candidates(conn, cleaned, limit),
         *place_candidates(conn, cleaned, limit),
     ]
 
@@ -128,7 +134,9 @@ def _address_or_its_street(
     """The house number if anything can place it, otherwise the street it named.
 
     The streets are resolved once and reused, so a query that matches nothing
-    pays for the edit-distance scan once rather than twice.
+    pays for the edit-distance scan once rather than twice. "1 police plaza"
+    and "350 5th" both parse as house numbers and only one of them is one, so
+    the word-matching rungs run here too once the address reading is empty.
     """
     streets = resolve_street(conn, query.street)[:MAX_STREETS_PER_ADDRESS]
     found = address_candidates(conn, streets, query.house_number, limit)

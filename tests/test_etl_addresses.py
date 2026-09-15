@@ -10,10 +10,13 @@ from test_etl_fixtures import address_point_row, address_point_rows, common_plac
 from curbcheck import db
 from curbcheck.etl.addresses import (
     NICKNAMES,
+    PLACE_ALIASES,
     build_address_index,
     fold,
-    place_tokens,
+    name_words,
+    place_spellings,
     stage_address_points,
+    stage_places,
     street_variants,
 )
 from curbcheck.etl.stage import stage_centerline
@@ -73,9 +76,46 @@ def test_street_variants_cover_the_spellings_a_person_types():
     assert street_variants("BROADWAY") == {"BROADWAY"}
 
 
-def test_place_tokens_drop_stopwords_and_fold_the_spoken_cardinal():
-    assert place_tokens("One World Trade Center") == frozenset({"1", "WORLD", "TRADE", "CENTER"})
-    assert place_tokens("The Museum of Modern Art") == frozenset({"MUSEUM", "MODERN", "ART"})
+def test_name_words_drop_stopwords_and_fold_the_spoken_cardinal():
+    assert name_words("One World Trade Center") == ["1", "WORLD", "TRADE", "CENTER"]
+    assert name_words("The Museum of Modern Art") == ["MUSEUM", "MODERN", "ART"]
+
+
+def test_a_name_keeps_its_word_order_so_the_start_of_it_can_be_recognized():
+    """`geocode.names` scores a name by where the typed words landed in it."""
+    assert name_words("Bryant Park") == ["BRYANT", "PARK"]
+    assert name_words("Five Bryant Park") == ["5", "BRYANT", "PARK"]
+
+
+def test_a_school_is_indexed_under_both_spellings_of_its_kind():
+    spellings = place_spellings("High School of Fashion Industries")
+
+    assert ("HIGH", "SCHOOL", "FASHION", "INDUSTRIES") in spellings
+    assert ("HS", "FASHION", "INDUSTRIES") in spellings
+
+
+def test_a_landmark_is_indexed_under_the_name_new_yorkers_say():
+    assert ("MOMA",) in place_spellings("Museum of Modern Art (MoMA)")
+    assert ("PORT", "AUTHORITY") in place_spellings("Port Authority Bus Terminal")
+
+
+def test_every_place_alias_names_one_place_and_not_a_kind_of_place():
+    for alias, target in PLACE_ALIASES.items():
+        assert name_words(alias), alias
+        assert name_words(target), target
+
+
+def test_a_place_that_only_repeats_a_spelling_of_a_street_is_dropped():
+    """MADISON is how a user reaches MADISON AVE, so the place point may not own it."""
+    rows = [
+        {"feature_name": name, "the_geom": {"type": "Point", "coordinates": [-73.98, 40.75]}}
+        for name in ("MADISON", "MADISON SQUARE GARDEN")
+    ]
+
+    staged, dropped = stage_places(rows, frozenset({"MADISON", "MADISON AVE"}))
+
+    assert dropped == 1
+    assert [place.display for place in staged] == ["MADISON SQUARE GARDEN"]
 
 
 def test_every_nickname_points_at_a_normalized_street_name():
