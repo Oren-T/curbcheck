@@ -270,17 +270,57 @@ def test_a_double_arrow_stops_where_another_familys_post_starts():
 
 
 def test_a_double_arrow_reaches_the_corner_only_where_no_post_lies_beyond():
-    # Same three posts, with a second metered post past the corner end: the
-    # bus stop keeps its far bound, and the meter now stops at its own family.
+    # Same three posts with a standing ban past the meter: the meter now stops
+    # at the ban rather than at the corner, and the ban runs on to the corner.
     segments, _ = resolve(
         *eight_avenue_posts(),
         staged_sign(
-            "meter-far",
+            "no-standing",
             to_street="E 2 STREET",
             distance_ft=300.0,
-            description=TWO_HOUR_METER,
-            sign_code="PS-65C",
+            description=f"{NO_STANDING} <->",
+            sign_code="PS-2G",
         ),
     )
 
     assert spans(segments) == [(0, 209), (99, 209), (209, 300), (232, FIRST_BLOCK_FT)]
+
+
+def test_posts_repeating_one_rule_merge_into_a_single_span():
+    # docs/VALIDATION.md §4 D5 / SPEC §B.2: DOT repeats a sign for notice, so
+    # three identical <-> posts describe one stretch of curb, not three.
+    segments, report = resolve(
+        staged_sign("a", description=f"{NO_PARKING} <->", distance_ft=100.0),
+        staged_sign("b", description=f"{NO_PARKING} <->", distance_ft=400.0),
+        staged_sign("c", description=f"{NO_PARKING} <->", distance_ft=700.0),
+    )
+
+    assert spans(segments) == [(0, WHOLE_SIDE_FT)]
+    assert segments[0].derived_from == ("a", "b", "c")
+    assert report.merged_repeat_spans == 2
+
+
+def test_a_different_rule_keeps_its_own_span_however_much_it_overlaps():
+    segments, report = resolve(
+        staged_sign("np", description=f"{NO_PARKING} <->", distance_ft=100.0),
+        staged_sign("ns", description=f"{NO_STANDING} <->", sign_code="PS-2G", distance_ft=700.0),
+    )
+
+    assert spans(segments) == [(0, 700), (100, WHOLE_SIDE_FT)]
+    assert report.merged_repeat_spans == 0
+
+
+def test_repeated_posts_whose_spans_do_not_touch_stay_separate():
+    # Two identical signs arrowed away from each other leave the middle of the
+    # side ungoverned; the union must not close a gap DOT left open.
+    segments, report = resolve(
+        staged_sign(
+            "south", description=f"{NO_PARKING} -->", arrow_direction="South", distance_ft=100.0
+        ),
+        staged_sign(
+            "north", description=f"{NO_PARKING} -->", arrow_direction="North", distance_ft=900.0
+        ),
+    )
+
+    assert spans(segments) == [(0, 100), (900, WHOLE_SIDE_FT)]
+    assert report.merged_repeat_spans == 0

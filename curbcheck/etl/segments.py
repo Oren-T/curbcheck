@@ -83,6 +83,8 @@ class SegmentReport:
     segments: int
     whole_side_spans: int
     arrow_extended_spans: int
+    merged_repeat_spans: int
+    """Spans absorbed into a neighbour because they state the same rule (SPEC §B.2)."""
     degenerate_spans: int
     offset_curve_fallbacks: int
     signs_used: int
@@ -149,7 +151,7 @@ def resolve_segments(
         faces.setdefault((_chain_key(snap), snap.side), []).append(snap)
 
     segments: list[RegulationSegment] = []
-    counts = {"whole": 0, "arrow": 0, "degenerate": 0, "fallback": 0, "signs": 0}
+    counts = {"whole": 0, "arrow": 0, "merged": 0, "degenerate": 0, "fallback": 0, "signs": 0}
     for (chain_key, side), members in sorted(faces.items()):
         segments.extend(_resolve_face(chain_key, side, members, parsed_actions or {}, counts))
     report = SegmentReport(
@@ -157,16 +159,18 @@ def resolve_segments(
         segments=len(segments),
         whole_side_spans=counts["whole"],
         arrow_extended_spans=counts["arrow"],
+        merged_repeat_spans=counts["merged"],
         degenerate_spans=counts["degenerate"],
         offset_curve_fallbacks=counts["fallback"],
         signs_used=counts["signs"],
     )
     LOGGER.info(
-        "segments.resolve faces=%d segments=%d whole_side=%d arrow=%d degenerate=%d",
+        "segments.resolve faces=%d segments=%d whole_side=%d arrow=%d merged=%d degenerate=%d",
         report.blockface_sides,
         report.segments,
         report.whole_side_spans,
         report.arrow_extended_spans,
+        report.merged_repeat_spans,
         report.degenerate_spans,
     )
     return segments, report
@@ -208,6 +212,7 @@ def _resolve_face(
         span = _span_for(post, by_family[post.family], others, length_ft, counts)
         spans.setdefault(span, []).append(post)
         counts["signs"] += 1
+    spans = _merge_repeated_spans(spans, counts)
 
     offset_sign, _ = side_offset_sign(line_ft, side)
     chain = _canonical_chain(block)
@@ -239,6 +244,47 @@ def _resolve_face(
             )
         )
     return resolved
+
+
+def _merge_repeated_spans(
+    spans: Mapping[tuple[float, float], list[_Post]], counts: dict[str, int]
+) -> dict[tuple[float, float], list[_Post]]:
+    """Union the spans of posts that repeat one rule and overlap or touch.
+
+    SPEC §B.2 reads a repeated sign as notice, not as a second rule: five
+    identical `<->` posts along a stretch describe one span, and leaving them as
+    five overlapping spans repeats the same curb in the ranked list and inflates
+    the count line (docs/VALIDATION.md §4 D5). Only an identical rule set merges
+    — a different sign text is a different rule and keeps its own span, however
+    much the two overlap.
+    """
+    by_rule: dict[frozenset[str], list[tuple[tuple[float, float], list[_Post]]]] = {}
+    for span, group in spans.items():
+        by_rule.setdefault(_rule_key(group), []).append((span, group))
+    merged: dict[tuple[float, float], list[_Post]] = {}
+    for items in by_rule.values():
+        for span, group in _union_touching(items, counts):
+            merged.setdefault(span, []).extend(group)
+    return merged
+
+
+def _rule_key(group: Sequence[_Post]) -> frozenset[str]:
+    """What the posts behind a span say, as the rule identity two spans share."""
+    return frozenset(strip_supersedes(post.snap.sign.sign_description.upper()) for post in group)
+
+
+def _union_touching(
+    items: Sequence[tuple[tuple[float, float], list[_Post]]], counts: dict[str, int]
+) -> list[tuple[tuple[float, float], list[_Post]]]:
+    runs: list[tuple[tuple[float, float], list[_Post]]] = []
+    for (start_ft, end_ft), group in sorted(items):
+        if runs and start_ft <= runs[-1][0][1]:
+            (run_start, run_end), members = runs[-1]
+            runs[-1] = ((run_start, max(run_end, end_ft)), [*members, *group])
+            counts["merged"] += 1
+            continue
+        runs.append(((start_ft, end_ft), list(group)))
+    return runs
 
 
 def _post_for(
