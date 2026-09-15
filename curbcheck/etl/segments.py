@@ -95,10 +95,10 @@ def strip_supersedes(description: str) -> str:
 def arrow_arity(description: str) -> Arity:
     """Read arrow arity off a sign description.
 
-    Hook: once `curbcheck.etl.parse` lands it will return arity as part of its
-    structured output and this becomes a fallback for descriptions it cannot
-    read. The geometry step cannot wait for it, because the span of a rule is
-    decided before anything is parsed.
+    Deliberately separate from the grammar's own arrow reading: a span has to be
+    computed for every sign, including the ones the grammar cannot read at all.
+    `build.run_parse` cross-checks the two and counts any disagreement into
+    `sync_meta.parse_arrow_disagreements`.
     """
     text = strip_supersedes(description.upper())
     if _DOUBLE_ARROW.search(text):
@@ -111,10 +111,10 @@ def arrow_arity(description: str) -> Arity:
 def regulation_family(sign: StagedSign, parsed_action: str | None = None) -> str:
     """Key deciding whether two posts carry "the same kind of sign" for arrow extension.
 
-    Until the parser is available this is the `sign_code` prefix before the dash
-    plus the head of the description ("NO PARKING", "NO STANDING", "HMP"), which
-    separates the families that actually subdivide a blockface. Hook: pass
-    `parsed_action` from `curbcheck.etl.parse` to key on the real action instead.
+    The `sign_code` prefix before the dash plus the rule the sign states.
+    `parsed_action` is `build.family_action` applied to the grammar's reading and
+    is the preferred half; the description's head word ("NO PARKING", "HMP") is
+    the fallback for strings the grammar cannot read.
     """
     code_prefix = sign.sign_code.split("-", 1)[0].strip() or "UNKNOWN"
     head = parsed_action or _description_head(sign.sign_description)

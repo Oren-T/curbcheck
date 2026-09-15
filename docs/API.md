@@ -269,7 +269,7 @@ method" requirement.
     }
   ],
   "meter_rates": [
-    { "blockface_id": "1322607130", "side": "W", "rate_label": "Area 1", "hour_rates": ["4.50", "5.50"], "max_session_min": 120 }
+    { "blockface_id": "100234:3681", "side": "W", "rate_label": "Zone M2", "hour_rates": ["5.00", "8.25"], "commercial_hour_rates": ["6.00", "9.00", "12.00"], "max_session_min": 120, "source": "parknyc", "confidence": 1.0 }
   ]
 }
 ```
@@ -279,12 +279,23 @@ weekday numbers with **Monday = 0** through Sunday = 6. `hour_rates` are money
 strings, first hour then second hour; stays longer than the listed hours bill
 at the last rate.
 
+A `meter_rate` row's `source` is `parknyc` when it came from the ParkNYC
+blockface join and `rate_zone` when it came from the citywide zone polygon,
+which covers a metered blockface ParkNYC does not price (SPEC §13.1c, decision
+D18). A zone row carries `confidence: 0.6`; quote it, but say where it came
+from. `commercial_hour_rates` is what the meter charges commercial plates and
+never applies to a passenger query.
+
 `capacity_approximate` is always true in v1: hydrant, driveway, and crosswalk
 setbacks are not in the data, so a car count is an upper bound (SPEC §8.5).
 `signs` lists every sign on the parent centerline segment, including the
-non-regulation panels decision D10 classifies out (`is_regulation: false`,
-`panel_class` one of `regulation`, `mta_route`, `pay_by_cell`,
-`blank_location`) — they are kept visible for audit but produce no rule.
+non-regulation panels decision D10 classifies out (`is_regulation: false`) —
+they are kept visible for audit but produce no rule. `panel_class` is
+`regulation` for a sign that states a rule, and otherwise the parser's own
+`panel:<kind>` label (`panel:pay_by_cell`, `panel:mta_route`, `panel:location`,
+`panel:template`, `panel:parking_geometry`, `panel:blank`,
+`panel:supersedes_only`); treat it as an opaque string, not a closed set
+(decision D19).
 
 A rule with `parse_method: "unparsed"` carries a placeholder `regulation` whose
 fields mean nothing — read only `raw_sign_description`, `parse_method`, and

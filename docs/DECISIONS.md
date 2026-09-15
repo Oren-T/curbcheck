@@ -221,3 +221,72 @@ file would bake a host and port into a committed artifact and would break the
 
 **Would reverse it:** a MapLibre release that resolves sprite URLs against the
 style URL, or a revendored build with a default export.
+
+## D17. A meta sign makes its post's rule stack ambiguous
+
+**Decided:** 2026-09-15. `METERS ARE NOT IN EFFECT ABOVE TIMES` (594 active
+rows, 1 distinct string) is stored as a `regulation` row like any other sign,
+but with a placeholder rule — `action=park, permitted=False, all days, no
+times, flags.meta=True` — written at `parse_confidence=0.7`. It is inserted
+into every regulation segment that carries a sign from the *same post*, not
+only the segments its own whole-blockface span produced. The metered rules on
+those segments get a `parse_notes` line naming the sibling.
+`engine.resolve.ambiguity_reason` already turns `flags.meta` into AMBIGUOUS, so
+the whole stack reaches the user as "a sign here modifies another sign".
+
+**Why:** SPEC §8.5 says a meta sign is not a standalone regulation and must be
+linked to the sibling it modifies. The sibling is the panel above it on the
+same post, and posts are where the link is visible: the meta sign carries no
+arrow, so `segments` gives it the whole blockface-side while the metered sign it
+modifies keeps a shorter arrow span, and the two would otherwise never meet in
+one stack. We cannot yet tell which times "ABOVE TIMES" points at — the longer
+form of the string says it is "TO BE USED ONLY FOR CONFLICTING STREET CLEANING
+AND METERED PARKING REGULATIONS" — so the honest answer is that the combination
+is unreadable, not a recomputed price. The placeholder is prohibitive for the
+same reason D13's is: a reader that somehow missed `flags.meta` must still err
+towards keeping the spot off the legal list. 799 of 36,518 segments are
+affected.
+
+**Would reverse it:** reading the meter hours off the sibling panel reliably
+enough to compute "meters off during the times above", which would turn these
+799 segments from ambiguous into priced.
+
+## D18. The meter join writes one row per centerline segment, and falls back on the passenger rate
+
+**Decided:** 2026-09-15. Three things about `etl/meters.py`. (a) A ParkNYC
+blockface writes one `meter_rate` row per centerline segment its chain covers,
+not one row per blockface. (b) Prices come from `all_vehi_2` / `commerci_2`,
+which hold the progressive rate string; `all_vehicl` is the session limit,
+`all_vehi_1` the hours in effect and `all_vehi_3` the maximum session *dollars*.
+(c) The rate-zone polygon fallback fires when a metered segment has no
+*passenger* rate, which includes the 620 Manhattan blockfaces ParkNYC lists
+with commercial rates only.
+
+**Why:** (a) `regulation_segment.segment_id` is the segment covering that
+span's midpoint, and `engine.search` looks a rate up by `(segment_id, side)`,
+so a blockface spanning a three-segment chain would be invisible to two thirds
+of its own spans. (b) measured against the snapshot: `all_vehi_2` is the only
+column of the four that contains a rate per hour. (c) a commercial-only row
+answers no question a passenger query asks, and the zone polygon is published
+DOT data, not a guess — it lands with `source='rate_zone'` and confidence 0.6,
+below the ambiguity threshold. Result on the 2026-09-15 snapshot: 3,561 ParkNYC
+rows and 842 zone rows, and no metered segment in Manhattan is left unpriced.
+
+**Would reverse it:** DOT publishing a blockface id on the sign or centerline
+data, which would make the name join and the per-segment explosion unnecessary.
+
+## D19. Staging and the parser share one panel classifier
+
+**Decided:** 2026-09-15. `etl/stage.py` calls `etl/parse.panel_class` and keeps
+its label verbatim, so `sign.panel_class` now holds the parser's richer values
+(`regulation`, `panel:pay_by_cell`, `panel:mta_route`, `panel:location`,
+`panel:template`, `panel:blank`, `panel:supersedes_only`,
+`panel:parking_geometry`) instead of the four-value enum it carried before.
+The dependency runs stage -> parse and never the other way.
+
+**Why:** the two classifiers disagreed. A sign staged as a regulation that the
+parser then labelled a panel produced no rule but still counted as a regulation
+row, so the coverage percentages and the row counts described different sets.
+One classifier cannot disagree with itself. The cost is a wider `panel_class`
+vocabulary in the API's `/api/segment/{id}` response, which is audit
+information the UI shows verbatim.

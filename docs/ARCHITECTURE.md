@@ -67,11 +67,13 @@ web/
    `distance_from_intersection` feet from the `from_street` node, pick the
    curb side from `side_of_street`, and offset by half the street width. The
    published x/y is only a tiebreaker and a confidence input.
-5. **segments** turns the posts on each blockface-side into regulation
-   segments: an arrow extends a rule from its post to the next post or the
-   corner; no arrow means the whole blockface.
-6. **parse** reads each distinct `sign_description` once and caches the
+5. **parse** reads each distinct `sign_description` once and caches the
    result. Unparsed strings are reported, never guessed.
+6. **segments** turns the posts on each blockface-side into regulation
+   segments: an arrow extends a rule from its post to the next post or the
+   corner; no arrow means the whole blockface. Posts are grouped into families
+   by the action step 5 read, which is why parse runs first; the same cache
+   then fills `regulation` once the spans exist.
 7. **meters** joins ParkNYC rates by normalized street names and side, with
    geometry as a check and the rate-zone polygon as the fallback.
 8. **calendar** loads the year's suspension dates.
@@ -91,8 +93,8 @@ with shapely in Python. At Manhattan scale (under 10k street segments, under
 | `street_segment` | centerline segment | `segment_id`, `street_name`, `street_norm`, `from_node`, `to_node`, `width_ft`, `length_ft`, geom, address ranges |
 | `street_node` | intersection | `node_id`, lon/lat, street names meeting there |
 | `regulation_segment` | resolved curb span | `reg_seg_id`, `segment_id`, `side`, `start_ft`, `end_ft`, geom, bbox, `length_ft`, `capacity_cars`, `capacity_approximate`, `confidence`, `derived_from` (JSON list of sign_ids) |
-| `regulation` | one parsed rule on one span | `reg_id`, `reg_seg_id`, all `Regulation` fields, `raw_sign_description`, `parse_method`, `parse_confidence` |
-| `meter_rate` | ParkNYC blockface | `blockface_id`, `segment_id`, `side`, `rate_label`, `hour_rates` (JSON), geom |
+| `regulation` | one parsed rule on one span | `reg_id`, `reg_seg_id`, all `Regulation` fields, `raw_sign_description`, `parse_method`, `parse_confidence`, `parse_notes` |
+| `meter_rate` | ParkNYC blockface × centerline segment | `blockface_id`, `segment_id`, `side`, `rate_label`, `hour_rates` (JSON), `commercial_hour_rates`, `max_session_min`, `source`, `confidence`, geom |
 | `asp_suspension` | calendar date | `date`, `is_major_legal_holiday`, `meters_suspended`, `label` |
 | `sync_meta` | key/value | last sync time, source hashes, row counts, coverage stats |
 
