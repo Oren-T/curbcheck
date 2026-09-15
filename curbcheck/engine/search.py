@@ -74,6 +74,13 @@ _REGULATION_SQL = (
 )
 # PRAGMA takes no bound parameters, so the table name is a literal here.
 _GAP_KIND_PRAGMA = "PRAGMA table_info(regulation_segment)"
+_STREET_SQL = (
+    "SELECT ss.segment_id, ss.street_name, fn.street_names AS from_names,"
+    " tn.street_names AS to_names FROM street_segment ss"
+    " LEFT JOIN street_node fn ON fn.node_id = ss.from_node"
+    " LEFT JOIN street_node tn ON tn.node_id = ss.to_node"
+    " WHERE ss.segment_id IN ("
+)
 _SIGN_SQL = "SELECT sign_id, order_number, sign_code, sign_description FROM sign WHERE sign_id IN ("
 _METER_SQL = "SELECT segment_id, side, rate_label, hour_rates FROM meter_rate WHERE segment_id IN ("
 
@@ -109,6 +116,9 @@ class SearchResult:
     metered: bool = False
     score: float = 0.0
     rate_label: str | None = None
+    # A human label for the span, e.g. "3 AVENUE, west side, E 85 ST -> E 86 ST".
+    # None when the span has no centerline segment to name it from.
+    street_name: str | None = None
     # NULL on a real span. A placeholder covering a centerline side with no
     # rules says why it is empty, so the grey state can tell a data gap
     # ('no_signs') from a matching gap ('unmatched_signs') -- a blank curb and
@@ -159,6 +169,7 @@ class _Candidate:
     sign_ids: list[str]
     walk_min: float
     gap_kind: str | None = None
+    street_name: str | None = None
 
 
 def search(
@@ -197,6 +208,7 @@ def search(
     if not candidates:
         return SearchResults(legal=[], others=[], counts=SearchCounts())
 
+    _label_candidates(conn, candidates)
     stacks = _load_stacks(conn, [candidate.reg_seg_id for candidate in candidates])
     signs = _load_signs(conn, candidates, stacks)
     meters = _load_meter_rates(conn, candidates)
@@ -290,6 +302,63 @@ def _candidates_in_radius(
             )
         )
     return candidates
+
+
+# CSCL writes street names in capitals ("3 AVENUE"); they are shown as stored,
+# because a title-cased "3 Avenue" is our text, not DOT's.
+_SIDE_WORDS = {"N": "north", "S": "south", "E": "east", "W": "west"}
+
+
+def _label_candidates(conn: sqlite3.Connection, candidates: Sequence[_Candidate]) -> None:
+    """Give every candidate a human label, in one query for the whole radius.
+
+    The label is the centerline's own street name, the side, and the cross
+    streets at the two ends of the chain, which are the names carried by the
+    nodes the segment runs between: "3 AVENUE, west side, E 85 ST → E 86 ST".
+    Without it a result card can only show the opaque `reg_seg_id`, and the
+    frontend used to buy the name back with one `/api/segment` request per card.
+    """
+    between: dict[str, str] = {}
+    segment_ids = sorted({c.segment_id for c in candidates if c.segment_id is not None})
+    for chunk in _chunked(segment_ids):
+        for row in conn.execute(_STREET_SQL + placeholders(len(chunk)) + ")", chunk):
+            street_name = _optional_str(row["street_name"])
+            if street_name:
+                between[str(row["segment_id"])] = street_name + _cross_street_phrase(
+                    street_name, row["from_names"], row["to_names"]
+                )
+    for candidate in candidates:
+        label = between.get(candidate.segment_id or "")
+        if label is None:
+            continue
+        side = _SIDE_WORDS.get(candidate.side or "")
+        candidate.street_name = _with_side(label, side) if side else label
+
+
+def _with_side(label: str, side: str) -> str:
+    """Insert the side after the street name, before the cross streets."""
+    street_name, separator, rest = label.partition(", ")
+    return f"{street_name}, {side} side{separator}{rest}"
+
+
+def _cross_street_phrase(street_name: str, from_names: Any, to_names: Any) -> str:
+    """ ", E 85 ST → E 86 ST", ", at E 85 ST", or "" when neither node names one."""
+    start = _cross_street(from_names, street_name)
+    end = _cross_street(to_names, street_name)
+    if start and end:
+        return f", {start} → {end}"
+    if start or end:
+        return f", at {start or end}"
+    return ""
+
+
+def _cross_street(names: Any, street_name: str) -> str | None:
+    """The first name on the node that is not the street the span runs along."""
+    own = street_name.casefold()
+    for name in _json_string_list(names):
+        if name and name.casefold() != own:
+            return name
+    return None
 
 
 def _load_stacks(
@@ -409,6 +478,7 @@ def _build_result(
         metered=verdict.metered,
         score=score,
         rate_label=rate_label,
+        street_name=candidate.street_name,
         gap_kind=candidate.gap_kind,
     )
 

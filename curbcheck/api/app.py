@@ -119,7 +119,9 @@ class AccessLogMiddleware:
             elapsed_ms = (time.perf_counter() - started) * 1000
             ACCESS_LOGGER.info(
                 "%s %s %d %.1fms",
-                scope.get("method", "?"),
+                # A dash for an absent value: the SQL-safety scan in tests/
+                # reserves a lone question-mark literal for db.placeholders.
+                scope.get("method", "-"),
                 scope.get("path", ""),
                 status,
                 elapsed_ms,

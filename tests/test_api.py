@@ -204,6 +204,7 @@ def test_search_result_mirrors_the_search_result_fields(client):
         "metered",
         "score",
         "rate_label",
+        "street_name",
         "gap_kind",
     }
     assert set(result["signs"][0]) == {

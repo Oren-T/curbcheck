@@ -17,9 +17,6 @@ import { markSelected, renderResults } from "./results.js";
 
 const WINDOW_HOURS = 2;
 
-// How many result cards get their street name looked up (see `hydrateLabels`).
-const LABEL_PREFETCH = 8;
-
 const dom = {
   form: document.getElementById("search-form"),
   destination: document.getElementById("destination"),
@@ -219,7 +216,6 @@ function showResponse(response, walkMinutes) {
     onSelect: (regSegId) => selectSegment(regSegId, { fly: true }),
     detailFor: (regSegId) => state.details.get(regSegId) || null,
   });
-  hydrateLabels(results);
 
   setStatus(statusLine(response.counts, results.length, walkMinutes));
 }
@@ -277,33 +273,6 @@ function renderCaveats(caveats) {
   );
 }
 
-/**
- * Fill in street names for the top of the list.
- *
- * A search result carries no street name (docs/API.md), so a card falls back to
- * the opaque `reg_seg_id`. One detail request per card would be wasteful for a
- * hundred results, but the few the user actually reads are worth the round
- * trips, and the responses are the same ones the detail panel needs next.
- */
-async function hydrateLabels(results) {
-  for (const result of results.slice(0, LABEL_PREFETCH)) {
-    if (state.resultsById.get(result.reg_seg_id) !== result) {
-      return;
-    }
-    try {
-      const detail = await api.segment(result.reg_seg_id);
-      state.details.set(result.reg_seg_id, detail);
-      const card = state.cardsById.get(result.reg_seg_id);
-      if (card) {
-        card.title.textContent = streetLabel(result, detail);
-      }
-    } catch {
-      // A label is a nicety; the card already shows the id.
-      return;
-    }
-  }
-}
-
 function selectSegment(regSegId, { fly }) {
   const result = state.resultsById.get(regSegId) || null;
   state.selectedId = regSegId;
@@ -314,7 +283,7 @@ function selectSegment(regSegId, { fly }) {
   markSelected(state.cardsById, regSegId);
   const card = state.cardsById.get(regSegId);
   if (card) {
-    card.card.scrollIntoView({ block: "nearest" });
+    card.scrollIntoView({ block: "nearest" });
   }
 
   const cached = state.details.get(regSegId);
@@ -332,10 +301,6 @@ async function loadDetail(regSegId, result) {
       return;
     }
     showDetail({ result, detail, error: null, loading: false, regSegId });
-    const card = state.cardsById.get(regSegId);
-    if (card) {
-      card.title.textContent = streetLabel(result, detail);
-    }
   } catch (error) {
     if (state.selectedId === regSegId) {
       showDetail({ result, detail: null, error: error.message, loading: false, regSegId });

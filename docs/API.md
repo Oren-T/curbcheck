@@ -159,6 +159,7 @@ point in the Bronx corner of the box simply returns no results.
       "metered": true,
       "score": 10.4,
       "rate_label": "Area 1",
+      "street_name": "3 AVENUE, west side, E 85 ST → E 86 ST",
       "gap_kind": null
     }
   ],
@@ -210,6 +211,7 @@ rows you did not get are the farthest ones.
 | `metered` | boolean | Whether any governing rule is metered. |
 | `score` | number | Ranking score: the weighted sum of walk, money, and risk. |
 | `rate_label` | string \| null | Meter zone label, when known. |
+| `street_name` | string \| null | A human label for the span: the centerline's street name, the side, and the cross streets at the ends of the chain — `"3 AVENUE, west side, E 85 ST → E 86 ST"`. Names are as CSCL stores them (capitals) and are **untrusted**, like every other text column. `null` when the span has no centerline segment to name it from. Render this on the card; do not fetch `/api/segment` for a label. |
 | `gap_kind` | `"no_signs"` \| `"unmatched_signs"` \| null | Only on a `no_data` span, and only when the database records why it is empty. `no_signs`: DOT's inventory lists no sign on this centerline side. `unmatched_signs`: DOT does publish signs here and none could be placed on the centerline. The two need different words — 520 of the 722 unmatched blockface-sides carry a NO STANDING/PARKING/STOPPING ANYTIME sign, so "no signs here" would be false about them (`docs/VALIDATION.md` §5). `null` on a real span, and on any database built before the column existed. |
 
 #### `SignRef` fields

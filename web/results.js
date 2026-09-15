@@ -21,16 +21,16 @@ import {
  * @param {HTMLElement} list
  * @param {Array<Object>} results
  * @param {{onSelect: Function, detailFor: Function}} handlers
- * @returns {Map<string, {card: HTMLElement, title: HTMLElement}>} card handles by id
+ * @returns {Map<string, HTMLElement>} the card element for each result id
  */
 export function renderResults(list, results, { onSelect, detailFor }) {
   const cards = new Map();
   replaceChildren(
     list,
     results.map((result, index) => {
-      const entry = resultCard(result, index + 1, detailFor(result.reg_seg_id), onSelect);
-      cards.set(result.reg_seg_id, entry);
-      return el("li", {}, [entry.card]);
+      const card = resultCard(result, index + 1, detailFor(result.reg_seg_id), onSelect);
+      cards.set(result.reg_seg_id, card);
+      return el("li", {}, [card]);
     }),
   );
   return cards;
@@ -38,15 +38,14 @@ export function renderResults(list, results, { onSelect, detailFor }) {
 
 /** Mark one card as the selected one and leave the rest unselected. */
 export function markSelected(cards, regSegId) {
-  for (const [id, entry] of cards) {
+  for (const [id, card] of cards) {
     const selected = id === regSegId;
-    entry.card.setAttribute("aria-pressed", String(selected));
-    entry.card.classList.toggle("card-selected", selected);
+    card.setAttribute("aria-pressed", String(selected));
+    card.classList.toggle("card-selected", selected);
   }
 }
 
 function resultCard(result, rank, detail, onSelect) {
-  const title = el("span", { className: "card-title", text: streetLabel(result, detail) });
   const card = el(
     "button",
     {
@@ -58,7 +57,7 @@ function resultCard(result, rank, detail, onSelect) {
         el("span", { className: "card-rank", text: `#${rank}` }),
         verdictBadge(result.verdict),
       ]),
-      title,
+      el("span", { className: "card-title", text: streetLabel(result, detail) }),
       el("span", { className: "card-facts" }, [
         el("span", { text: formatWalkMinutes(result.walk_min) }),
         el("span", { text: moneyLabel(result) }),
@@ -69,5 +68,5 @@ function resultCard(result, rank, detail, onSelect) {
     ],
   );
   card.addEventListener("click", () => onSelect(result.reg_seg_id));
-  return { card, title };
+  return card;
 }

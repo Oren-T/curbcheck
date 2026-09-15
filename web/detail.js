@@ -346,11 +346,15 @@ function groupRegulations(regulations) {
 }
 
 /**
- * The street label for a segment, best source first: the API's own street name,
- * then the streets the signs name, then the opaque id (SPEC §10 wants a human
- * label, but never one that is invented).
+ * The street label for a segment, best source first: the label the search
+ * result already carries, then the segment's own street name, then the streets
+ * the signs name, then the opaque id (SPEC §10 wants a human label, but never
+ * one that is invented).
  */
 export function streetLabel(result, detail) {
+  if (result && result.street_name) {
+    return result.street_name;
+  }
   const segment = detail && detail.segment ? detail.segment : null;
   if (segment && segment.street_name) {
     return segment.side ? `${segment.street_name} (${segment.side} side)` : segment.street_name;

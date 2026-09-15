@@ -335,6 +335,34 @@ def test_a_database_without_gap_kind_still_searches(conn: sqlite3.Connection) ->
     assert all(result.gap_kind is None for result in results)
 
 
+def test_each_result_carries_a_human_street_label(conn: sqlite3.Connection) -> None:
+    """SPEC §10 wants a human label; the cards used to show the opaque id instead."""
+    conn.execute(
+        "INSERT INTO street_node (node_id, lon, lat, street_names) VALUES (?,?,?,?)",
+        ("n85", ORIGIN_LON, ORIGIN_LAT, json.dumps(["3 AVENUE", "E 85 ST"])),
+    )
+    conn.execute(
+        "INSERT INTO street_node (node_id, lon, lat, street_names) VALUES (?,?,?,?)",
+        ("n86", ORIGIN_LON, ORIGIN_LAT, json.dumps(["E 86 ST", "3 AVENUE"])),
+    )
+    conn.execute(
+        "UPDATE street_segment SET from_node = ?, to_node = ? WHERE segment_id = ?",
+        ("n85", "n86", "street-seg-meter"),
+    )
+
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
+
+    assert result.street_name == "3 AVENUE, east side, E 85 ST → E 86 ST"
+
+
+def test_a_span_whose_chain_ends_name_no_cross_street_is_still_labelled(
+    conn: sqlite3.Connection,
+) -> None:
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-free")
+
+    assert result.street_name == "3 AVENUE, east side"
+
+
 def test_geometry_comes_back_as_geojson(conn: sqlite3.Connection) -> None:
     result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
 
