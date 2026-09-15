@@ -9,12 +9,16 @@ import pytest
 
 from curbcheck.db import create_schema
 from curbcheck.geocode import (
+    REVERSE_ADDRESS_MAX_M,
     AddressQuery,
+    GeocodeCandidate,
     GeocodeKind,
     IntersectionQuery,
     StreetQuery,
+    _in_coverage,
     geocode,
     parse_query,
+    reverse_geocode,
 )
 
 # A synthetic Upper East Side block, modelled on the worked example in
@@ -209,7 +213,7 @@ def test_house_number_below_every_range_falls_back_to_the_near_corner(conn):
 
 def test_street_with_no_address_ranges_falls_back_to_its_midpoint(conn):
     [candidate] = geocode(conn, "200 E 85 St")
-    assert candidate.kind == GeocodeKind.INTERSECTION
+    assert candidate.kind == GeocodeKind.STREET
     assert candidate.confidence < 0.6
     assert -73.9560 < candidate.lon < -73.9530
 
@@ -274,3 +278,108 @@ def test_missing_directional_on_a_numbered_street_tries_east_and_west(conn):
     # "W 86 ST", so both are tried and only the one in the data matches.
     [candidate] = geocode(conn, "3 Ave & 86th St")
     assert (candidate.lon, candidate.lat) == pytest.approx(NODE_86, abs=1e-9)
+
+
+# --- the second line ------------------------------------------------------
+
+
+def test_a_candidate_says_which_borough_it_is_in(conn):
+    [candidate] = geocode(conn, "1519 3 Ave")
+
+    assert candidate.secondary == "Manhattan"
+
+
+def test_a_candidate_names_the_cross_streets_when_the_block_has_them(conn):
+    """The second line is what tells two identical house numbers apart."""
+    conn.execute(
+        "UPDATE street_segment SET from_node = ?, to_node = ? WHERE segment_id = ?",
+        (f"{NODE_85[0]:.7f},{NODE_85[1]:.7f}", f"{NODE_86[0]:.7f},{NODE_86[1]:.7f}", "3681"),
+    )
+
+    [candidate] = geocode(conn, "1519 3 Ave")
+
+    assert candidate.secondary == "E 85 ST → E 86 ST"
+
+
+def test_the_candidate_list_is_never_longer_than_eight(conn):
+    for index in range(12):
+        _add_segment(
+            conn,
+            segment_id=f"dup-{index}",
+            street_name="3 AVE",
+            start=(NODE_85[0] + index * 1e-5, NODE_85[1]),
+            end=(NODE_86[0] + index * 1e-5, NODE_86[1]),
+            left=("1510", "1528"),
+            right=("1509", "1525"),
+        )
+
+    assert len(geocode(conn, "1519 3 Ave")) == 8
+
+
+def test_a_candidate_outside_coverage_is_never_offered(conn):
+    """Offering a destination and then refusing to search it is UX audit P0-3."""
+    inside = GeocodeCandidate(
+        label="3 AVE", lat=NODE_85[1], lon=NODE_85[0], kind=GeocodeKind.STREET, confidence=0.3
+    )
+    hoboken = GeocodeCandidate(
+        label="WASHINGTON ST", lat=40.7440, lon=-74.0324, kind=GeocodeKind.STREET, confidence=0.9
+    )
+
+    assert _in_coverage(conn, [hoboken, inside], 8) == [inside]
+
+
+# --- reverse --------------------------------------------------------------
+
+
+def test_a_pin_on_a_block_with_numbers_reads_back_as_an_address(conn):
+    """A pin is the one destination the user cannot read back to themselves (P1-4)."""
+    match = reverse_geocode(conn, lon=-73.95424, lat=40.77849)
+
+    assert match is not None
+    assert match.kind is GeocodeKind.ADDRESS
+    assert match.label.endswith(" 3 AVE")
+    assert match.distance_m < REVERSE_ADDRESS_MAX_M
+
+
+def test_the_interpolated_house_number_keeps_the_parity_of_its_side(conn):
+    """NYC puts odd numbers on one side and even on the other; rounding across is wrong."""
+    east = reverse_geocode(conn, lon=-73.95424, lat=40.778440)
+    west = reverse_geocode(conn, lon=-73.95431, lat=40.778513)
+
+    assert east is not None and west is not None
+    east_number = int(east.label.split(" ")[0])
+    west_number = int(west.label.split(" ")[0])
+    assert east_number % 2 != west_number % 2
+    assert 1509 <= east_number <= 1528
+    assert 1509 <= west_number <= 1528
+
+
+def test_a_pin_far_from_any_numbered_block_falls_back_to_the_corner(conn):
+    """E 85 ST publishes no ranges, so a pin on it reads back as the nearest corner."""
+    match = reverse_geocode(conn, lon=-73.95585, lat=40.77792)
+
+    assert match is not None
+    assert match.kind is GeocodeKind.INTERSECTION
+    assert "&" in match.label
+
+
+def test_a_pin_with_no_corner_nearby_reads_back_as_the_street(conn):
+    conn.execute("DELETE FROM street_node")
+
+    match = reverse_geocode(conn, lon=-73.95585, lat=40.77792)
+
+    assert match is not None
+    assert match.kind is GeocodeKind.STREET
+    assert match.label == "E 85 ST"
+
+
+def test_a_pin_with_nothing_around_it_reverses_to_nothing(conn):
+    assert reverse_geocode(conn, lon=-74.0324, lat=40.7440) is None
+
+
+def test_a_reverse_match_reports_how_far_away_it_is(conn):
+    match = reverse_geocode(conn, lon=-73.95424, lat=40.77849)
+
+    assert match is not None
+    assert match.distance_m == round(match.distance_m, 1)
+    assert 0.0 <= match.distance_m < 60.0
