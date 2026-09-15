@@ -12,13 +12,14 @@ import logging
 import math
 import sqlite3
 from collections.abc import Iterable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from shapely.errors import ShapelyError
 from shapely.geometry import Point, shape
+from shapely.geometry.base import BaseGeometry
 
 from curbcheck.db import placeholders, regulation_from_row
 from curbcheck.engine.cost import (
@@ -219,20 +220,91 @@ def search(
     signs = _load_signs(conn, candidates, stacks)
     meters = _load_meter_rates(conn, candidates)
 
-    results = []
-    for candidate in candidates:
-        verdict = evaluate_segment(stacks.get(candidate.reg_seg_id, []), t1, t2, resolved_calendar)
-        results.append(
-            _build_result(
-                candidate,
-                verdict,
-                signs.get(candidate.reg_seg_id, []),
-                meters.get((candidate.segment_id, candidate.side), []),
-                resolved_weights,
-            )
+    verdicts = {
+        candidate.reg_seg_id: evaluate_segment(
+            stacks.get(candidate.reg_seg_id, []), t1, t2, resolved_calendar
         )
+        for candidate in candidates
+    }
+    _demote_contested_spans(candidates, verdicts)
 
+    results = [
+        _build_result(
+            candidate,
+            verdicts[candidate.reg_seg_id],
+            signs.get(candidate.reg_seg_id, []),
+            meters.get((candidate.segment_id, candidate.side), []),
+            resolved_weights,
+        )
+        for candidate in candidates
+    ]
     return _split_and_cap(results, limit=limit, map_limit=map_limit)
+
+
+# Curb has to overlap by more than this before two spans are treated as covering
+# the same stretch. ~1 ft in degrees, so a shared endpoint does not count.
+_OVERLAP_EPS_DEG = 3e-6
+
+CONTESTED_REASON = (
+    "another sign on this block prohibits parking over part of this stretch; the signs conflict"
+)
+
+
+def _demote_contested_spans(
+    candidates: Sequence[_Candidate], verdicts: dict[str, SegmentVerdict]
+) -> None:
+    """Turn a legal span that a prohibition also covers into AMBIGUOUS, in place.
+
+    Spans of different sign families overlap by design: a `<->` post extends to
+    the next post of *any* family, so two adjacent posts each claim the whole
+    gap between them (docs/DECISIONS.md D20). Each span is its own row with its
+    own rule stack, so `resolve` never sees the other one's rules, and a
+    permissive span that reaches back over a `NO STANDING ANYTIME` span reads
+    LEGAL over curb that is not. That is SPEC §8.6's P0 defect, and on the
+    2026-09-15 snapshot it covers 234 legal spans in a Wednesday window.
+
+    Resolving the contest by geometry is not possible here — DOT's two posts
+    genuinely disagree about where the boundary is — so the honest state is
+    SPEC §11's "the signs conflict", never a confident green.
+    """
+    by_face: dict[tuple[str | None, str | None], list[_Candidate]] = {}
+    for candidate in candidates:
+        by_face.setdefault((candidate.segment_id, candidate.side), []).append(candidate)
+
+    for face in by_face.values():
+        if len(face) < 2:
+            continue
+        banned = [c for c in face if verdicts[c.reg_seg_id].verdict is Verdict.ILLEGAL]
+        allowed = [c for c in face if verdicts[c.reg_seg_id].verdict is Verdict.LEGAL]
+        if not banned or not allowed:
+            continue
+        shapes = {c.reg_seg_id: _line_or_none(c.geometry) for c in face}
+        for candidate in allowed:
+            line = shapes[candidate.reg_seg_id]
+            if line is None:
+                continue
+            if any(_overlaps(line, shapes[other.reg_seg_id]) for other in banned):
+                verdicts[candidate.reg_seg_id] = replace(
+                    verdicts[candidate.reg_seg_id],
+                    verdict=Verdict.AMBIGUOUS,
+                    reason=CONTESTED_REASON,
+                )
+
+
+def _line_or_none(geometry: dict[str, Any]) -> BaseGeometry | None:
+    try:
+        return shape(geometry)
+    except (ValueError, TypeError, KeyError, IndexError, AttributeError, ShapelyError):
+        return None
+
+
+def _overlaps(line: BaseGeometry, other: BaseGeometry | None) -> bool:
+    if other is None:
+        return False
+    try:
+        return bool(line.intersection(other).length > _OVERLAP_EPS_DEG)
+    except ShapelyError:
+        return False
 
 
 def _split_and_cap(results: list[SearchResult], *, limit: int, map_limit: int) -> SearchResults:

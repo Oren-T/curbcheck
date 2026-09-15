@@ -621,3 +621,111 @@ def test_an_unreadable_json_column_reads_as_empty_rather_than_raising():
 
     assert _json_string_list('["sign-1", "sign-2"]') == ["sign-1", "sign-2"]
     assert _decimal_list('["4.50"]') == [Decimal("4.50")]
+
+
+def add_overlapping_pair(conn: sqlite3.Connection) -> None:
+    """Two spans on one centerline side whose curb lines overlap, as D20 produces them.
+
+    A `NO STANDING ANYTIME <->` post and a `2 HMP <->` post 100 ft apart each
+    extend to the other, so both claim the curb between them. Each is its own
+    row with its own rule stack, so nothing in `resolve` can see the conflict.
+    """
+    lat = ORIGIN_LAT + 0.0012
+    for reg_seg_id, from_lon, to_lon in (
+        ("seg-ban", ORIGIN_LON, ORIGIN_LON + 0.0006),
+        ("seg-hmp", ORIGIN_LON + 0.0002, ORIGIN_LON + 0.0012),
+    ):
+        geom = json.dumps({"type": "LineString", "coordinates": [[from_lon, lat], [to_lon, lat]]})
+        min_lon, min_lat, max_lon, max_lat = db.geojson_bbox(geom)
+        conn.execute(
+            "INSERT INTO regulation_segment (reg_seg_id, segment_id, side, geom, min_lon,"
+            " min_lat, max_lon, max_lat, length_ft, capacity_cars, confidence, derived_from)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                reg_seg_id,
+                "street-seg-meter",
+                "E",
+                geom,
+                min_lon,
+                min_lat,
+                max_lon,
+                max_lat,
+                150.0,
+                6,
+                1.0,
+                json.dumps([f"sign-{reg_seg_id}"]),
+            ),
+        )
+    add_sign(conn, "sign-seg-ban", "NO STANDING ANYTIME <->", code="PS-2G")
+    add_regulation(
+        conn,
+        "reg-ban",
+        "seg-ban",
+        Regulation(action=Action.STAND, permitted=False),
+        raw="NO STANDING ANYTIME <->",
+    )
+    add_sign(conn, "sign-seg-hmp", "2 HMP 8AM-7PM <->")
+    add_regulation(
+        conn,
+        "reg-hmp",
+        "seg-hmp",
+        METERED_SATURDAY,
+        raw="2 HMP 8AM-7PM <->",
+    )
+    conn.commit()
+
+
+def test_a_legal_span_a_prohibition_overlaps_is_ambiguous_not_legal(
+    conn: sqlite3.Connection,
+) -> None:
+    """SPEC §8.6: a permissive span reaching over a ban must never read green."""
+    add_overlapping_pair(conn)
+
+    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+
+    assert by_id["seg-ban"].verdict is Verdict.ILLEGAL
+    assert by_id["seg-hmp"].verdict is Verdict.AMBIGUOUS
+    assert "conflict" in by_id["seg-hmp"].reason
+    # The span that is not contested keeps its verdict.
+    assert by_id["seg-meter"].verdict is Verdict.LEGAL
+
+
+def test_spans_that_only_touch_at_a_shared_end_do_not_contest_each_other(
+    conn: sqlite3.Connection,
+) -> None:
+    """Abutting spans tile the curb; treating a shared endpoint as a conflict
+    would make every blockface with two regimes ambiguous."""
+    add_overlapping_pair(conn)
+    conn.execute(
+        "UPDATE regulation_segment SET geom = ?, min_lon = ? WHERE reg_seg_id = ?",
+        (
+            json.dumps(
+                {
+                    "type": "LineString",
+                    "coordinates": [
+                        [ORIGIN_LON + 0.0006, ORIGIN_LAT + 0.0012],
+                        [ORIGIN_LON + 0.0012, ORIGIN_LAT + 0.0012],
+                    ],
+                }
+            ),
+            ORIGIN_LON + 0.0006,
+            "seg-hmp",
+        ),
+    )
+    conn.commit()
+
+    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+
+    assert by_id["seg-hmp"].verdict is Verdict.LEGAL
+
+
+def test_a_prohibition_on_the_other_side_of_the_street_does_not_contest(
+    conn: sqlite3.Connection,
+) -> None:
+    add_overlapping_pair(conn)
+    conn.execute("UPDATE regulation_segment SET side = 'W' WHERE reg_seg_id = 'seg-ban'")
+    conn.commit()
+
+    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+
+    assert by_id["seg-hmp"].verdict is Verdict.LEGAL

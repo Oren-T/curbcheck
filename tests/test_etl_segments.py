@@ -455,3 +455,33 @@ def test_a_placeholder_uses_the_side_letters_the_blocks_own_signs_use():
     assert ("avenue-0", "S") in sides
     assert ("avenue-0", "E") not in sides
     assert ("avenue-0", "W") not in sides
+
+
+def test_two_double_arrow_posts_of_different_families_each_claim_the_gap():
+    """D20's cost: the curb between two `<->` posts is claimed twice.
+
+    NO STANDING ANYTIME at 50 ft runs to the metered post at 150; the metered
+    post runs back to the ban at 50. Neither span holds the other's rule, so
+    `engine.search._demote_contested_spans` is what stops the metered span
+    reading LEGAL over the 100 ft the ban also covers (SPEC §8.6).
+    """
+    segments, _ = resolve(
+        staged_sign(
+            "ns",
+            to_street="E 2 STREET",
+            distance_ft=50.0,
+            description=f"{NO_STANDING} <->",
+            sign_code="PS-2G",
+        ),
+        staged_sign(
+            "hmp",
+            to_street="E 2 STREET",
+            distance_ft=150.0,
+            description=TWO_HOUR_METER,
+            sign_code="PS-65C",
+        ),
+    )
+
+    assert spans(segments) == [(0, 150), (50, FIRST_BLOCK_FT)]
+    banned = [segment for segment in segments if "ns" in segment.derived_from]
+    assert spans(banned) == [(0, 150)]
