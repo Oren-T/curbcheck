@@ -61,7 +61,9 @@ export function noDataExplanation(gapKind) {
  */
 export const BASIS_SENTENCE = {
   posted: "A posted sign permits parking for your whole window.",
-  absence: "No posted sign covers this window. That is not a permission — read the curb.",
+  absence:
+    "Signs are posted here, but none is in effect during your window. " +
+    "That is not a permission from a sign — read the curb.",
 };
 
 export const ILLEGAL_SENTENCE = "A posted sign prohibits parking for part or all of your window.";

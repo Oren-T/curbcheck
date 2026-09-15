@@ -77,7 +77,7 @@ export function definition(term, value) {
  * forced colours or a colour-vision deficiency flattens the hue.
  *
  * It replaces a chip that stacked a dash bar, a tick glyph and the word — three
- * marks for one fact, which read as `- - ✓ Nothing posted`.
+ * marks for one fact, which read as `- - ✓ No rule in effect`.
  */
 const CHIP_SWATCH_HEIGHT = 6;
 

@@ -411,7 +411,7 @@ def test_a_verdict_legal_only_by_absence_hides_its_confidence(client):
     [result] = body["results"]
     assert result["verdict"] == "legal"
     assert result["basis"] == "absence"
-    assert result["reason"] == "No posted rule covers this window"
+    assert result["reason"] == "No posted rule is in effect during this window"
     assert result["confidence_shown"] is False
 
 
@@ -463,7 +463,7 @@ def test_every_caveat_is_a_sentence(client):
     ).json()
     caveats = [caveat for result in body["results"] for caveat in result["caveats"]]
 
-    assert "Part of this window has no posted rule; read the curb." in caveats
+    assert "No posted rule is in effect during this window; read the curb." in caveats
     for caveat in [*caveats, *body["caveats"]]:
         assert caveat[0].isupper(), caveat
         assert caveat.endswith("."), caveat

@@ -540,7 +540,7 @@ change, but it would be a reason to store both.
 **Decided:** 2026-09-15. `SearchResult.basis` says why a LEGAL verdict is legal:
 `posted` when at least one rule in the stack permitted parking somewhere in the
 window, `absence` when no rule was in force for any part of it, `null` on the
-three non-legal verdicts. An absence verdict reads "No posted rule covers this
+three non-legal verdicts. An absence verdict reads "No posted rule is in effect during this
 window" and carries `confidence_shown: false`, as does every `no_data` span, so
 the percentage is in the audit block and not beside the verdict. Within the
 ranked legal list, spans whose cost differs by less than 0.5 min-equivalents
@@ -566,8 +566,8 @@ a span with a sign the driver can go and read, among spans that cost the same,
 spends nothing the user could perceive. It never reorders spans whose cost
 differs by more than the band.
 
-**What it does not reach:** the caveat "Part of this window has no posted rule;
-read the curb." still fires on a `posted` verdict whose window is only partly
+**What it does not reach:** the caveat "Part of this window has no posted rule in
+effect; read the curb." still fires on a `posted` verdict whose window is only partly
 covered, and that mixed case is one word in a caveat list rather than a state of
 its own. `basis` answers "was anything posted at all", not "how much of the
 window did it cover"; `intervals` already carries the latter and nothing renders

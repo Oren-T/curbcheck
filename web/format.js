@@ -73,7 +73,7 @@ export function verdictKey(verdict) {
 export function verdictChip(result) {
   const key = verdictKey(result && result.verdict);
   if (key === "legal" && result && result.basis === "absence") {
-    return { key, label: "Nothing posted", className: "verdict-absence" };
+    return { key, label: "No rule in effect", className: "verdict-absence" };
   }
   const info = VERDICT_INFO[key];
   return { key, label: info.label, className: `verdict-${key}` };

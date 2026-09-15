@@ -401,6 +401,26 @@ def test_a_school_day_rule_lifts_on_a_known_non_school_day() -> None:
     assert "School-day rule assumed active." not in verdict.caveats
 
 
+def test_a_school_day_rule_outside_the_window_adds_no_caveat() -> None:
+    """A 7AM-4PM school rule says nothing about an evening search (W 24 St, seen live)."""
+    school = Regulation(
+        action=Action.STAND,
+        permitted=False,
+        days=[0, 1, 2, 3, 4],
+        time_from="07:00",
+        time_to="16:00",
+        flags=Flags(school_days=True),
+    )
+
+    verdict = evaluate_segment(
+        stacked(school), moment("2026-09-14T20:00"), moment("2026-09-14T22:00"), EMPTY_CALENDAR
+    )
+
+    assert verdict.verdict is Verdict.LEGAL
+    assert "School-day rule assumed active." not in verdict.caveats
+    assert "No posted rule is in effect during this window; read the curb." in verdict.caveats
+
+
 def test_a_snow_emergency_rule_only_bites_when_one_is_declared() -> None:
     """SPEC §8.4 ex. 13: NO STOPPING (SNOW EMERGENCY) ANYTIME."""
     snow = Regulation(action=Action.STOP, permitted=False, flags=Flags(snow_emergency=True))

@@ -784,7 +784,7 @@ def test_a_window_no_rule_reaches_is_legal_by_absence(conn: sqlite3.Connection) 
 
     assert result.verdict is Verdict.LEGAL
     assert result.basis is VerdictBasis.ABSENCE
-    assert result.reason == "No posted rule covers this window"
+    assert result.reason == "No posted rule is in effect during this window"
     # The percentage is hidden, not the number: the audit block still shows it.
     assert result.confidence_shown is False
     assert result.confidence == pytest.approx(0.98)

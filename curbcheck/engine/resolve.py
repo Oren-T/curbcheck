@@ -40,7 +40,7 @@ CALENDAR_MISSING_CAVEAT = (
 # The reason on a span that is legal only because nothing is posted. Written as
 # a sentence, not as a phrase like the other reasons, because the UI leads the
 # card with it rather than appending it to a verdict word (UX audit P0-1).
-ABSENCE_REASON = "No posted rule covers this window"
+ABSENCE_REASON = "No posted rule is in effect during this window"
 
 # `regulation_segment.gap_kind`: why a placeholder span carries no rules at all.
 # Spelled out here rather than imported from `etl.segments`, which would pull
@@ -329,9 +329,14 @@ def _caveats(
             if not calendar.snow_emergency
             else "Snow emergency declared; snow rules are in force."
         )
-    if any(reg.flags.school_days for reg in regulations) and any(
-        not calendar.is_known_non_school_day(day) for day in dates
-    ):
+    # Only when a school-day rule actually overlaps the window: a 7AM-4PM school
+    # rule says nothing about an evening search, so the caveat would mislead.
+    school_rules = [reg for reg in regulations if reg.flags.school_days]
+    if any(
+        rule_is_active(reg, outcome.interval, calendar)
+        for reg in school_rules
+        for outcome in outcomes
+    ) and any(not calendar.is_known_non_school_day(day) for day in dates):
         caveats.append("School-day rule assumed active.")
     if any(reg.flags.temporary for reg in regulations):
         caveats.append("A sign here marks itself temporary.")
@@ -341,8 +346,10 @@ def _caveats(
         caveats.append("Street cleaning is suspended on this date.")
     if any(outcome.metered and not outcome.meter_charged for outcome in outcomes):
         caveats.append("Meters are not in effect for part of this window.")
-    if any(outcome.by_absence for outcome in outcomes):
-        caveats.append("Part of this window has no posted rule; read the curb.")
+    if all(outcome.by_absence for outcome in outcomes):
+        caveats.append("No posted rule is in effect during this window; read the curb.")
+    elif any(outcome.by_absence for outcome in outcomes):
+        caveats.append("Part of this window has no posted rule in effect; read the curb.")
     return caveats
 
 

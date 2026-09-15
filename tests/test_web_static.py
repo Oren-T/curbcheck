@@ -355,7 +355,7 @@ def test_legality_by_absence_is_never_worded_as_a_permission() -> None:
     rank = (WEB_DIR / "rank.js").read_text(encoding="utf-8")
 
     chip = formats.split("export function verdictChip")[1].split("\n}")[0]
-    assert '"Nothing posted"' in chip and 'result.basis === "absence"' in chip
+    assert '"No rule in effect"' in chip and 'result.basis === "absence"' in chip
     assert "That is not a permission" in copy
     # And it never wins a ranking by having nothing to charge for.
     assert "basisRank" in rank and 'result.basis === "posted" ? 0 : 1' in rank
