@@ -7,7 +7,13 @@ from collections import Counter
 from datetime import datetime
 
 import pytest
-from test_etl_fixtures import AVENUE_LON, CROSS_LATS, grid_rows
+from test_etl_fixtures import (
+    AVENUE_LON,
+    CROSS_LATS,
+    address_point_rows,
+    common_place_rows,
+    grid_rows,
+)
 
 from curbcheck import db
 from curbcheck.config import NYC_TZ
@@ -91,6 +97,8 @@ def write_raw(
     (directory / "centerline_manhattan.json").write_text(json.dumps(grid_rows()))
     (directory / "parknyc_blockfaces.json").write_text(json.dumps(list(blockfaces)))
     (directory / "meter_rate_zones.json").write_text(json.dumps(list(zones)))
+    (directory / "address_points_manhattan.json").write_text(json.dumps(address_point_rows()))
+    (directory / "common_places_manhattan.json").write_text(json.dumps(common_place_rows()))
     if ics is not None:
         calendar = directory / "calendar"
         calendar.mkdir(exist_ok=True)

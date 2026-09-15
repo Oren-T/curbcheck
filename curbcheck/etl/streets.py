@@ -78,6 +78,10 @@ NAME_ALIASES: dict[str, str] = {
     "6 AVE": "AVE OF THE AMERICAS",
     "AVE OF AMERICAS": "AVE OF THE AMERICAS",
     "MALCOLM X BLVD": "LENOX AVE",
+    # OTI's AddressPoint files 43 Manhattan doors under this name; CSCL has no
+    # segment for it and carries the same roadway as W 125 ST
+    # (docs/ux/AUTOCOMPLETE_RESEARCH.md §1.3).
+    "DR M L KING JR BLVD": "W 125 ST",
     "LUIS MUNOZ MARIN BLVD": "E 116 ST",
     "W 110 ST": "CATHEDRAL PKWY",
     "WILLETT ST": "BIALYSTOKER PL",

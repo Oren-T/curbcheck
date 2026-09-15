@@ -166,6 +166,73 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         label                  TEXT NOT NULL DEFAULT ''
     )
     """,
+    # The six tables below are the address suggester's vocabulary index
+    # (docs/ux/AUTOCOMPLETE_RESEARCH.md §2). They are written by
+    # `etl.addresses` and read only by `curbcheck.geocode`; nothing in the
+    # regulation pipeline joins to them.
+    """
+    CREATE TABLE IF NOT EXISTS street (
+        street_norm TEXT PRIMARY KEY,
+        display     TEXT NOT NULL,
+        lon         REAL NOT NULL,
+        lat         REAL NOT NULL
+    )
+    """,
+    # One row per spelling a person might type. `variant` leads the primary key
+    # so resolving a half-typed street is a range scan over it, and WITHOUT
+    # ROWID keeps that scan inside the key itself.
+    """
+    CREATE TABLE IF NOT EXISTS street_variant (
+        variant     TEXT NOT NULL,
+        street_norm TEXT NOT NULL,
+        PRIMARY KEY (variant, street_norm)
+    ) WITHOUT ROWID
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS address_point (
+        street_norm  TEXT NOT NULL,
+        house_number INTEGER NOT NULL,
+        display      TEXT NOT NULL,
+        zipcode      TEXT,
+        lon          REAL NOT NULL,
+        lat          REAL NOT NULL
+    )
+    """,
+    # Both orders of a corner are stored, so a lookup never has to try the pair
+    # twice and the (a_norm, b_norm) index can answer from the key alone.
+    """
+    CREATE TABLE IF NOT EXISTS intersection (
+        a_norm  TEXT NOT NULL,
+        b_norm  TEXT NOT NULL,
+        display TEXT NOT NULL,
+        lon     REAL NOT NULL,
+        lat     REAL NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS zip_centroid (
+        zipcode        TEXT PRIMARY KEY,
+        lon            REAL NOT NULL,
+        lat            REAL NOT NULL,
+        address_points INTEGER NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS place (
+        place_id    INTEGER PRIMARY KEY,
+        display     TEXT NOT NULL,
+        lon         REAL NOT NULL,
+        lat         REAL NOT NULL,
+        token_count INTEGER NOT NULL
+    )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS place_token (
+        token    TEXT NOT NULL,
+        place_id INTEGER NOT NULL,
+        PRIMARY KEY (token, place_id)
+    ) WITHOUT ROWID
+    """,
     """
     CREATE TABLE IF NOT EXISTS sync_meta (
         key        TEXT PRIMARY KEY,
@@ -181,6 +248,15 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS ix_regulation_seg ON regulation (reg_seg_id)",
     "CREATE INDEX IF NOT EXISTS ix_sign_segment ON sign (segment_id)",
     "CREATE INDEX IF NOT EXISTS ix_meter_rate_segment ON meter_rate (segment_id, side)",
+    # Covering indexes: every suggestion query is answered out of the index
+    # without touching the table, which is what holds a keystroke under a
+    # millisecond (docs/ux/AUTOCOMPLETE_RESEARCH.md §2.4).
+    "CREATE INDEX IF NOT EXISTS ix_address_point_street ON address_point"
+    " (street_norm, house_number, lon, lat, display, zipcode)",
+    # The bounding-box prefilter a dropped pin's reverse lookup runs.
+    "CREATE INDEX IF NOT EXISTS ix_address_point_lon ON address_point (lon, lat, display)",
+    "CREATE INDEX IF NOT EXISTS ix_intersection_pair ON intersection"
+    " (a_norm, b_norm, lon, lat, display)",
 )
 
 REGULATION_COLUMNS: tuple[str, ...] = (

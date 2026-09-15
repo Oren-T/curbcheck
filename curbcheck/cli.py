@@ -94,6 +94,7 @@ def _sync_summary(stats: build.BuildStats) -> list[str]:
     parse = stats.parse
     meters = stats.meters
     calendar = stats.calendar
+    addresses = stats.addresses
     by_method = ", ".join(
         f"{method} {count}" for method, count in sorted(parse.rows_by_parse_method.items())
     )
@@ -112,6 +113,9 @@ def _sync_summary(stats: build.BuildStats) -> list[str]:
         f"  calendar: {calendar.suspended_days} suspended days over "
         f"{calendar.distinct_dates} dates, {calendar.major_holidays} major legal holidays"
         + ("" if calendar.source_path else " (NO CALENDAR FILE FOUND)"),
+        f"  search:   {addresses.address_points} address points, "
+        f"{addresses.intersections} corners, {addresses.places} places, "
+        f"{addresses.street_variants} street spellings over {addresses.streets} streets",
     ]
 
 

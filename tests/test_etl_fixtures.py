@@ -257,3 +257,66 @@ def staged_sign(
         panel_class=panel_class,
         is_regulation=panel_class == REGULATION_PANEL_CLASS,
     )
+
+
+def address_point_rows() -> list[dict[str, Any]]:
+    """Doors on the grid's avenue, shaped the way AddressPoint sends them.
+
+    100 and 104 bracket a missing 102, which is what the geocoder's
+    interpolation rung exists for; 106 is on the same block so "near 108" has
+    something to be near. 7A is the suffixed form, and the last two rows are
+    the junk every snapshot carries: no geometry, and a house number that is
+    not a number.
+    """
+    return [
+        address_point_row("100", "BROAD AVE", -73.9880, 40.74930),
+        address_point_row("104", "BROAD AVE", -73.9880, 40.74970),
+        address_point_row("106", "BROAD AVE", -73.9880, 40.74990),
+        address_point_row("101", "BROAD AVE", -73.9881, 40.74935),
+        address_point_row("7", "E  2 ST", -73.9878, 40.75000, suffix="A"),
+        address_point_row("10", "MAIN ST", -73.9890, 40.75000, zipcode="10003"),
+        {"house_number": "200", "full_street_name": "BROAD AVE", "boroughcode": "1"},
+        address_point_row("REAR", "BROAD AVE", -73.9880, 40.7495),
+    ]
+
+
+def address_point_row(
+    house_number: str,
+    street: str,
+    lon: float,
+    lat: float,
+    *,
+    suffix: str | None = None,
+    zipcode: str = "10002",
+) -> dict[str, Any]:
+    row: dict[str, Any] = {
+        "boroughcode": "1",
+        "house_number": house_number,
+        "full_street_name": street,
+        "zipcode": zipcode,
+        "the_geom": {"type": "Point", "coordinates": [lon, lat]},
+    }
+    if suffix is not None:
+        row["house_number_suffix"] = suffix
+    return row
+
+
+def common_place_rows() -> list[dict[str, Any]]:
+    """Two named places plus one that only repeats a street the index already has."""
+    return [
+        {
+            "boroughcode": "1",
+            "feature_name": "GRAND CENTRAL MARKET",
+            "the_geom": {"type": "Point", "coordinates": [-73.9885, 40.7505]},
+        },
+        {
+            "boroughcode": "1",
+            "feature_name": "1 BROAD PLAZA",
+            "the_geom": {"type": "Point", "coordinates": [-73.9882, 40.7512]},
+        },
+        {
+            "boroughcode": "1",
+            "feature_name": "MAIN ST",
+            "the_geom": {"type": "Point", "coordinates": [-73.9890, 40.7500]},
+        },
+    ]

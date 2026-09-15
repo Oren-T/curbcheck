@@ -28,6 +28,7 @@ from shapely.geometry import mapping
 from curbcheck import db
 from curbcheck.config import DB_PATH, RAW_DIR
 from curbcheck.etl import fetch
+from curbcheck.etl.addresses import AddressReport, build_address_index
 from curbcheck.etl.calendar import CalendarReport, load_asp_suspensions
 from curbcheck.etl.meters import MeterReport, resolve_meter_rates
 from curbcheck.etl.parse import parse_description
@@ -159,6 +160,7 @@ class BuildStats:
     parse: ParseStats
     meters: MeterReport
     calendar: CalendarReport
+    addresses: AddressReport
     elapsed_s: float
 
     @property
@@ -384,6 +386,34 @@ def run_calendar(raw_dir: Path, conn: sqlite3.Connection) -> CalendarReport:
     return report
 
 
+def run_addresses(raw_dir: Path, conn: sqlite3.Connection) -> AddressReport:
+    """Fold AddressPoint and CommonPlace into the suggester's index (D27).
+
+    Runs after the geometry step because every street, corner and display
+    spelling in the index comes from `street_segment` and `street_node`.
+    """
+    started = time.monotonic()
+    report = build_address_index(
+        conn,
+        address_rows=fetch.load_rows("address_points_manhattan", raw_dir),
+        place_rows=fetch.load_rows("common_places_manhattan", raw_dir),
+    )
+    meta: dict[str, object] = {f"address_{key}": value for key, value in asdict(report).items()}
+    meta["address_elapsed_s"] = round(time.monotonic() - started, 2)
+    write_sync_meta(conn, meta)
+    conn.commit()
+    LOGGER.info(
+        "build.addresses points=%d streets=%d variants=%d corners=%d places=%d elapsed=%ss",
+        report.address_points,
+        report.streets,
+        report.street_variants,
+        report.intersections,
+        report.places,
+        meta["address_elapsed_s"],
+    )
+    return report
+
+
 def build_all(raw_dir: Path = RAW_DIR, out_path: Path = DB_PATH) -> BuildStats:
     """Build a complete database beside `out_path` and rename it into place.
 
@@ -402,6 +432,7 @@ def build_all(raw_dir: Path = RAW_DIR, out_path: Path = DB_PATH) -> BuildStats:
         parse = run_parse(conn)
         meters = run_meters(raw_dir, conn, graph=graph)
         calendar = run_calendar(raw_dir, conn)
+        addresses = run_addresses(raw_dir, conn)
         write_sync_meta(conn, {"last_sync_at": datetime.now(UTC).isoformat(timespec="seconds")})
         conn.commit()
     finally:
@@ -413,6 +444,7 @@ def build_all(raw_dir: Path = RAW_DIR, out_path: Path = DB_PATH) -> BuildStats:
         parse=parse,
         meters=meters,
         calendar=calendar,
+        addresses=addresses,
         elapsed_s=round(time.monotonic() - started, 2),
     )
 
