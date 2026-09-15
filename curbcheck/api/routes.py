@@ -10,9 +10,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Query, Request
@@ -104,25 +106,63 @@ _SIGN_COUNT_SQL = "SELECT count(*) FROM sign"
 router = APIRouter()
 
 
+# One read-only connection per worker thread, not per request. `sqlite3`
+# objects are bound to the thread that created them and FastAPI runs sync
+# endpoints as threadpool tasks, so the cache is thread-local and
+# `check_same_thread` stays at its safe default. The server is one worker
+# (`cli._serve`), so this is a handful of connections at most.
+_thread_state = threading.local()
+
+
 @contextmanager
 def open_database(request: Request) -> Iterator[sqlite3.Connection]:
-    """A read-only connection for the life of one request.
+    """The thread's read-only connection to the current database file.
 
-    Deliberately not a FastAPI dependency. `sqlite3` objects are bound to the
-    thread that created them, and FastAPI runs sync dependencies and sync
-    endpoints as separate threadpool tasks that need not land on the same
-    worker thread. Opening inside the endpoint keeps creation and use on one
-    thread, so `check_same_thread` stays at its safe default. Opening a SQLite
-    file costs tens of microseconds, which is nothing next to the query.
+    Opening the file is cheap; filling SQLite's page cache from it is not. A
+    connection opened per request starts with an empty cache and re-reads every
+    b-tree page it touches, which on this container's 9p data mount is ~2.5 ms
+    a page and was most of a geocode. Reusing the connection keeps those pages
+    in memory between keystrokes.
+
+    The connection is dropped and reopened when the file behind the path
+    changes, because `curbcheck sync` renames a fresh database over the old one
+    under a running server (`db.swap_in`) and an open handle would go on
+    reading the replaced inode.
     """
-    db_path = request.app.state.db_path
-    if not db_path.is_file():
+    identity = _database_identity(request.app.state.db_path)
+    if identity is None:
         raise database_unavailable()
-    connection = connect(db_path, readonly=True)
+
+    cached: tuple[tuple[str, int, int, int], sqlite3.Connection] | None = getattr(
+        _thread_state, "database", None
+    )
+    if cached is not None and cached[0] != identity:
+        cached[1].close()
+        cached = None
+    if cached is None:
+        cached = (identity, connect(request.app.state.db_path, readonly=True))
+        _thread_state.database = cached
+
+    connection = cached[1]
     try:
         yield connection
     finally:
-        connection.close()
+        if connection.in_transaction:
+            # A handler that raised inside `db.read_snapshot` would otherwise
+            # leave this connection holding the read transaction, and the next
+            # request on this thread would answer from the failed snapshot.
+            connection.rollback()
+
+
+def _database_identity(db_path: Path) -> tuple[str, int, int, int] | None:
+    """What makes this the same database file as last time, or None if it is not one."""
+    try:
+        stamp = db_path.stat()
+    except OSError:
+        return None
+    if not db_path.is_file():
+        return None
+    return (str(db_path), stamp.st_ino, stamp.st_mtime_ns, stamp.st_size)
 
 
 @router.post("/search")
@@ -246,11 +286,15 @@ def get_health(request: Request) -> dict[str, Any]:
             "coverage": None,
         }
 
+    # Deliberately its own short-lived connection rather than the thread's
+    # cached one: this is the endpoint you ask *about* the database, and a file
+    # that will not open has to answer `degraded` rather than poison the
+    # connection every other route reuses.
     connection = connect(db_path, readonly=True)
     try:
         sign_count = int(connection.execute(_SIGN_COUNT_SQL).fetchone()[0])
         no_calendar = calendar_is_missing(connection)
-        coverage = _coverage(request, connection)
+        coverage = _coverage(connection)
     except sqlite3.Error:
         # A file that exists but will not answer is a failed or partial sync,
         # which SPEC §11 says to surface rather than to hide behind a 500.
@@ -318,25 +362,15 @@ def _reverse_payload(match: ReverseMatch) -> dict[str, Any]:
     return payload
 
 
-def _coverage(request: Request, conn: sqlite3.Connection) -> dict[str, Any] | None:
-    """`{area, bbox}` for the area this database can answer about, computed once per file.
+def _coverage(conn: sqlite3.Connection) -> dict[str, Any] | None:
+    """`{area, bbox}` for the area this database can answer about.
 
-    The bbox is an aggregate over all 11,102 centerline segments, so it is
-    cached against the database file's size and mtime: `curbcheck sync` swaps
-    a new file into place under a running server, and the cache has to notice
-    that rather than describe the file it replaced.
+    The bbox is an aggregate over all 11,102 centerline segments; `engine.
+    coverage` reads it once per database file and caches it there, because the
+    radius prefilter needs the same aggregate on every request.
     """
-    stamp = request.app.state.db_path.stat()
-    key = (stamp.st_mtime_ns, stamp.st_size)
-    cached = getattr(request.app.state, "coverage", None)
-    if cached is not None and cached[0] == key:
-        summary: dict[str, Any] | None = cached[1]
-        return summary
-
     bbox = coverage_bbox(conn)
-    summary = None if bbox is None else {"area": COVERAGE_AREA, "bbox": list(bbox)}
-    request.app.state.coverage = (key, summary)
-    return summary
+    return None if bbox is None else {"area": COVERAGE_AREA, "bbox": list(bbox)}
 
 
 def _sync_summary(conn: sqlite3.Connection) -> dict[str, Any]:

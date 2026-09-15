@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -96,3 +97,44 @@ def test_the_bbox_spans_every_centerline(conn: sqlite3.Connection) -> None:
         max(NODE_85[0], NODE_86[0], FAR_NORTH[0]),
         max(FAR_NORTH[1], NODE_86[1]),
     )
+
+
+def test_a_point_near_the_far_end_of_a_long_segment_is_in_coverage(
+    conn: sqlite3.Connection,
+) -> None:
+    """The prefilter's lower bound on `min_lat` is the widest segment in the table.
+
+    A bridge centerline is a kilometre of curb in one row, so a point at its far
+    end is 1,111 m past where that row's bounding box starts. Bounding the scan
+    by anything narrower than the widest segment would refuse it.
+    """
+    add_segment(conn, "bridge", NODE_85, FAR_NORTH)
+
+    assert within_coverage(conn, lon=FAR_NORTH[0], lat=FAR_NORTH[1] - 50 / 111_132.0)
+
+
+def test_the_extent_is_reread_after_the_database_file_is_replaced(tmp_path: Path) -> None:
+    """`curbcheck sync` renames a new file over the old one under a running server."""
+    path = tmp_path / "curbcheck.sqlite"
+    build = db.connect(path)
+    db.create_schema(build)
+    add_segment(build, "3681", NODE_85, NODE_86)
+    build.commit()
+    build.close()
+
+    reader = db.connect(path, readonly=True)
+    assert coverage_bbox(reader) == (NODE_85[0], NODE_85[1], NODE_86[0], NODE_86[1])
+    reader.close()
+
+    rebuilt = tmp_path / "rebuilt.sqlite"
+    build = db.connect(rebuilt)
+    db.create_schema(build)
+    add_segment(build, "3681", NODE_85, NODE_86)
+    add_segment(build, "north", NODE_86, FAR_NORTH)
+    build.commit()
+    build.close()
+    rebuilt.replace(path)
+
+    reader = db.connect(path, readonly=True)
+    assert coverage_bbox(reader) == (NODE_85[0], NODE_85[1], NODE_86[0], FAR_NORTH[1])
+    reader.close()

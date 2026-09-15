@@ -311,6 +311,19 @@ INSERT_REGULATION_SQL = (
 )
 
 
+# SQLite's default page cache is 2 MB, and one `/api/geocode` reads more than
+# that: the suggester walks the vocabulary index and then the coverage check
+# reads centerline geometry at up to eight scattered points. At 2 MB those
+# evict each other inside a single request, so the same query cost 117 ms every
+# time on this container's 9p data mount; at 4 MB it costs 6.4 ms and stays
+# there (8 MB: 7.0 ms). 8 MB is the measured knee plus headroom, and it is per
+# connection, which is why only the read-only side takes it. Written out rather
+# than formatted from a number, because a PRAGMA is a statement and no
+# statement in this package is built by formatting
+# (`tests/test_engine_sql_safety.py`).
+READONLY_CACHE_PRAGMA = "PRAGMA cache_size = -8000"
+
+
 def connect(path: Path | str, *, readonly: bool = False) -> sqlite3.Connection:
     """Open the database with row access by name and foreign keys enforced.
 
@@ -327,6 +340,10 @@ def connect(path: Path | str, *, readonly: bool = False) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
+    if readonly:
+        # The negative value means KiB rather than pages, so the size does not
+        # change meaning with `page_size`.
+        conn.execute(READONLY_CACHE_PRAGMA)
     if not readonly and str(path) != ":memory:":
         # Deliberately not WAL: a WAL database needs write access to its -shm
         # file, which a mode=ro connection on a read-only file cannot get

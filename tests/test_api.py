@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import warnings
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
     from fastapi.testclient import TestClient
 
+from curbcheck.api import routes
 from curbcheck.api.app import CONTENT_SECURITY_POLICY, create_app
 from curbcheck.api.routes import ASP_SUSPENSION_CAVEAT, TEMPORARY_SIGNAGE_CAVEAT
 from curbcheck.db import create_schema, days_to_mask
@@ -180,10 +182,28 @@ def basemap(tmp_path: Path) -> Path:
 
 
 @pytest.fixture
-def client(tmp_path: Path, web_dir: Path, basemap: Path) -> TestClient:
-    db_path = tmp_path / "curbcheck.sqlite"
-    _build_database(db_path)
+def db_path(tmp_path: Path) -> Path:
+    path = tmp_path / "curbcheck.sqlite"
+    _build_database(path)
+    return path
+
+
+@pytest.fixture
+def client(db_path: Path, web_dir: Path, basemap: Path) -> TestClient:
     return TestClient(create_app(db_path, web_dir=web_dir, basemap_path=basemap))
+
+
+@pytest.fixture
+def served_client(db_path: Path, web_dir: Path, basemap: Path) -> Iterator[TestClient]:
+    """`client`, entered as a context manager, which is what a running server is.
+
+    Entered, the client holds one portal and one worker-thread pool for every
+    request, the way uvicorn does. The plain fixture builds a portal per
+    request, so anything about state kept *between* requests has to be asked
+    of this one.
+    """
+    with TestClient(create_app(db_path, web_dir=web_dir, basemap_path=basemap)) as entered:
+        yield entered
 
 
 @pytest.fixture
@@ -843,6 +863,45 @@ def test_every_result_carries_the_caveat_when_the_calendar_is_missing(client, tm
     assert body["results"]
     for result in body["results"]:
         assert CALENDAR_MISSING_CAVEAT in result["caveats"]
+
+
+def _rebuilt_database(source: Path, destination: Path, last_sync_at: str) -> None:
+    """Build a second database and rename it over `destination`, as `db.swap_in` does."""
+    _build_database(source)
+    conn = sqlite3.connect(source)
+    conn.execute("UPDATE sync_meta SET value = ? WHERE key = 'last_sync_at'", (last_sync_at,))
+    conn.commit()
+    conn.close()
+    source.replace(destination)
+
+
+def test_the_database_is_opened_once_and_the_connection_reused(served_client, monkeypatch):
+    """Per-request opens start with an empty page cache, which is most of a geocode."""
+    opened = []
+    real_connect = routes.connect
+
+    def counting_connect(path, *, readonly=False):
+        opened.append(path)
+        return real_connect(path, readonly=readonly)
+
+    monkeypatch.setattr(routes, "connect", counting_connect)
+    for _ in range(3):
+        assert served_client.get("/api/sync-status").status_code == 200
+
+    assert len(opened) == 1
+
+
+def test_a_database_swapped_in_under_the_server_is_picked_up(served_client, db_path, tmp_path):
+    """`curbcheck sync` renames a fresh file over the old one while the server runs."""
+    assert (
+        served_client.get("/api/sync-status").json()["last_sync_at"] == "2026-09-14T22:05:11-04:00"
+    )
+
+    _rebuilt_database(tmp_path / "rebuilt.sqlite", db_path, "2026-09-16T08:00:00-04:00")
+
+    assert (
+        served_client.get("/api/sync-status").json()["last_sync_at"] == "2026-09-16T08:00:00-04:00"
+    )
 
 
 def test_sync_status_returns_the_meta_table_as_strings(client):
