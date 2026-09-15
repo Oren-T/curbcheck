@@ -1,11 +1,10 @@
-# Conda environment — the Python counterpart to r-packages.txt.
+# Conda environment for the dev container. Read at image build time, so a
+# Rebuild Container reproduces exactly this environment.
 #
-# Copy to <your-project>/environment.yml and edit. Read at image build time
-# when INSTALL_PYTHON is "true", so a Rebuild Container reproduces exactly
-# this environment. Commit it to git.
+# It carries only the interpreter, pip, and the Jupyter kernel the container
+# requires. Application packages are hash-pinned in requirements*.txt and
+# installed with pip; see docs/DECISIONS.md D7.
 
-# Required. The container reads the first top-level `name:` line and activates
-# this env in every shell. A leading comment or `---` above it is fine.
 name: curbcheck
 
 channels:
@@ -19,17 +18,4 @@ dependencies:
   # Pin the interpreter so rebuilds don't drift onto a new minor version.
   - python=3.12.13
 
-  - pandas=3.0.5
-  - numpy=2.5.2
-  - matplotlib=3.11.1
-  - openpyxl=3.1.5
-  - seaborn=0.13.2
-  - jupyter=1.1.1
-  - nbformat=5.11.0
-
-  # Pin any package the same way, with a single `=`.
-  # - polars=1.9.0
-
-  # Anything not on conda-forge goes here.
   - pip
-  - pip:

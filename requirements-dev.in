@@ -1,0 +1,12 @@
+# Development and CI dependencies. Includes everything in requirements.in so
+# one environment can lint, type-check, test, and run the app.
+
+-r requirements.in
+
+ruff
+mypy
+pytest
+pytest-cov
+pip-audit
+uv
+types-shapely

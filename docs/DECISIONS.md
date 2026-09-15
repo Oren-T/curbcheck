@@ -83,3 +83,19 @@ with hashes in `requirements.txt` and `requirements-dev.txt` and installed with
 
 **Why:** The spec requires hash-pinned installs (threat T1). Conda environment
 files cannot express hashes.
+
+## D8. geopandas is dropped from the dependency tree
+
+**Decided:** 2026-09-14. ETL uses shapely and plain dicts. No geopandas, and
+therefore no pandas or pyarrow.
+
+**Why:** The spec (§4.1) already listed geopandas as "kept but flagged as a
+rejection candidate," conditional on DuckDB spatial covering the ETL joins.
+D4 removed DuckDB, so the question became whether geopandas earns its tree on
+its own. It does not: the joins are over 75,865 sign rows and 9,297 street
+segments, which a dict keyed by blockface handles directly, and every geometry
+operation needed is a shapely call. Dropping it removes pandas, pyarrow, and
+fiona from the install.
+
+**Would reverse it:** an ETL step that genuinely needs grouped tabular
+operations at a size where dict-based code gets slow or unreadable.

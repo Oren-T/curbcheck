@@ -1,0 +1,12 @@
+# Runtime dependencies. Edit here, then recompile per docs/DEPENDENCIES.md.
+# Versions are floored, not capped; requirements.txt holds the exact pins.
+
+shapely
+pyproj
+fastapi
+uvicorn
+# Transitive via uvicorn. Pinned directly because GHSA-vqfr-h8mv-ghfj
+# (lenient Chunked-Encoding parsing) is fixed in 0.16.0.
+h11>=0.16.0
+pydantic
+httpx
