@@ -82,11 +82,15 @@ CASES = (
     # SPEC §9.3c: a street-cleaning rule lifts on an ASP suspension date. Holy
     # Thursday 2026-04-02 is in the calendar and is a Thursday, which is one of
     # this sign's two broom days, so the rule that would otherwise bite does not.
+    # The case used to sit on a CHERRY ST span that read legal only because a
+    # NO STANDING ANYTIME span overlapped it unseen; docs/DECISIONS.md D25 put
+    # the ban into that stack, so it moved to a block the broom sign has to
+    # itself. W 24 ST side N reads illegal on an ordinary Thursday at this hour.
     Case(
         "broom block on an ASP suspension Thursday (Holy Thursday)",
-        "64a79e8c0273121e",
-        40.712408,
-        -73.978553,
+        "e6b49065d8d6334a",
+        40.747801,
+        -74.002240,
         *at(2026, 4, 2, 11, 12),
         "legal",
         "0.00",
@@ -112,9 +116,9 @@ CASES = (
     # two independent reasons to refuse, and the verdict must still be illegal.
     Case(
         "3-hour window on a 1-hour (commercial) meter",
-        "f9a954a8d4a87130",
-        40.753260,
-        -73.999962,
+        "f7701eadc3608d4f",
+        40.744176,
+        -73.990021,
         *at(2026, 9, 16, 10, 13),
         "illegal",
         None,
