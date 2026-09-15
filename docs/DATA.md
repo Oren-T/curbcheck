@@ -535,6 +535,8 @@ rather than fetching `npm-style.protomaps.dev` at runtime.
 
 ## 6. Scripts
 
+The `explore_*` profilers that produced every number above:
+
 | Script | Produces |
 |---|---|
 | `explore_fetch.py` | `data/raw/*.json` + `.meta.json` |
@@ -548,3 +550,10 @@ rather than fetching `npm-style.protomaps.dev` at runtime.
 
 They are stdlib-only (shapely and pyproj are pinned for the package but were
 not importable while this profile was made) and read-only against `data/raw/`.
+
+`scripts/` also holds four scripts that are not profilers and do write:
+`fetch_basemap_assets.py` vendors the style, glyphs and sprites into
+`web/basemap/` (§5, `--check` verifies instead of writing), `parse_report.py`
+and `eval_gold.py` score the grammar against the corpus and the gold set, and
+`smoke_search.py` runs a query against the built database. `dev_mock_server.py`
+serves canned API responses for working on the frontend alone.
