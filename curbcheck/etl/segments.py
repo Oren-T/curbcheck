@@ -1,10 +1,17 @@
 """Turn snapped sign posts into the curb spans each regulation governs.
 
 SPEC §B.2 picks arrow-direction extrapolation: a one-way arrow runs from its
-post to the next post carrying the same kind of sign, or to the corner; a sign
-with no arrow governs the whole blockface, which is also what 34 RCNY 4-08 says
-about a single authorized sign. The arrow's *arity* is read from the glyph and
-its *bearing* from `arrow_direction` (docs/DECISIONS.md D3 refined).
+post to the next post carrying the same kind of sign, or to the corner; a
+two-way arrow runs each way to the post that says where its own rule stops
+(docs/DECISIONS.md D20); a sign with no arrow governs the whole blockface, which
+is what 34 RCNY 4-08 says about a single authorized sign. The arrow's *arity*
+comes from the grammar's reading of the sign and its *bearing* from
+`arrow_direction` (docs/DECISIONS.md D3 refined).
+
+Two passes follow the extrapolation: posts that repeat one rule over a stretch
+have their spans unioned (D5 in docs/VALIDATION.md §4), and every street side
+left with no span at all gets a placeholder so the map can say "no data" rather
+than draw nothing (docs/DECISIONS.md D23).
 """
 
 from __future__ import annotations

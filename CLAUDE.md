@@ -53,10 +53,11 @@ curbcheck parse-report   Grammar coverage over the description corpus
 
 ## Where it stands (2026-09-15 snapshot)
 
-74,590 active Manhattan signs → 95.0% snapped, 93.8% of blockface-sides
-covered, 36,518 curb spans, 99.83% of regulation rows parsed by the grammar,
-100% semantic / zero false-permitted on the 520-description gold set, 0 of
-6,539 metered segments unpriced.
+74,590 active Manhattan signs → 96.4% snapped, 95.8% of blockface-sides
+covered, 28,360 curb spans plus 5,656 grey placeholders for the street sides
+with no rule at all, 99.94% of regulation rows parsed by the grammar, 100%
+semantic / zero false-permitted on the 520-description gold set, 0 of 5,356
+metered segments unpriced.
 
 ## Non-negotiables
 

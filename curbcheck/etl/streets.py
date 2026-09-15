@@ -78,6 +78,7 @@ NAME_ALIASES: dict[str, str] = {
     "6 AVE": "AVE OF THE AMERICAS",
     "AVE OF AMERICAS": "AVE OF THE AMERICAS",
     "MALCOLM X BLVD": "LENOX AVE",
+    "LUIS MUNOZ MARIN BLVD": "E 116 ST",
     "W 110 ST": "CATHEDRAL PKWY",
     "WILLETT ST": "BIALYSTOKER PL",
     "ADAM C POWELL BLVD": "ADAM CLAYTON POWELL JR BLVD",
@@ -93,11 +94,10 @@ NAME_ALIASES: dict[str, str] = {
     "F D R DR": "FRANKLIN D ROOSEVELT DR",
     "G WASHINGTON BRG": "GEORGE WASHINGTON BRG",
     "QUEENSBORO BRG": "ED KOCH QUEENSBORO BRG",
+    "QUEENSBOROUGH BRG": "ED KOCH QUEENSBORO BRG",
     "N D PERLMAN PL": "NATHAN D PERLMAN PL",
     "ROBERT F WAGNER PL": "R F WAGNER SR PL",
     "ROBERT F WAGNER SR PL": "R F WAGNER SR PL",
-    "QUEENSBOROUGH BRG": "ED KOCH QUEENSBORO BRG",
-    "LUIS MUNOZ MARIN BLVD": "E 116 ST",
     "CORBIN DR": "MARGARET CORBIN DR",
     # Word-spacing disagreements between the two datasets.
     "MACDOUGAL ST": "MAC DOUGAL ST",
@@ -179,9 +179,9 @@ class NameMatch(StrEnum):
     ALIAS = "alias"
     FUZZY = "fuzzy"
     DEAD_END = "dead_end"
+    """`DEAD END` resolved to the street's own terminal node by walking the chain."""
     INFERRED = "inferred"
     """The name is in no centerline row; the block was inferred from the other corner."""
-    """`DEAD END` resolved to the street's own terminal node by walking the chain."""
     NOT_A_STREET = "not_a_street"
     MISSING = "missing"
 
