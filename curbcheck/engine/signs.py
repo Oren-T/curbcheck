@@ -69,8 +69,9 @@ class SignDetail:
     # DOT's `distance_from_intersection` is in feet; the unit is in the name so
     # the UI can print it without going back to the dataset to find out.
     distance_ft: float | None
-    # DOT's own bearing word for the arrow on the post ("N", "NE"), null when
-    # the sign carries no arrow. Which way that points *along this curb* is the
+    # DOT's own bearing word for the arrow on the post: "North", "South",
+    # "East", "West", or null on the 73.5% of signs with no arrow
+    # (docs/DATA.md §1.6). Which way that points *along this curb* is the
     # resolved `arrow` on each rule, not this.
     arrow: str | None
     snap_confidence: float | None
@@ -163,6 +164,11 @@ def _unmatched_on_blockface(
     cross streets have to be streets that meet this segment — unless one of the
     names is in no centerline row at all, which is the case that produced the
     miss in the first place (docs/VALIDATION.md §4 D4).
+
+    Costs one indexed pass over the signs that never snapped -- 2,700 rows on
+    the 2026-09-15 database, of which a side letter keeps a few hundred -- and,
+    only for a partial cross-street match, one scan of the 1,017 street names.
+    Just 499 of the 5,648 placeholder spans reach this path at all.
     """
     if side is None:
         return []

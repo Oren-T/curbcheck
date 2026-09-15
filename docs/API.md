@@ -331,7 +331,7 @@ method" requirement.
       "side_of_street": "W",
       "distance_from_intersection": 232.0,
       "distance_ft": 232.0,
-      "arrow": "N",
+      "arrow": "North",
       "snap_confidence": 0.94,
       "snap_notes": "",
       "is_regulation": true,
@@ -394,8 +394,9 @@ Both groups include the non-regulation panels decision D10 classifies out
 (`is_regulation: false`) — kept visible for audit, producing no rule.
 `distance_ft` is `distance_from_intersection` under a name that states DOT's
 unit; both are returned, and they are always equal. `arrow` is DOT's own
-`arrow_direction` compass word for the arrow on the post (`"N"`, `"NE"`), null
-when the sign carries no arrow — which way that points *along this curb* is the
+`arrow_direction` compass word for the arrow on the post — `"North"`,
+`"South"`, `"East"` or `"West"` — and null on the 73.5% of signs that carry no
+arrow — which way that points *along this curb* is the
 resolved `arrow` on each rule, not this one. `panel_class` is
 `regulation` for a sign that states a rule, and otherwise the parser's own
 `panel:<kind>` label (`panel:pay_by_cell`, `panel:mta_route`, `panel:location`,
