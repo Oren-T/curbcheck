@@ -167,3 +167,34 @@ and forces the whole segment to AMBIGUOUS.
 If an unreadable sign produced no row, a blockface whose only other sign says
 "2 HOUR PARKING" would come back a confident LEGAL with the dangerous sign
 invisible. See `docs/ARCHITECTURE.md` and SPEC §11.
+
+## D14. The CSP adds `worker-src 'self' blob:`
+
+**Decided:** 2026-09-14. The Content-Security-Policy the server sets is SPEC
+§3.4's string plus one directive: `worker-src 'self' blob:`.
+
+**Why:** the vendored `web/vendor/maplibre-gl/maplibre-gl.mjs` starts its
+worker from `URL.createObjectURL(new Blob([...], {type: 'text/javascript'}))`.
+Under `default-src 'self'` with no `worker-src`, that URL is blocked and the
+map never renders. The directive is scoped to workers, so it does not widen
+`script-src`, and `blob:` was already allowed for `img-src` by the spec's own
+string. Verified by reading the vendored file rather than assumed;
+`tests/test_api.py` pins the exact header.
+
+**Would reverse it:** revendoring MapLibre as a build that loads its worker
+module by URL (`new Worker(url, {type: 'module'})` against a real path), which
+would make `worker-src 'self'` sufficient.
+
+## D15. `curbcheck serve` starts without a database
+
+**Decided:** 2026-09-14. A missing `data/curbcheck.sqlite` prints a line
+naming `curbcheck sync` and the server starts anyway. `/api/health` reports
+`status: "degraded"`, and every data endpoint answers 503 with the same
+instruction.
+
+**Why:** SPEC §11 is about surfacing failure rather than hiding it, and the
+surface the user is looking at is the page. Refusing to boot leaves a
+first-time user with a terminal message and no app; booting leaves them with a
+loaded UI that says what to run next. It also keeps `/api/health` honest,
+which is the endpoint whose whole job is to answer questions about the
+database.
