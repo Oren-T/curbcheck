@@ -10,11 +10,16 @@ returning something?
 
     python scripts/validation_regress.py [--db data/curbcheck.sqlite]
                                          [--baseline data/curbcheck.sqlite.prev]
+    python scripts/validation_regress.py --overlaps
 
 With `--baseline`, a side DOT agreed with must still read the same way; the
 baseline database is where "the same way" comes from, because §2 records
 agreement rather than the verdict itself. Exit status is the number of sides
 that need a human to look at them.
+
+`--overlaps` checks docs/DECISIONS.md D25's invariant instead: no two real
+spans on one blockface-side may cover the same foot of curb. Exit status is the
+number of overlapping pairs, which has to be zero.
 """
 
 from __future__ import annotations
@@ -25,21 +30,40 @@ import re
 import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
+from itertools import combinations
 from pathlib import Path
+
+from shapely.geometry.base import BaseGeometry
 
 from curbcheck import db
 from curbcheck.config import DB_PATH, NYC_TZ, REPO_ROOT
 from curbcheck.engine.resolve import RegulationWithMeta, Verdict, evaluate_segment
-from curbcheck.engine.search import load_calendar
+from curbcheck.engine.search import _OVERLAP_EPS_DEG, _line_or_none, load_calendar
 from curbcheck.model import ParseMethod
 
 VALIDATION_MD = REPO_ROOT / "docs" / "VALIDATION.md"
+
+# Only used to turn a shared length in degrees into feet for the report.
+_FT_PER_DEG_LAT = 364_000.0
+# Bucket size for the overlap grid hash. 0.002 deg is about 700 ft, so a
+# blockface lands in one or two cells and no cell holds many spans.
+_GRID_DEG = 0.002
+# Two spans cut from one curb line are collinear in intent but not in floating
+# point: `substring` rounds the shared endpoint, which leaves GEOS reading a
+# prefix and its parent as crossing at a point rather than overlapping. The
+# overlap is therefore measured against a ribbon this wide, ~0.004 ft, which is
+# far under the 0.01 ft the ETL quantizes spans to and far over the noise.
+_COLLINEAR_EPS_DEG = 1e-8
 
 # SPEC §13.3's three windows, the ones §2's W/S/Su columns were scored over.
 WINDOWS = (
     ("W", datetime(2026, 9, 16, 10, 0, tzinfo=NYC_TZ), datetime(2026, 9, 16, 12, 0, tzinfo=NYC_TZ)),
     ("S", datetime(2026, 9, 19, 9, 0, tzinfo=NYC_TZ), datetime(2026, 9, 19, 11, 0, tzinfo=NYC_TZ)),
-    ("Su", datetime(2026, 9, 20, 14, 0, tzinfo=NYC_TZ), datetime(2026, 9, 20, 16, 0, tzinfo=NYC_TZ)),
+    (
+        "Su",
+        datetime(2026, 9, 20, 14, 0, tzinfo=NYC_TZ),
+        datetime(2026, 9, 20, 16, 0, tzinfo=NYC_TZ),
+    ),
 )
 
 _SEGMENT_SQL = (
@@ -47,6 +71,12 @@ _SEGMENT_SQL = (
     " ORDER BY start_ft, end_ft"
 )
 _RULES_SQL = "SELECT * FROM regulation WHERE reg_seg_id = ?"
+# Real spans only: a placeholder covers its whole side by construction (D23) and
+# is written only where no real span does, so it can never contest one.
+_OVERLAP_SQL = (
+    "SELECT reg_seg_id, segment_id, side, geom FROM regulation_segment"
+    " WHERE derived_from != '[]' ORDER BY segment_id, side, start_ft, end_ft"
+)
 
 # A row of §1's sample table: "| 9 | village/stacked | 8 AVE | E | ... | 1100 |".
 _SAMPLE_ROW = re.compile(
@@ -178,12 +208,80 @@ def status(
     return f"REVIEW: recorded {'/'.join(sample.recorded)}"
 
 
+def overlapping_pairs(conn: sqlite3.Connection) -> list[tuple[str, str, float]]:
+    """Every pair of real spans on one curb side that cover the same stretch of it.
+
+    docs/DECISIONS.md D25 makes this empty: `etl.segments` cuts a blockface-
+    side's spans at every boundary before writing them. Compared on the curb
+    geometry rather than on `start_ft`/`end_ft`, for two reasons: feet are
+    measured along a chain, and two spans can reach one stretch of curb from
+    different chains or be filed under different segments of the same chain.
+    That also makes this the test `engine.search._demote_contested_spans`
+    applies at query time, run over the whole borough instead of one radius.
+
+    Pairs are found through a grid hash on the bounding box, because comparing
+    all 28,000-odd spans against each other is 400 million shapely calls.
+    """
+    cells: dict[tuple[str, int, int], list[int]] = {}
+    spans: list[tuple[str, BaseGeometry]] = []
+    for row in conn.execute(_OVERLAP_SQL):
+        line = _line_or_none(json.loads(str(row["geom"])))
+        if line is None:
+            continue
+        index = len(spans)
+        spans.append((str(row["reg_seg_id"]), line))
+        min_lon, min_lat, max_lon, max_lat = line.bounds
+        for lon_cell in range(int(min_lon / _GRID_DEG), int(max_lon / _GRID_DEG) + 1):
+            for lat_cell in range(int(min_lat / _GRID_DEG), int(max_lat / _GRID_DEG) + 1):
+                cells.setdefault((str(row["side"]), lon_cell, lat_cell), []).append(index)
+
+    ribbons = [line.buffer(_COLLINEAR_EPS_DEG) for _, line in spans]
+    found: dict[tuple[int, int], float] = {}
+    for members in cells.values():
+        for left, right in combinations(sorted(set(members)), 2):
+            if (left, right) in found:
+                continue
+            shared_deg = spans[left][1].intersection(ribbons[right]).length
+            if shared_deg > _OVERLAP_EPS_DEG:
+                found[(left, right)] = shared_deg * _FT_PER_DEG_LAT
+    return [
+        (spans[left][0], spans[right][0], round(shared_ft, 1))
+        for (left, right), shared_ft in sorted(found.items())
+    ]
+
+
+def report_overlaps(conn: sqlite3.Connection) -> int:
+    found = overlapping_pairs(conn)
+    total = conn.execute(
+        "SELECT COUNT(*) FROM regulation_segment WHERE derived_from != '[]'"
+    ).fetchone()[0]
+    print(f"{total} real spans checked against docs/DECISIONS.md D25's non-overlap invariant")
+    for left, right, shared_ft in found[:20]:
+        print(f"  {left} and {right} share {shared_ft} ft of curb")
+    if len(found) > 20:
+        print(f"  ... and {len(found) - 20} more")
+    print(f"{len(found)} overlapping pair(s)")
+    return len(found)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", type=Path, default=DB_PATH)
     parser.add_argument("--baseline", type=Path, default=None)
     parser.add_argument("--json", type=Path, default=None)
+    parser.add_argument(
+        "--overlaps",
+        action="store_true",
+        help="check D25's non-overlap invariant instead of the 30 sampled sides",
+    )
     args = parser.parse_args()
+
+    if args.overlaps:
+        conn = _open(args.db)
+        try:
+            return report_overlaps(conn)
+        finally:
+            conn.close()
 
     samples = parse_validation(VALIDATION_MD)
     conn = _open(args.db)
