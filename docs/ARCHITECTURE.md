@@ -220,10 +220,12 @@ request.** `api/routes.open_database` caches it in a `threading.local`, so
 default; the cache is dropped and reopened when the file's inode, mtime or size
 changes, which is how a `curbcheck sync` that renames a new database into place
 is picked up without a restart. The connection is worth keeping because
-`db.connect(readonly=True)` gives it an 8 MB page cache: at SQLite's 2 MB
+`db.connect(readonly=True)` gives it a 48 MB page cache: at SQLite's 2 MB
 default the vocabulary index and the coverage geometry evict each other inside
 a single `/api/geocode`, which cost 488 ms a keystroke on this container's data
-mount and costs 22 ms now. `engine.coverage` caches the centerline's extent
+mount and costs 22 ms now; and a 30-minute walk radius touches ~30 MB of
+scattered pages, so anything under that makes every repeat search re-read the
+file (3.1 s at 8 MB, 0.9 s at 48 MB). `engine.coverage` caches the centerline's extent
 against the same file identity, because both the radius prefilter and
 `/api/health` want that aggregate on every request.
 
