@@ -54,7 +54,7 @@ FUZZY_CONFIDENCE_PENALTY = 0.8
 class GeocodeKind(StrEnum):
     """What a candidate *is*, which is what decides the icon and the second line.
 
-    PIN is the one value this module never returns: it is what the frontend
+    PIN is the one value the geocoder never returns: it is what the frontend
     labels a crosshair the user has not dropped yet. Everything else here is
     produced by `suggest` or `reverse_geocode`.
     """

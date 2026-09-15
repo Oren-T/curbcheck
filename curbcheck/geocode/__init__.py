@@ -6,8 +6,8 @@ fires per keystroke would leak the typing rather than just the answer (SPEC
 §3.1 threat T6, §10; `docs/ux/AUTOCOMPLETE_RESEARCH.md` §3 surveys the online
 options and rejects all of them).
 
-The index `etl.addresses` builds is a *vocabulary* index, so this module parses
-first and looks up second. The only hard part of a Manhattan query is the
+The index `etl.addresses` builds is a *vocabulary* index, so this package
+parses first and looks up second. The only hard part of a Manhattan query is the
 street name — the house number is an integer and the grammar is tiny — so the
 ETL pre-expands every street into the spellings a person might type and a
 typed street resolves in one prefix range-scan. Tolerance falls out of that:
