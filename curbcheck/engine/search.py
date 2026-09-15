@@ -2,7 +2,9 @@
 
 Shape of the work: bbox prefilter in SQL, exact distance in Python with
 shapely, one batched query per kind of related row (never one per candidate),
-then verdict, price, and rank.
+then verdict, price, and rank. The street label and the raw sign text are
+fetched last, for the spans the caps kept, because nothing before the cap reads
+them.
 """
 
 from __future__ import annotations
@@ -226,9 +228,7 @@ def search(
     if not candidates:
         return SearchResults(legal=[], others=[], counts=SearchCounts())
 
-    _label_candidates(conn, candidates)
     stacks = _load_stacks(conn, [candidate.reg_seg_id for candidate in candidates])
-    signs = _load_signs(conn, candidates, stacks)
     meters = _load_meter_rates(conn, candidates)
 
     verdicts = {
@@ -247,13 +247,13 @@ def search(
         _build_result(
             candidate,
             verdicts[candidate.reg_seg_id],
-            signs.get(candidate.reg_seg_id, []),
             meters.get((candidate.segment_id, candidate.side), []),
             resolved_weights,
         )
         for candidate in candidates
     ]
-    return _split_and_cap(results, limit=limit, map_limit=map_limit)
+    found = _split_and_cap(results, limit=limit, map_limit=map_limit)
+    return _attach_details(conn, found, candidates, stacks)
 
 
 # Curb has to overlap by more than this before two spans are treated as covering
@@ -346,6 +346,42 @@ def _split_and_cap(results: list[SearchResult], *, limit: int, map_limit: int) -
     kept = sorted(others, key=lambda result: (result.walk_min, result.reg_seg_id))[:map_limit]
     kept.sort(key=lambda result: (_VERDICT_ORDER[result.verdict], result.score, result.reg_seg_id))
     return SearchResults(legal=legal[:limit], others=kept, counts=_count_verdicts(results))
+
+
+def _attach_details(
+    conn: sqlite3.Connection,
+    found: SearchResults,
+    candidates: Sequence[_Candidate],
+    stacks: dict[str, list[RegulationWithMeta]],
+) -> SearchResults:
+    """Add the street label and the raw sign text to the spans that survived the caps.
+
+    Neither one reaches the ranking — the caps are decided on verdict, cost and
+    walk time — and both are the expensive half of the query: on a 30-minute
+    radius the sign rows alone are ~10,000 random reads over an 18 MB table,
+    and a little over half of the 4,440 spans in radius are then dropped by
+    `limit` and `map_limit`. Fetching them after the cap is the same answer for
+    half the reads.
+    """
+    kept = found.all
+    by_id = {candidate.reg_seg_id: candidate for candidate in candidates}
+    wanted = [by_id[result.reg_seg_id] for result in kept]
+    _label_candidates(conn, wanted)
+    signs = _load_signs(conn, wanted, stacks)
+
+    detailed = {
+        result.reg_seg_id: replace(
+            result,
+            signs=signs.get(result.reg_seg_id, []),
+            street_name=by_id[result.reg_seg_id].street_name,
+        )
+        for result in kept
+    }
+    return SearchResults(
+        legal=[detailed[result.reg_seg_id] for result in found.legal],
+        others=[detailed[result.reg_seg_id] for result in found.others],
+        counts=found.counts,
+    )
 
 
 def _rank_legal(legal: list[SearchResult]) -> list[SearchResult]:
@@ -480,7 +516,7 @@ def _candidates_in_radius(
 
 
 def _label_candidates(conn: sqlite3.Connection, candidates: Sequence[_Candidate]) -> None:
-    """Give every candidate a human label, in one query for the whole radius.
+    """Give every candidate a human label, in one query for the whole batch.
 
     The label is the centerline's own street name, the side, and the cross
     streets at the two ends of the chain, which are the names carried by the
@@ -598,10 +634,10 @@ def _load_meter_rates(
 def _build_result(
     candidate: _Candidate,
     verdict: SegmentVerdict,
-    signs: list[SignRef],
     rates: list[tuple[str | None, list[Decimal]]],
     weights: Weights,
 ) -> SearchResult:
+    """Everything the ranking needs. `signs` and `street_name` arrive in `_attach_details`."""
     caveats = list(verdict.caveats)
     money, price_known, rate_label = _price(
         verdict, rates, caveats, placeholder=candidate.gap_kind is not None
@@ -620,7 +656,7 @@ def _build_result(
         price_known=price_known,
         capacity_cars=candidate.capacity_cars,
         confidence=min(verdict.confidence, candidate.snap_confidence),
-        signs=signs,
+        signs=[],
         charged_minutes=verdict.charged_minutes,
         metered=verdict.metered,
         score=score,
@@ -629,7 +665,7 @@ def _build_result(
         basis=basis,
         confidence_shown=_confidence_is_meaningful(verdict.verdict, basis),
         rate_label=rate_label,
-        street_name=candidate.street_name,
+        street_name=None,
         gap_kind=candidate.gap_kind,
     )
 
