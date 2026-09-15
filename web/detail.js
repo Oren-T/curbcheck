@@ -41,6 +41,7 @@ import {
   formatHourRates,
   formatTimeRange,
   priceLabel,
+  reasonLine,
   streetLabelParts,
   verdictKey,
   walkText,
@@ -160,7 +161,7 @@ function verdictBlock(result) {
 
   return el("div", { className: `detail-verdict detail-verdict-${key}` }, [
     verdictChipNode(result),
-    el("p", { className: "detail-reason", text: result.reason || "" }),
+    el("p", { className: "detail-reason", text: reasonLine(result) }),
     el("p", { className: "detail-basis", text: basisSentence(result) }),
     facts,
   ]);

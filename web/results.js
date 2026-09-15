@@ -20,6 +20,7 @@ import {
   capacityLabel,
   confidenceText,
   priceLabel,
+  reasonLine,
   streetLabelParts,
   verdictInfo,
   verdictKey,
@@ -299,7 +300,7 @@ function resultCard(result, rank, view) {
  * (DESIGN_DIRECTION §5).
  */
 function reasonText(result, absence) {
-  const reason = result.reason || "";
+  const reason = reasonLine(result);
   if (!absence || /no posted rule/i.test(reason)) {
     return reason;
   }
