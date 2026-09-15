@@ -12,7 +12,14 @@ from test_etl_fixtures import (
 )
 
 from curbcheck.config import CAR_LENGTH_FT
-from curbcheck.etl.segments import Arity, arrow_arity, regulation_family, resolve_segments
+from curbcheck.etl.parse import parse_description
+from curbcheck.etl.segments import (
+    Arity,
+    arrow_arity,
+    reading_of,
+    regulation_family,
+    resolve_segments,
+)
 from curbcheck.etl.snap import snap_sign
 
 NO_PARKING = "NO PARKING ANYTIME"
@@ -392,3 +399,45 @@ def test_a_whole_chain_span_leaves_no_placeholder_on_the_segments_it_crosses():
 
     sides = placeholder_sides(segments)
     assert not {("avenue-0", "W"), ("avenue-1", "W"), ("avenue-2", "W")} & set(sides)
+
+
+# The glyph reader sees no arrow in "W/ 7 O'CLOCK ARROW"; the grammar reads the
+# single arrow it is. 3 strings, 21 rows on the 2026-09-15 snapshot.
+OCLOCK_ARROW = "NO STANDING IN TUNNEL W/ 7 O'CLOCK ARROW"
+
+
+def resolve_with_grammar(*signs):
+    graph = grid_graph()
+    snaps = [snap_sign(sign, graph) for sign in signs]
+    readings = {
+        sign.sign_description: reading_of(parse_description(sign.sign_description))
+        for sign in signs
+    }
+    return resolve_segments(snaps, readings=readings)
+
+
+def test_arrow_arity_comes_from_the_grammar_and_the_glyph_is_only_the_fallback():
+    assert arrow_arity(OCLOCK_ARROW) is Arity.NONE
+    assert reading_of(parse_description(OCLOCK_ARROW)).arity is Arity.SINGLE
+    # A string the grammar cannot read has no arity of its own, which is what
+    # sends `segments` back to the glyph.
+    assert reading_of(parse_description("QQQQ WIBBLE ZORK")).arity is None
+
+
+def test_a_worded_arrow_the_glyph_misses_still_bounds_its_span():
+    signs = (
+        staged_sign(
+            "worded",
+            description=OCLOCK_ARROW,
+            sign_code="SP-1",
+            arrow_direction="North",
+            distance_ft=100.0,
+        ),
+        staged_sign("next", description=NO_STANDING, sign_code="SP-2", distance_ft=500.0),
+    )
+
+    with_grammar, _ = resolve_with_grammar(*signs)
+    with_glyph_only, _ = resolve(*signs)
+
+    assert (100, 500) in spans(with_grammar)
+    assert (100, 500) not in spans(with_glyph_only)

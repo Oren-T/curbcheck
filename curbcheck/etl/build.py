@@ -31,7 +31,14 @@ from curbcheck.etl import fetch
 from curbcheck.etl.calendar import CalendarReport, load_asp_suspensions
 from curbcheck.etl.meters import MeterReport, resolve_meter_rates
 from curbcheck.etl.parse import parse_description
-from curbcheck.etl.segments import RegulationSegment, SegmentReport, arrow_arity, resolve_segments
+from curbcheck.etl.segments import (
+    RegulationSegment,
+    SegmentReport,
+    SignReading,
+    arrow_arity,
+    reading_of,
+    resolve_segments,
+)
 from curbcheck.etl.snap import SnapReport, SnapResult, snap_signs
 from curbcheck.etl.stage import StageReport, stage_centerline, stage_signs
 from curbcheck.etl.streets import StreetGraph, StreetSegment, build_graph
@@ -186,9 +193,9 @@ def run_geometry(
     resolved_graph = graph or build_centerline_graph(raw_dir)
     signs, stage_report = stage_signs(fetch.load_rows("signs_manhattan", raw_dir))
     snaps, snap_report = snap_signs(signs, resolved_graph)
-    actions = parsed_actions(snap.sign.sign_description for snap in snaps)
+    readings = sign_readings(snap.sign.sign_description for snap in snaps)
     reg_segments, segment_report = resolve_segments(
-        snaps, parsed_actions=actions, graph=resolved_graph
+        snaps, readings=readings, graph=resolved_graph
     )
 
     _write_nodes(conn, resolved_graph)
@@ -220,40 +227,20 @@ def build_centerline_graph(raw_dir: Path) -> StreetGraph:
     return build_graph(stage_centerline(fetch.load_rows("centerline_manhattan", raw_dir)))
 
 
-def parsed_actions(descriptions: Iterable[str]) -> dict[str, str]:
-    """Family key per distinct description, for `segments.regulation_family`.
+def sign_readings(descriptions: Iterable[str]) -> dict[str, SignReading]:
+    """What the grammar read, per distinct description, for `segments.resolve_segments`.
 
-    Two posts belong to the same family when they say the same kind of thing, so
-    the key is the rule the grammar read rather than the words it read it from:
-    "2 HOUR PARKING" and "3 HR METERED PARKING" are one family, and every way of
-    writing a standing prohibition is another. Descriptions the grammar cannot
-    read are absent, which leaves `regulation_family` on its text fallback.
+    The span rules need two things off each sign — which family it belongs to and
+    how many arrows it carries — and both come from the same parse, so the
+    grammar is the only reader of either (docs/ARCHITECTURE.md, the parse ->
+    segments ordering). `parse_description` is cached, so `run_parse` reading the
+    same strings again afterwards costs nothing.
     """
-    actions: dict[str, str] = {}
+    readings: dict[str, SignReading] = {}
     for description in descriptions:
-        if description in actions:
-            continue
-        action = family_action(parse_description(description))
-        if action is not None:
-            actions[description] = action
-    return actions
-
-
-def family_action(parsed: ParsedSign) -> str | None:
-    """The one action key that stands for a whole sign, or None if it states no rule.
-
-    A sign carrying several rules is keyed by its most restrictive prohibition,
-    because that is the one whose span decides where the next sign takes over.
-    A meta sign states no rule of its own, so it has no family and must not bound
-    the span of the sign it modifies (SPEC §8.5).
-    """
-    rules = [rule for rule in parsed.regulations if not rule.flags.meta]
-    prohibitions = [rule.action for rule in rules if rule.applies_to_passenger() is False]
-    if prohibitions:
-        return "no-" + max(prohibitions, key=_prohibition_rank).value
-    if any(rule.applies_to_passenger() is True for rule in rules):
-        return "park"
-    return None
+        if description not in readings:
+            readings[description] = reading_of(parse_description(description))
+    return readings
 
 
 def run_parse(conn: sqlite3.Connection) -> ParseStats:
@@ -618,10 +605,11 @@ def _apply_meta_links(rows: list[dict[str, Any]], counts: _ParseCounts) -> list[
 
 
 def _count_arrow_disagreement(description: str, parsed: ParsedSign, counts: _ParseCounts) -> None:
-    """Count strings where the grammar and `segments.arrow_arity` read a different arrow.
+    """Count strings the glyph fallback would read a different arrow on.
 
-    Both read the same glyphs, so a disagreement means one of them has drifted;
-    the count is in `sync_meta` so the drift is noticed rather than guessed at.
+    `segments` takes arity from the grammar now, so this no longer means a span
+    is at risk; it measures how far `segments.arrow_arity` — the fallback for
+    strings no rule parsed from — has drifted from the grammar it backs up.
     """
     if not parsed.regulations or description in counts.seen_arrow_conflicts:
         return
@@ -680,13 +668,6 @@ def _segment_points(geom: str) -> tuple[float, float] | None:
     return (dx / span, dy / span)
 
 
-_PROHIBITION_ORDER: dict[Action, int] = {Action.PARK: 0, Action.STAND: 1, Action.STOP: 2}
-
-
-def _prohibition_rank(action: Action) -> int:
-    return _PROHIBITION_ORDER[action]
-
-
 def _geometry_meta(stats: GeometryStats) -> dict[str, object]:
     """The coverage numbers SPEC §11 needs to tell a data gap from a matching gap."""
     snap = stats.snap
@@ -735,8 +716,8 @@ def _parse_meta(stats: ParseStats) -> dict[str, object]:
         "parse_advisory_signs": stats.advisory_signs,
         "parse_meta_signs": stats.meta_signs,
         "parse_meta_segments": stats.meta_segments,
-        # Nonzero means the grammar and segments.arrow_arity disagree about how
-        # many arrows a string has, which would put a span in the wrong place.
+        # Strings where the glyph fallback in segments.arrow_arity would read a
+        # different arrow from the grammar that now decides every span.
         "parse_arrow_disagreements": stats.arrow_disagreements,
         "parse_elapsed_s": stats.elapsed_s,
     }

@@ -31,8 +31,13 @@ from curbcheck.etl.streets import (
     normalize_street_name,
     to_degrees,
 )
+from curbcheck.model import Action, Arrow, ParsedSign
 
 LOGGER = logging.getLogger(__name__)
+
+# Which prohibition stands for a post carrying several: the widest one, because
+# that is the rule whose span decides where the next sign takes over.
+_PROHIBITION_ORDER: dict[Action, int] = {Action.PARK: 0, Action.STAND: 1, Action.STOP: 2}
 
 # The trailing "(SUPERSEDES SP-1B & SP-2B)" hides the arrow on 46,030 of the
 # 54,164 rows that otherwise end with one, so it comes off first (DATA §1.6).
@@ -72,6 +77,59 @@ class Arity(StrEnum):
     NONE = "none"
     SINGLE = "single"
     DOUBLE = "double"
+
+
+@dataclass(frozen=True)
+class SignReading:
+    """What the grammar read off one description that the span rules need.
+
+    Both halves come from the same `ParsedSign`, so there is one reader of the
+    arrow and one reader of the rule; `arrow_arity` is only the fallback for
+    strings the grammar could not read at all.
+    """
+
+    family_action: str | None
+    arity: Arity | None
+    """None when the grammar read no rule at all; the caller falls back to the glyph."""
+
+
+def reading_of(parsed: ParsedSign) -> SignReading:
+    """Fold a parse result into the family key and arrow arity `segments` needs."""
+    return SignReading(family_action=_family_action(parsed), arity=_parsed_arity(parsed))
+
+
+def _family_action(parsed: ParsedSign) -> str | None:
+    """The one action key that stands for a whole sign, or None if it states no rule.
+
+    A sign carrying several rules is keyed by its most restrictive prohibition,
+    because that is the one whose span decides where the next sign takes over.
+    A meta sign states no rule of its own, so it has no family and must not bound
+    the span of the sign it modifies (SPEC §8.5).
+    """
+    rules = [rule for rule in parsed.regulations if not rule.flags.meta]
+    prohibitions = [rule.action for rule in rules if rule.applies_to_passenger() is False]
+    if prohibitions:
+        return "no-" + max(prohibitions, key=_PROHIBITION_ORDER.__getitem__).value
+    if any(rule.applies_to_passenger() is True for rule in rules):
+        return "park"
+    return None
+
+
+def _parsed_arity(parsed: ParsedSign) -> Arity | None:
+    """Arrow arity as the grammar read it, or None when it read no rule at all.
+
+    The grammar is the single reader of the arrow: it sees `W/ 7 O'CLOCK ARROW`
+    and the worded forms that the glyph regex alone misses (3 strings, 21 rows
+    on the 2026-09-15 snapshot).
+    """
+    arrows = {rule.arrow for rule in parsed.regulations}
+    if not arrows:
+        return None
+    if Arrow.BOTH in arrows:
+        return Arity.DOUBLE
+    if arrows & {Arrow.FORWARD, Arrow.BACKWARD}:
+        return Arity.SINGLE
+    return Arity.NONE
 
 
 @dataclass(frozen=True)
@@ -119,12 +177,12 @@ def strip_supersedes(description: str) -> str:
 
 
 def arrow_arity(description: str) -> Arity:
-    """Read arrow arity off a sign description.
+    """Read arrow arity off the description glyph, for signs the grammar could not read.
 
-    Deliberately separate from the grammar's own arrow reading: a span has to be
-    computed for every sign, including the ones the grammar cannot read at all.
-    `build.run_parse` cross-checks the two and counts any disagreement into
-    `sync_meta.parse_arrow_disagreements`.
+    The grammar is the primary reader (`reading_of`); this is the fallback, and
+    it exists because a span has to be computed for every sign, including the
+    ones no rule could be parsed from. `build.run_parse` counts the strings
+    where the two would differ into `sync_meta.parse_arrow_disagreements`.
     """
     text = strip_supersedes(description.upper())
     if _DOUBLE_ARROW.search(text):
@@ -138,9 +196,9 @@ def regulation_family(sign: StagedSign, parsed_action: str | None = None) -> str
     """Key deciding whether two posts carry "the same kind of sign" for arrow extension.
 
     The `sign_code` prefix before the dash plus the rule the sign states.
-    `parsed_action` is `build.family_action` applied to the grammar's reading and
-    is the preferred half; the description's head word ("NO PARKING", "HMP") is
-    the fallback for strings the grammar cannot read.
+    `parsed_action` is `SignReading.family_action` and is the preferred half; the
+    description's head word ("NO PARKING", "HMP") is the fallback for strings the
+    grammar cannot read.
     """
     code_prefix = sign.sign_code.split("-", 1)[0].strip() or "UNKNOWN"
     head = parsed_action or _description_head(sign.sign_description)
@@ -162,7 +220,7 @@ def _description_head(description: str) -> str:
 def resolve_segments(
     snaps: Iterable[SnapResult],
     *,
-    parsed_actions: Mapping[str, str] | None = None,
+    readings: Mapping[str, SignReading] | None = None,
     graph: StreetGraph | None = None,
 ) -> tuple[list[RegulationSegment], SegmentReport]:
     """Group snapped regulation signs into curb spans, one per distinct span.
@@ -187,9 +245,7 @@ def resolve_segments(
     counts = {"whole": 0, "arrow": 0, "merged": 0, "degenerate": 0, "fallback": 0, "signs": 0}
     covered: set[tuple[str, str]] = set()
     for (chain_key, side), members in sorted(faces.items()):
-        segments.extend(
-            _resolve_face(chain_key, side, members, parsed_actions or {}, counts, covered)
-        )
+        segments.extend(_resolve_face(chain_key, side, members, readings or {}, counts, covered))
     placeholders = [] if graph is None else coverage_placeholders(graph, covered, all_snaps)
     segments.extend(placeholders)
     report = SegmentReport(
@@ -346,7 +402,7 @@ def _resolve_face(
     chain_key: str,
     side: str,
     members: Sequence[SnapResult],
-    parsed_actions: Mapping[str, str],
+    readings: Mapping[str, SignReading],
     counts: dict[str, int],
     covered: set[tuple[str, str]],
 ) -> list[RegulationSegment]:
@@ -354,7 +410,7 @@ def _resolve_face(
     line_ft = _canonical_line(block)
     length_ft = float(line_ft.length)
     posts = sorted(
-        (_post_for(snap, line_ft, length_ft, parsed_actions) for snap in members),
+        (_post_for(snap, line_ft, length_ft, readings) for snap in members),
         key=lambda post: (post.distance_ft, post.snap.sign.sign_id),
     )
     by_family: dict[str, list[float]] = {}
@@ -448,18 +504,21 @@ def _union_touching(
 
 
 def _post_for(
-    snap: SnapResult, line_ft: LineString, length_ft: float, parsed_actions: Mapping[str, str]
+    snap: SnapResult, line_ft: LineString, length_ft: float, readings: Mapping[str, SignReading]
 ) -> _Post:
     distance = _canonical_distance(snap, _block_of(snap), length_ft)
     sign = snap.sign
-    arity = arrow_arity(sign.sign_description)
+    reading = readings.get(sign.sign_description)
+    arity = reading.arity if reading is not None and reading.arity is not None else None
+    if arity is None:
+        arity = arrow_arity(sign.sign_description)
     forward = None
     if arity is Arity.SINGLE:
         forward = _points_forward(sign.arrow_direction, line_ft)
     return _Post(
         snap=snap,
         distance_ft=distance,
-        family=regulation_family(sign, parsed_actions.get(sign.sign_description)),
+        family=regulation_family(sign, reading.family_action if reading else None),
         arity=arity,
         forward=forward,
     )
