@@ -1,0 +1,110 @@
+"""Static checks on the frontend that no unit test of the Python code would catch.
+
+Three rules, all of them security rules from SPEC §3.4 and STYLE_GUIDE §4:
+the page loads nothing from the network, no script builds markup from data, and
+the basemap style points only at paths this server serves. They are cheap to
+check by reading the files, and expensive to notice by hand in review.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from html.parser import HTMLParser
+from pathlib import Path
+
+import pytest
+
+WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+INDEX_HTML = WEB_DIR / "index.html"
+STYLE_JSON = WEB_DIR / "basemap" / "style.json"
+
+URL_ATTRIBUTES = ("src", "href", "action", "data", "poster", "srcset")
+REMOTE_SCHEME = re.compile(r"^\s*(?:https?:)?//", re.IGNORECASE)
+
+# SPEC §3.3/§3.4 and STYLE_GUIDE §4: no code from data, no markup from data.
+FORBIDDEN_JS = ("innerHTML", "outerHTML", "eval(", "new Function", "document.write")
+
+
+class _Links(HTMLParser):
+    """Collect (tag, attributes-dict) for every element carrying a URL attribute."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.elements: list[tuple[str, dict[str, str]]] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = {name: (value or "") for name, value in attrs}
+        if any(name in attributes for name in URL_ATTRIBUTES):
+            self.elements.append((tag, attributes))
+
+
+def app_js_files() -> list[Path]:
+    """Every frontend script we wrote. `web/vendor/` is third-party and excluded."""
+    return sorted(
+        path for path in WEB_DIR.rglob("*.js") if "vendor" not in path.relative_to(WEB_DIR).parts
+    )
+
+
+def test_index_html_loads_nothing_from_the_network() -> None:
+    parser = _Links()
+    parser.feed(INDEX_HTML.read_text(encoding="utf-8"))
+    assert parser.elements, "index.html has no elements with URL attributes; did the parse fail?"
+
+    for tag, attributes in parser.elements:
+        for name in URL_ATTRIBUTES:
+            url = attributes.get(name)
+            if url is None or not REMOTE_SCHEME.match(url):
+                continue
+            # The one allowed exception: a visible attribution link the user
+            # clicks. It must not hand the target a window reference or a
+            # referrer (SPEC §3.4 keeps the destination address private).
+            rel = attributes.get("rel", "").lower().split()
+            assert tag == "a", f"<{tag} {name}={url!r}> loads a remote resource"
+            assert "noopener" in rel and "noreferrer" in rel, (
+                f'remote link {url!r} must carry rel="noopener noreferrer"'
+            )
+
+
+def test_index_html_loads_the_pmtiles_global_before_the_module() -> None:
+    """pmtiles.js is a classic script; map.js needs its global at import time."""
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    classic = html.index("vendor/pmtiles/pmtiles.js")
+    module = html.index('type="module"')
+    assert classic < module
+
+
+@pytest.mark.parametrize("path", app_js_files(), ids=lambda path: path.name)
+def test_frontend_scripts_never_build_markup_or_code_from_data(path: Path) -> None:
+    source = path.read_text(encoding="utf-8")
+    for pattern in FORBIDDEN_JS:
+        # The ESLint config bans these too, but ESLint is not installed here and
+        # sign text is attacker-controlled, so the rule gets a test of its own.
+        assert pattern not in source, f"{path.name} contains {pattern!r}"
+
+
+def test_basemap_style_points_only_at_local_paths() -> None:
+    style = json.loads(STYLE_JSON.read_text(encoding="utf-8"))
+    assert style["glyphs"].startswith("/basemap/")
+    assert style["sprite"].startswith("/basemap/")
+    for name, source in style["sources"].items():
+        assert source["url"].startswith("pmtiles:///basemap/"), f"source {name} is not local"
+        assert "tiles" not in source, f"source {name} lists remote tile URLs"
+
+    # Nothing anywhere else in the file may point off-host either: the
+    # attribution string is the usual place a remote link sneaks back in.
+    for match in re.finditer(r"[a-zA-Z][a-zA-Z0-9+.-]*://[^\"\s]+", STYLE_JSON.read_text()):
+        assert match.group(0).startswith("pmtiles:///basemap/"), match.group(0)
+
+
+def test_basemap_directory_holds_every_asset_the_style_asks_for() -> None:
+    style = json.loads(STYLE_JSON.read_text(encoding="utf-8"))
+    sprite = WEB_DIR / style["sprite"].lstrip("/")
+    assert sprite.with_suffix(".json").is_file()
+    assert sprite.with_suffix(".png").is_file()
+
+    fonts_dir = WEB_DIR / "basemap" / "fonts"
+    stacks = {path.name for path in fonts_dir.iterdir() if path.is_dir()}
+    assert stacks, "no glyph directories vendored"
+    for stack in stacks:
+        assert (fonts_dir / stack / "0-255.pbf").is_file()
