@@ -1,9 +1,16 @@
 """Static checks on the frontend that no unit test of the Python code would catch.
 
-Three rules, all of them security rules from SPEC §3.4 and STYLE_GUIDE §4:
-the page loads nothing from the network, no script builds markup from data, and
-the basemap style points only at paths this server serves. They are cheap to
-check by reading the files, and expensive to notice by hand in review.
+Three security rules from SPEC §3.4 and STYLE_GUIDE §4: the page loads nothing
+from the network, no script builds markup from data, and the basemap style
+points only at paths this server serves.
+
+Then the safety wiring the redesign rests on (`docs/ux/UX_AUDIT.md` (f)): the
+advisory sentences are on the page, the grey verdict never prints a price, a
+confidence figure is gated on `confidence_shown`, an error clears the previous
+answer, and the counts come from the server. There is no JS test runner here
+(STYLE_GUIDE §4: no bundler, no framework), so these read the source for the
+call that has to be there — a coarse check that still fails loudly when the
+wiring is deleted.
 """
 
 from __future__ import annotations
@@ -18,6 +25,26 @@ import pytest
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 INDEX_HTML = WEB_DIR / "index.html"
 STYLE_JSON = WEB_DIR / "basemap" / "style.json"
+
+# Every module the page loads, as index.html and the imports expect them. A new
+# module is fine; a missing one means the page 404s a script and renders blank.
+EXPECTED_MODULES = {
+    "api.js",
+    "app.js",
+    "autocomplete.js",
+    "copy.js",
+    "detail.js",
+    "dom.js",
+    "drawer.js",
+    "format.js",
+    "legend.js",
+    "map.js",
+    "rank.js",
+    "results.js",
+    "searchcard.js",
+    "states.js",
+}
+EXPECTED_STYLESHEETS = ("tokens.css", "styles.css", "components.css")
 
 URL_ATTRIBUTES = ("src", "href", "action", "data", "poster", "srcset")
 REMOTE_SCHEME = re.compile(r"^\s*(?:https?:)?//", re.IGNORECASE)
@@ -142,8 +169,12 @@ def test_the_status_line_is_built_from_the_server_counts() -> None:
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
 
-    assert "statusLine(response.counts" in app, "app.js no longer uses the server counts"
+    assert "statusLine(state.counts" in app, "app.js no longer uses the server counts"
     assert "export function statusLine" in formats
+    # The group headings are the other place a count is stated, and they read
+    # `counts` too rather than the length of the rows that arrived.
+    results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
+    assert "view.counts[group.key]" in results, "the verdict groups no longer count from counts"
 
 
 def test_the_grey_state_distinguishes_a_data_gap_from_a_matching_gap() -> None:
@@ -201,11 +232,198 @@ def test_an_armed_pin_with_no_click_refuses_instead_of_reusing_the_old_pin() -> 
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
     copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
 
+    chooser = app.split("function destinationFor")[1].split("\n}")[0]
+    assert "!state.pinMode" in chooser, "an armed pin no longer blocks the stale destination"
+
     submit = app.split("function onSubmit")[1].split("\n}")[0]
-    refusal = submit.split('if (address === "" && state.pinMode)')
-    assert len(refusal) == 2, "onSubmit no longer refuses an armed pin with no destination"
-    assert "PIN_MODE_NEEDS_A_CLICK" in refusal[1]
-    assert "return" in refusal[1].split("}")[0]
+    assert "PIN_MODE_NEEDS_A_CLICK" in submit and "NEEDS_DESTINATION" in submit
     assert "export const PIN_MODE_NEEDS_A_CLICK" in copy
-    # The guard has to come before the search runs, not after it.
-    assert submit.index("state.pinMode") < submit.index("runSearch(")
+    # The refusal has to come before the search runs, not after it.
+    assert submit.index("PIN_MODE_NEEDS_A_CLICK") < submit.index("runSearch(")
+
+
+def test_the_page_loads_every_module_and_stylesheet_it_has() -> None:
+    """A renamed module that index.html still lists is a blank page, not a bug report."""
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    on_disk = {path.name for path in app_js_files()}
+    assert on_disk == EXPECTED_MODULES, f"module set changed: {on_disk ^ EXPECTED_MODULES}"
+
+    for stylesheet in EXPECTED_STYLESHEETS:
+        assert f'href="./{stylesheet}"' in html, f"index.html does not link {stylesheet}"
+    # tokens.css defines the custom properties the other two read, so it is
+    # linked first; the cascade would otherwise resolve them to nothing.
+    assert html.index("tokens.css") < html.index("styles.css") < html.index("components.css")
+
+
+def test_the_stylesheets_load_no_remote_asset() -> None:
+    """SPEC §3.4: no web font, no CDN, no remote image — the CSP is the backstop."""
+    for path in sorted(WEB_DIR.glob("*.css")):
+        source = path.read_text(encoding="utf-8")
+        assert "@import" not in source, f"{path.name} imports another stylesheet"
+        for match in re.finditer(r"url\(([^)]*)\)", source):
+            url = match.group(1).strip("\"' ")
+            assert not REMOTE_SCHEME.match(url), f"{path.name} loads {url}"
+            assert not url.lower().startswith("http"), f"{path.name} loads {url}"
+
+
+def test_the_advisory_strip_carries_both_load_bearing_sentences() -> None:
+    """UX_AUDIT (f) 1: the §17 text may be shortened on screen, never removed.
+
+    The strip is what every user reads, so the two sentences that change a
+    decision are in the markup, and the full text is one disclosure away and
+    repeated in every detail sheet.
+    """
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+
+    assert "Advisory only. Read the posted sign." in html
+    assert "Grey means no data, not no restriction." in html
+    for clause in (
+        "Always read the posted sign before parking.",
+        "15 feet of a fire hydrant",
+        "A blank or grey curb means no data, not no restriction.",
+    ):
+        assert clause in html, f"the full notice lost {clause!r}"
+    # copy.js wraps the same paragraph across source lines, so the clauses are
+    # matched on the fragments that survive the wrapping.
+    for clause in (
+        "Always read the posted sign before parking.",
+        "fire hydrant",
+        "no data, not no restriction",
+    ):
+        assert clause in copy, f"copy.js DISCLAIMER lost {clause!r}"
+
+    # The strip is a disclosure, not a dismissal: there is no close control and
+    # no persisted "never show again".
+    assert 'id="notice-toggle"' in html and 'aria-expanded="false"' in html
+    assert "localStorage" not in (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    # And the same text is inside every verdict.
+    assert "DISCLAIMER" in detail, "the detail sheet no longer prints the full notice"
+
+
+def test_a_no_data_span_has_no_price_rendering_path() -> None:
+    """UX_AUDIT P0-5: the grey verdict asserted `Money — no meter` on unknown curb.
+
+    `priceLabel` is the single place a price string is built, and it returns
+    null — print nothing — before it can reach the money fields on a `no_data`
+    span or on legality by absence.
+    """
+    formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+    body = formats.split("export function priceLabel")[1].split("\n}")[0]
+    guard = body.index('key === "no_data"')
+    assert guard < body.index("result.money"), "no_data reaches the money fields"
+    assert 'result.basis === "absence"' in body, "legality by absence prices itself"
+    assert body.index('result.basis === "absence"') < body.index("result.money")
+    # "Free" is only ever said about a span whose sign was actually read.
+    assert 'result.basis === "posted" ? "Free' in body
+
+    for name in ("results.js", "detail.js"):
+        source = (WEB_DIR / name).read_text(encoding="utf-8")
+        assert "priceLabel(" in source, f"{name} builds its own price string"
+        assert "no meter" not in source, f"{name} says 'no meter' outside priceLabel"
+
+
+def test_a_confidence_figure_is_gated_on_confidence_shown() -> None:
+    """UX_AUDIT P0-1: "100% confidence" was printed over a stack that was empty.
+
+    The server decides whether the number means anything (`confidence_shown`),
+    and nothing in the UI prints a percentage without asking.
+    """
+    formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
+
+    shown = formats.split("export function confidenceShown")[1].split("\n}")[0]
+    assert "result.confidence_shown" in shown
+    text = formats.split("export function confidenceText")[1].split("\n}")[0]
+    assert "confidenceShown(result)" in text and "return null" in text
+
+    assert "confidenceText(result)" in results, "the card prints confidence unguarded"
+    assert "confidenceShown(result)" in detail, "the sheet prints confidence unguarded"
+
+
+def test_legality_by_absence_is_never_worded_as_a_permission() -> None:
+    """UX_AUDIT P0-1 and DECISIONS D27: absence of a rule is not a posted yes."""
+    formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    rank = (WEB_DIR / "rank.js").read_text(encoding="utf-8")
+
+    chip = formats.split("export function verdictChip")[1].split("\n}")[0]
+    assert '"Nothing posted"' in chip and 'result.basis === "absence"' in chip
+    assert "That is not a permission" in copy
+    # And it never wins a ranking by having nothing to charge for.
+    assert "basisRank" in rank and 'result.basis === "posted" ? 0 : 1' in rank
+
+
+def test_the_map_draws_every_verdict_with_its_own_pattern_and_the_list_does_not_cap_it() -> None:
+    """SPEC §11 and UX_AUDIT P0-6, P1-2.
+
+    Four verdicts, four dash patterns, and the widest, most visible line is the
+    grey one. The list caps at a shortlist; the map gets everything the server
+    sent, because the U1 fix depends on the red and grey spans being drawn.
+    """
+    map_js = (WEB_DIR / "map.js").read_text(encoding="utf-8")
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    style = map_js.split("const VERDICT_STYLE = {")[1].split("\n};")[0]
+    for verdict in ("legal", "ambiguous", "illegal", "no_data"):
+        assert f"{verdict}:" in style, f"VERDICT_STYLE lost {verdict}"
+    assert "dash: [0, 2.2]" in style, "the no_data line lost its dot pattern"
+    # Grey starts at 3 px and is the widest of the four at every zoom stop.
+    widths = {
+        line.split(":")[0].strip(): line.split("widths: [")[1].split("]")[0]
+        for line in style.strip().splitlines()
+    }
+    grey = [float(value) for value in widths["no_data"].split(",")]
+    legal = [float(value) for value in widths["legal"].split(",")]
+    assert min(grey) >= 3.0, "the no_data line can be drawn under 3 px"
+    assert all(wide >= thin for wide, thin in zip(grey, legal, strict=True)), (
+        "grey is thinner than green"
+    )
+
+    # Casing under every line: this is what keeps dark red legible on earth fill.
+    assert "segments-casing-" in map_js and "MAP_HALO" in map_js
+
+    setter = app.split("curbMap.setResults(")[1].split(")")[0]
+    assert setter == "state.results", "the map is fed something other than every result"
+    assert "slice" not in map_js.split("setResults(results)")[1].split("\n  }")[0]
+
+
+def test_the_detail_sheet_is_a_labelled_dialog_that_leads_with_the_governing_signs() -> None:
+    """UX_AUDIT P0-2 and P1-7: order is the fix, and focus has to reach it."""
+    html = INDEX_HTML.read_text(encoding="utf-8")
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    assert 'role="dialog"' in html and 'aria-labelledby="detail-title"' in html
+    assert 'attrs: { id: "detail-title" }' in detail, "the sheet heading lost its id"
+
+    body = detail.split("function body(view)")[1].split("\n}")[0]
+    order = [
+        body.index("verdictBlock(result)"),
+        body.index("caveatBlock(result.caveats)"),
+        body.index("governingSection("),
+        body.index("otherSignsSection("),
+        body.index("readingSection("),
+        body.index("meterSection("),
+        body.index("segmentSection("),
+    ]
+    assert order == sorted(order), "the detail sheet sections moved out of order"
+
+    # Focus moves in on open and back to the card on close (UX_AUDIT (e) 4).
+    assert "close.focus()" in app
+    assert "state.lastFocused.focus()" in app
+    assert 'event.key === "Escape"' in app
+
+
+def test_every_scroll_region_owns_its_own_container() -> None:
+    """UX_AUDIT P0-4: one shared document scroll made the phone build unusable."""
+    styles = (WEB_DIR / "styles.css").read_text(encoding="utf-8")
+    components = (WEB_DIR / "components.css").read_text(encoding="utf-8")
+
+    page = styles.split("html,\nbody {")[1].split("}")[0]
+    assert "overflow: hidden" in page, "the document can scroll again"
+    for block, css in (("rail-scroll", styles), ("detail-scroll", components)):
+        rule = css.split(f".{block} {{")[1].split("}")[0]
+        assert "overflow-y: auto" in rule, f".{block} lost its own scroll container"
