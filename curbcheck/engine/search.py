@@ -379,9 +379,21 @@ def _chunked(values: Sequence[str], size: int = _ID_CHUNK) -> Iterator[list[str]
 
 
 def _json_string_list(value: Any) -> list[str]:
+    """Read a JSON list column, treating anything unreadable as empty.
+
+    The database is untrusted at read time (CLAUDE.md), including columns the
+    ETL is supposed to have written as JSON. A `derived_from` or `hour_rates`
+    cell that is not a JSON list means "no sign ids" and "no known rate", which
+    the caller already handles; letting the decode error out would turn a
+    half-built snapshot into a 500 on every search. Matches
+    `api.routes._json_list`.
+    """
     if value is None:
         return []
-    parsed = json.loads(str(value))
+    try:
+        parsed = json.loads(str(value))
+    except ValueError:
+        return []
     if not isinstance(parsed, list):
         return []
     return [str(item) for item in parsed]

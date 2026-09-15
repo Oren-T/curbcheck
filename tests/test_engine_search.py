@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from datetime import datetime
+from decimal import Decimal
 
 import pytest
 
@@ -16,7 +17,12 @@ from curbcheck import db
 from curbcheck.config import NYC_TZ
 from curbcheck.engine.cost import Weights
 from curbcheck.engine.resolve import Verdict
-from curbcheck.engine.search import SearchResult, search
+from curbcheck.engine.search import (
+    SearchResult,
+    _decimal_list,
+    _json_string_list,
+    search,
+)
 from curbcheck.model import Action, ParseMethod, Regulation
 
 ORIGIN_LON = -73.9600
@@ -393,3 +399,13 @@ def test_an_empty_database_returns_nothing(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM regulation_segment")
 
     assert run_search(conn) == []
+
+
+def test_an_unreadable_json_column_reads_as_empty_rather_than_raising():
+    """A half-built snapshot must degrade, not 500 (CLAUDE.md: data/ is untrusted)."""
+    for broken in ("not json", "", "{", '{"a": 1}', "null", "12"):
+        assert _json_string_list(broken) == []
+        assert _decimal_list(broken) == []
+
+    assert _json_string_list('["sign-1", "sign-2"]') == ["sign-1", "sign-2"]
+    assert _decimal_list('["4.50"]') == [Decimal("4.50")]
