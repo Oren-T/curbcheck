@@ -255,22 +255,24 @@ def _demote_contested_spans(
 ) -> None:
     """Turn a legal span that a prohibition also covers into AMBIGUOUS, in place.
 
-    Spans of different sign families overlap by design: a `<->` post extends to
-    the next post of *any* family, so two adjacent posts each claim the whole
-    gap between them (docs/DECISIONS.md D20). Each span is its own row with its
-    own rule stack, so `resolve` never sees the other one's rules, and a
-    permissive span that reaches back over a `NO STANDING ANYTIME` span reads
-    LEGAL over curb that is not. That is SPEC §8.6's P0 defect, and on the
-    2026-09-15 snapshot it covers 234 legal spans in a Wednesday window.
+    Since docs/DECISIONS.md D25 this should never fire: `etl.segments` cuts the
+    spans on a blockface-side at every boundary, so a prohibition and a
+    permission that overlap arrive as one row with both rules in its stack and
+    `resolve` settles them most-restrictive-wins per foot of curb. It is kept as
+    defence in depth against a database built before D25 — `curbcheck.sqlite.prev`
+    is one, and the engine will open whatever file it is pointed at — where a
+    permissive span reaching back over a `NO STANDING ANYTIME` span would read
+    LEGAL over curb that is not, which is SPEC §8.6's P0 defect.
 
-    Resolving the contest by geometry is not possible here — DOT's two posts
-    genuinely disagree about where the boundary is — so the honest state is
-    SPEC §11's "the signs conflict", never a confident green.
+    An overlap here means the ETL's invariant has broken, so it is logged: the
+    demotion is honest (SPEC §11's "the signs conflict") but it loses the legal
+    remainder that D25 keeps.
     """
     by_face: dict[tuple[str | None, str | None], list[_Candidate]] = {}
     for candidate in candidates:
         by_face.setdefault((candidate.segment_id, candidate.side), []).append(candidate)
 
+    contested = 0
     for face in by_face.values():
         if len(face) < 2:
             continue
@@ -284,11 +286,18 @@ def _demote_contested_spans(
             if line is None:
                 continue
             if any(_overlaps(line, shapes[other.reg_seg_id]) for other in banned):
+                contested += 1
                 verdicts[candidate.reg_seg_id] = replace(
                     verdicts[candidate.reg_seg_id],
                     verdict=Verdict.AMBIGUOUS,
                     reason=CONTESTED_REASON,
                 )
+    if contested:
+        LOGGER.warning(
+            "demoted %d overlapping legal span(s) to ambiguous; this database predates"
+            " docs/DECISIONS.md D25 and should be rebuilt with `curbcheck sync`",
+            contested,
+        )
 
 
 def _line_or_none(geometry: dict[str, Any]) -> BaseGeometry | None:

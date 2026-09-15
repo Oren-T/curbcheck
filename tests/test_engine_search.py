@@ -624,11 +624,13 @@ def test_an_unreadable_json_column_reads_as_empty_rather_than_raising():
 
 
 def add_overlapping_pair(conn: sqlite3.Connection) -> None:
-    """Two spans on one centerline side whose curb lines overlap, as D20 produces them.
+    """Two spans on one centerline side whose curb lines overlap.
 
-    A `NO STANDING ANYTIME <->` post and a `2 HMP <->` post 100 ft apart each
-    extend to the other, so both claim the curb between them. Each is its own
-    row with its own rule stack, so nothing in `resolve` can see the conflict.
+    `etl.segments` stopped writing these at docs/DECISIONS.md D25: it cuts a
+    side's spans at every boundary, so a `NO STANDING ANYTIME <->` post and a
+    `2 HMP <->` post 100 ft apart come back as three rows, not two overlapping
+    ones. This builds the pre-D25 shape by hand, which is what a stale database
+    on disk still holds and what the query-time guard is left in place for.
     """
     lat = ORIGIN_LAT + 0.0012
     for reg_seg_id, from_lon, to_lon in (
@@ -675,19 +677,22 @@ def add_overlapping_pair(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def test_a_legal_span_a_prohibition_overlaps_is_ambiguous_not_legal(
-    conn: sqlite3.Connection,
+def test_a_pre_d25_database_still_refuses_to_call_an_overlapped_span_legal(
+    conn: sqlite3.Connection, caplog
 ) -> None:
     """SPEC §8.6: a permissive span reaching over a ban must never read green."""
     add_overlapping_pair(conn)
 
-    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+    with caplog.at_level(logging.WARNING, logger="curbcheck.engine.search"):
+        by_id = {result.reg_seg_id: result for result in run_search(conn)}
 
     assert by_id["seg-ban"].verdict is Verdict.ILLEGAL
     assert by_id["seg-hmp"].verdict is Verdict.AMBIGUOUS
     assert "conflict" in by_id["seg-hmp"].reason
     # The span that is not contested keeps its verdict.
     assert by_id["seg-meter"].verdict is Verdict.LEGAL
+    # The overlap is the ETL's invariant breaking, so it is not silent.
+    assert any("should be rebuilt" in record.getMessage() for record in caplog.records)
 
 
 def test_spans_that_only_touch_at_a_shared_end_do_not_contest_each_other(
