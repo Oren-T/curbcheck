@@ -181,6 +181,13 @@ def evaluate_segment(
     charged_minutes = sum(o.interval.minutes for o in outcomes if o.meter_charged)
     limits = [o.max_duration_min for o in outcomes if o.max_duration_min is not None]
     max_duration_min = min(limits) if limits else None
+    # Only the minutes a posted limit is actually in force count against it. A
+    # "2 HMP 8AM-7PM" sign says nothing about 7PM onwards, so a 18:00-21:00 stay
+    # spends 60 of its 180 minutes under the limit. Summing them all rather than
+    # taking the longest run keeps two separated limited stretches from each
+    # getting a full allowance. D12(b) is unchanged: a rule in force on a day
+    # its meter is not running still counts, because the rule is still in force.
+    limited_minutes = sum(o.interval.minutes for o in outcomes if o.max_duration_min is not None)
     confidence = min(item.parse_confidence for item in stack)
     caveats = _caveats(stack, outcomes, calendar)
 
@@ -208,19 +215,12 @@ def evaluate_segment(
     if prohibited is not None:
         return decided(Verdict.ILLEGAL, prohibited.reason, prohibited)
 
-    too_short = next(
-        (
-            outcome
-            for outcome in outcomes
-            if outcome.max_duration_min is not None and outcome.max_duration_min < window_minutes
-        ),
-        None,
-    )
-    if too_short is not None:
+    if max_duration_min is not None and max_duration_min < limited_minutes:
+        too_short = next(o for o in outcomes if o.max_duration_min == max_duration_min)
         return decided(
             Verdict.ILLEGAL,
-            f"posted limit of {too_short.max_duration_min} min is shorter than"
-            f" the {window_minutes} min window",
+            f"posted limit of {max_duration_min} min is shorter than"
+            f" the {limited_minutes} min it is in force for",
             too_short,
         )
 

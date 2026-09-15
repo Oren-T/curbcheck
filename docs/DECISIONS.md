@@ -163,6 +163,16 @@ blockface (SPEC §13.1b) the search quotes the dearest and sets
 and SPEC §8.6 makes a false legal the P0 defect. (a) and (b) both choose the
 reading that keeps a spot off the legal list; (c) never understates cost.
 
+**Corrected 2026-09-15 (b):** "the whole window" was read as the wall-clock
+length of [T1, T2], which is wrong in the other direction. A `2 HMP 8AM-7PM`
+sign states nothing about 7PM onwards, so a stay from 18:00 to 21:00 spends 60
+of its 180 minutes under the limit and is legal; the engine called it illegal
+and cost the user the spot. The limit is now measured against the minutes the
+rule is *in force* for, summed over the window rather than taken per stretch so
+that two separated limited periods do not each draw a fresh allowance. The
+original point of (b) stands: a rule in force on a day its meter is not running
+still counts, because the rule is still in force.
+
 **Would reverse it:** a DOT statement that a time limit applies only while the
 meter is in operation, which would make (b) wrong and cost the user spots.
 

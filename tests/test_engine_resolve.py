@@ -171,6 +171,66 @@ def test_a_one_hour_meter_fails_a_three_hour_window() -> None:
     assert verdict.first_offending is not None
 
 
+def test_a_posted_limit_is_measured_over_the_hours_it_is_in_force_for() -> None:
+    """2 HMP 8AM-7PM, parked Sat 18:00-21:00: 60 of the 180 minutes are limited.
+
+    The sign says nothing about 7PM onwards, so the curb is unrestricted then
+    (34 RCNY 4-08) and the two-hour limit is not spent by sitting there. Testing
+    the limit against the whole window read this as ILLEGAL and cost the user a
+    legal spot. docs/DECISIONS.md D12(b) is unaffected: the limit still counts
+    on the hours the rule is in force, meter running or not.
+    """
+    verdict = evaluate_segment(
+        stacked(two_hour_meter_saturday()),
+        moment("2026-09-19T18:00"),
+        moment("2026-09-19T21:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.LEGAL
+    assert verdict.window_minutes == 180
+    assert verdict.charged_minutes == 60
+
+
+def test_a_posted_limit_shorter_than_its_own_hours_is_still_illegal() -> None:
+    verdict = evaluate_segment(
+        stacked(two_hour_meter_saturday()),
+        moment("2026-09-19T15:00"),
+        moment("2026-09-19T21:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.ILLEGAL
+    assert "120 min" in verdict.reason
+    assert "240 min it is in force for" in verdict.reason
+
+
+def test_a_limit_that_lapses_and_resumes_counts_both_stretches_against_itself() -> None:
+    """Two separated limited stretches do not each get a fresh allowance.
+
+    Summing the limited minutes rather than taking the longest run is the
+    conservative reading: SPEC §8.6 makes a false "legal" the P0 defect.
+    """
+    morning = Regulation(
+        action=Action.PARK,
+        permitted=True,
+        time_from="08:00",
+        time_to="10:00",
+        max_duration_min=120,
+    )
+    afternoon = morning.model_copy(update={"time_from": "14:00", "time_to": "16:00"})
+
+    verdict = evaluate_segment(
+        stacked(morning, afternoon),
+        moment("2026-09-19T08:00"),
+        moment("2026-09-19T16:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.ILLEGAL
+    assert "240 min it is in force for" in verdict.reason
+
+
 def test_a_window_that_runs_past_the_posted_hours_is_legal_by_absence_after_them() -> None:
     verdict = evaluate_segment(
         stacked(two_hour_meter_saturday()),
