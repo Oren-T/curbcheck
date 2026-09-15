@@ -416,12 +416,21 @@ def _cross_street_phrase(street_name: str, from_names: Any, to_names: Any) -> st
 
 
 def _cross_street(names: Any, street_name: str) -> str | None:
-    """The first name on the node that is not the street the span runs along."""
-    own = street_name.casefold()
+    """The first name on the node that is not the street the span runs along.
+
+    Compared on collapsed whitespace: CSCL writes the same street as `E 85 ST`
+    on the node and `E  85 ST` on the segment often enough that an exact match
+    would label a corner as its own cross street.
+    """
+    own = _collapse(street_name)
     for name in _json_string_list(names):
-        if name and name.casefold() != own:
+        if name and _collapse(name) != own:
             return name
     return None
+
+
+def _collapse(name: str) -> str:
+    return " ".join(name.split()).casefold()
 
 
 def _load_stacks(

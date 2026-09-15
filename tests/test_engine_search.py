@@ -356,6 +356,22 @@ def test_each_result_carries_a_human_street_label(conn: sqlite3.Connection) -> N
     assert result.street_name == "3 AVENUE, east side, E 85 ST → E 86 ST"
 
 
+def test_a_corner_is_never_labelled_as_its_own_cross_street(conn: sqlite3.Connection) -> None:
+    """CSCL writes `E 85 ST` on the node and `E  85 ST` on the segment; both are one street."""
+    conn.execute(
+        "INSERT INTO street_node (node_id, lon, lat, street_names) VALUES (?,?,?,?)",
+        ("n-dup", ORIGIN_LON, ORIGIN_LAT, json.dumps(["E  85 ST", "e 85 st", "2 AVENUE"])),
+    )
+    conn.execute(
+        "UPDATE street_segment SET street_name = ?, from_node = ? WHERE segment_id = ?",
+        ("E  85 ST", "n-dup", "street-seg-meter"),
+    )
+
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
+
+    assert result.street_name == "E  85 ST, east side, at 2 AVENUE"
+
+
 def test_a_span_whose_chain_ends_name_no_cross_street_is_still_labelled(
     conn: sqlite3.Connection,
 ) -> None:
