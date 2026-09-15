@@ -1,5 +1,6 @@
 # Every target assumes the conda env `curbcheck` is active (it is, in every shell).
-.PHONY: setup lint typecheck test audit check sync serve compile
+.PHONY: setup lint typecheck test audit check sync serve compile \
+	docker-build docker-sync docker-serve
 
 setup:
 	pip install --require-hashes -r requirements-dev.txt -r requirements.txt
@@ -30,3 +31,14 @@ sync:
 
 serve:
 	curbcheck serve
+
+# Container targets. `serve` uses host networking because the server binds
+# 127.0.0.1 and nothing may widen that; see docker-compose.yml for why.
+docker-build:
+	docker compose build
+
+docker-sync:
+	docker compose run --rm sync
+
+docker-serve:
+	docker compose up serve

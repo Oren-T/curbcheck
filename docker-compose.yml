@@ -1,0 +1,65 @@
+# Two services from one image, split by what they are allowed to reach.
+#
+#   docker compose build
+#   docker compose run --rm sync     # network egress, writes ./data
+#   docker compose up serve          # host loopback, ./data read-only
+#
+# ./data must be readable (and, for sync, writable) by uid 10001, the non-root
+# user in the image:
+#
+#   mkdir -p data && sudo chown -R 10001:10001 data
+#
+# Or override per invocation with `docker compose run --user "$(id -u):$(id -g)" sync`.
+
+services:
+  # Why host networking and not `ports: ["127.0.0.1:8765:8765"]`:
+  # curbcheck/config.py hard-codes BIND_HOST = "127.0.0.1" and there is no flag
+  # or environment variable to widen it — that is a security control (SPEC §3.4,
+  # threat T4), enforced by tests/test_boundaries.py, not an oversight. A
+  # published port maps to the *container's* 0.0.0.0, where nothing is
+  # listening, so it would simply never connect. With network_mode: host the
+  # container shares the host's network namespace, so uvicorn binds the host's
+  # own loopback: reachable from a browser on this machine, reachable from
+  # nowhere else.
+  #
+  # The tradeoff, stated plainly: host networking also means this service is not
+  # egress-isolated the way `network_mode: none` would make it. Nothing weaker
+  # is available, because an isolated namespace would put the loopback socket
+  # somewhere the browser cannot reach. What makes it acceptable is that
+  # `curbcheck serve` opens no outbound socket at all — httpx lives only in
+  # curbcheck/net.py, which only the ETL calls (docs/SECURITY.md, threat T6) —
+  # and the filesystem below is read-only. Run this on a trusted host, or behind
+  # a reverse proxy that terminates on 127.0.0.1.
+  serve:
+    build: .
+    image: curbcheck:local
+    network_mode: host
+    command: ["serve", "--db", "/data/curbcheck.sqlite"]
+    volumes:
+      # Read-only: the server never writes. `curbcheck sync` is the only writer.
+      - ./data:/data:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+  # The only service that touches the internet. Default bridge networking, no
+  # published ports, nothing listening. Egress is still narrow inside the
+  # process: curbcheck/net.py refuses any host outside config.ALLOWED_HOSTS,
+  # on every redirect hop.
+  sync:
+    build: .
+    image: curbcheck:local
+    command: ["sync"]
+    volumes:
+      - ./data:/data
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    profiles: ["cli"]

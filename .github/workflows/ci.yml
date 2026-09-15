@@ -24,3 +24,27 @@ jobs:
       # PMTiles are checked in under web/vendor/.
       - run: make setup
       - run: make check
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build only: the image is never pushed anywhere, and there is nothing to
+      # smoke-test without a 71 MB database. What this catches is a Dockerfile
+      # that no longer matches the tree — a renamed package directory, a
+      # requirements.txt whose hashes stopped verifying, a missing CLAUDE.md
+      # that hatchling reads as the long description.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: curbcheck:ci
+
+      # The entrypoint is `curbcheck`; if the console script or the frontend
+      # copy is wrong, this fails without needing any data.
+      - run: docker run --rm curbcheck:ci --help
+      - run: >
+          docker run --rm --entrypoint python curbcheck:ci -c
+          "from curbcheck.cli import WEB_DIR; assert (WEB_DIR / 'index.html').is_file(), WEB_DIR"
