@@ -58,7 +58,7 @@ CASES = (
     # plain two-hour meter, so the window is legal and the meter charges nothing.
     Case(
         "metered block on Thanksgiving: meters off, still legal",
-        "a5ee535885f35682",
+        "81e33fb9deb588e8",
         40.727174,
         -73.984167,
         *at(2026, 11, 26, 10, 12),
@@ -71,7 +71,7 @@ CASES = (
     # ban's own calendar says ALL DAYS, so no holiday lifts it.
     Case(
         "MOON & STARS overnight ban, Monday 00:00-03:00",
-        "267900ccaef7f809",
+        "7c7138fe0da0caa0",
         40.732779,
         -73.998088,
         *at(2026, 9, 21, 0, 3),
@@ -88,7 +88,7 @@ CASES = (
     # itself. W 24 ST side N reads illegal on an ordinary Thursday at this hour.
     Case(
         "broom block on an ASP suspension Thursday (Holy Thursday)",
-        "e6b49065d8d6334a",
+        "9483f39ea846297e",
         40.747801,
         -74.002240,
         *at(2026, 4, 2, 11, 12),
@@ -104,7 +104,7 @@ CASES = (
     # string has to name the limit, not the vehicle class.
     Case(
         "3-hour window on a 2-hour passenger meter",
-        "a5ee535885f35682",
+        "81e33fb9deb588e8",
         40.727174,
         -73.984167,
         *at(2026, 9, 16, 10, 13),
@@ -116,7 +116,7 @@ CASES = (
     # two independent reasons to refuse, and the verdict must still be illegal.
     Case(
         "3-hour window on a 1-hour (commercial) meter",
-        "f7701eadc3608d4f",
+        "ecaab1d60c2ba4e5",
         40.744176,
         -73.990021,
         *at(2026, 9, 16, 10, 13),
@@ -127,7 +127,7 @@ CASES = (
     # A holiday suspends alternate-side and the meters, never a standing ban.
     Case(
         "NO STANDING ANYTIME on Christmas Day",
-        "8a24e1d198ec603f",
+        "048193bc7204607d",
         40.748170,
         -73.988841,
         *at(2026, 12, 25, 10, 12),
