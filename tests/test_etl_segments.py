@@ -3,7 +3,13 @@
 from __future__ import annotations
 
 import pytest
-from test_etl_fixtures import AVENUE_LON, avenue_chain_length_ft, grid_graph, staged_sign
+from test_etl_fixtures import (
+    AVENUE_LON,
+    avenue_chain_length_ft,
+    first_block_length_ft,
+    grid_graph,
+    staged_sign,
+)
 
 from curbcheck.config import CAR_LENGTH_FT
 from curbcheck.etl.segments import Arity, arrow_arity, regulation_family, resolve_segments
@@ -216,3 +222,65 @@ def test_unsnapped_signs_never_produce_a_segment():
     segments, _ = resolve(staged_sign("x", on_street="NOWHERE AVENUE", description=NO_PARKING))
 
     assert segments == []
+
+
+# docs/VALIDATION.md §4 D1: the posts on 8 AVE side E, Bleecker -> W 12 St. A
+# bus-stop pair (a `<->` post and a single arrow pointing back at it) brackets
+# the bus stop, and the metered post beyond it starts a new regime.
+BUS_STOP_DOUBLE = "BUS STOP SIGN (BUS & HANDICAP SYMBOLS) NO STANDING <----->"
+BUS_STOP_SINGLE = "BUS STOP SIGN (BUS & HANDICAP SYMBOLS) NO STANDING W/ SINGLE ARROW"
+TWO_HOUR_METER = "2 HMP 8AM-7PM EXCEPT SUNDAY <->"
+FIRST_BLOCK_FT = round(first_block_length_ft())
+
+
+def eight_avenue_posts():
+    return (
+        staged_sign(
+            "bus-double",
+            to_street="E 2 STREET",
+            distance_ft=99.0,
+            description=BUS_STOP_DOUBLE,
+            sign_code="SP-477B",
+        ),
+        staged_sign(
+            "bus-single",
+            to_street="E 2 STREET",
+            distance_ft=209.0,
+            arrow_direction="South",
+            description=BUS_STOP_SINGLE,
+            sign_code="SP-477BA",
+        ),
+        staged_sign(
+            "meter",
+            to_street="E 2 STREET",
+            distance_ft=232.0,
+            description=TWO_HOUR_METER,
+            sign_code="PS-65C",
+        ),
+    )
+
+
+def test_a_double_arrow_stops_where_another_familys_post_starts():
+    segments, _ = resolve(*eight_avenue_posts())
+
+    metered = [segment for segment in segments if "meter" in segment.derived_from]
+    assert spans(metered) == [(209, FIRST_BLOCK_FT)]
+    # The bus stop no longer swallows the curb the meter governs.
+    assert spans(segments) == [(0, 209), (99, 209), (209, FIRST_BLOCK_FT)]
+
+
+def test_a_double_arrow_reaches_the_corner_only_where_no_post_lies_beyond():
+    # Same three posts, with a second metered post past the corner end: the
+    # bus stop keeps its far bound, and the meter now stops at its own family.
+    segments, _ = resolve(
+        *eight_avenue_posts(),
+        staged_sign(
+            "meter-far",
+            to_street="E 2 STREET",
+            distance_ft=300.0,
+            description=TWO_HOUR_METER,
+            sign_code="PS-65C",
+        ),
+    )
+
+    assert spans(segments) == [(0, 209), (99, 209), (209, 300), (232, FIRST_BLOCK_FT)]

@@ -9,7 +9,8 @@
  */
 
 export const VERDICT_EXPLANATION = {
-  // SPEC §11, "No sign data on this block".
+  // SPEC §11, "No sign data on this block". Said when the span does not record
+  // *why* it is empty; `NO_DATA_EXPLANATION` below is said when it does.
   no_data:
     "No regulation data here. Sign-free prohibitions (hydrant 15 ft, bus stop, crosswalk, " +
     "driveway) may still apply. Read the curb.",
@@ -18,6 +19,35 @@ export const VERDICT_EXPLANATION = {
     "Ambiguous rule. The software could not confidently read the signs on this stretch, or the " +
     "signs conflict. The raw sign text is below — read it yourself, and read the curb.",
 };
+
+/**
+ * Why a grey stretch is grey, keyed by `SearchResult.gap_kind` (docs/API.md).
+ *
+ * The two are not the same state and must not read the same. `no_signs` is
+ * curb DOT publishes no sign for; `unmatched_signs` is curb DOT *does* publish
+ * signs for that CurbCheck could not place on the centerline — 722 blockface-
+ * sides, 520 of them carrying a NO STANDING/PARKING/STOPPING ANYTIME sign
+ * (docs/VALIDATION.md §5). Telling the second one "no signs here" would be a
+ * false statement about the curb, not merely a vague one.
+ */
+export const NO_DATA_EXPLANATION = {
+  no_signs:
+    "No regulation data on this stretch. NYC DOT's inventory lists no signs here. Sign-free " +
+    "prohibitions (hydrant 15 ft, bus stop, crosswalk, driveway) may still apply. Read the curb.",
+  unmatched_signs:
+    "Signs exist on this block but CurbCheck could not place them. Treat as unknown. Read the " +
+    "posted signs.",
+};
+
+/** The `no_data` wording for one span: gap-kind specific where the span says which. */
+export function noDataExplanation(gapKind) {
+  return NO_DATA_EXPLANATION[gapKind] || VERDICT_EXPLANATION.no_data;
+}
+
+// SPEC §11, and the legend: an empty map is read as "nothing here", which is
+// the hazard SPEC §11 exists to prevent arriving through another door
+// (docs/VALIDATION.md §5).
+export const NO_DATA_LEGEND_NOTE = "A blank or grey curb means no data, not no restriction.";
 
 // SPEC §11, "Temporary signage may override": shown on every verdict, always.
 export const TEMPORARY_SIGNAGE_CAVEAT =
@@ -39,7 +69,8 @@ export const DISCLAIMER =
   "regulation. Always read the posted sign before parking. Sign-free prohibitions — within 15 " +
   "feet of a fire hydrant (34 RCNY §4-08(e)(2)), crosswalks, bus stops, and driveways — apply " +
   "even where no sign is shown. CurbCheck does not predict whether a space is physically " +
-  "available. Data © NYC Open Data; basemap © OpenStreetMap contributors.";
+  "available. A blank or grey curb means no data, not no restriction. " +
+  "Data © NYC Open Data; basemap © OpenStreetMap contributors.";
 
 // D13: an unparsed sign's `regulation` object is a placeholder whose fields mean
 // nothing, so the panel shows this instead of pretending to read it. It is the

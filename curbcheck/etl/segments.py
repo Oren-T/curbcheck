@@ -13,7 +13,7 @@ import hashlib
 import logging
 import math
 import re
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -204,7 +204,8 @@ def _resolve_face(
 
     spans: dict[tuple[float, float], list[_Post]] = {}
     for post in posts:
-        span = _span_for(post, by_family[post.family], length_ft, counts)
+        others = [other.distance_ft for other in posts if other.family != post.family]
+        span = _span_for(post, by_family[post.family], others, length_ft, counts)
         spans.setdefault(span, []).append(post)
         counts["signs"] += 1
 
@@ -259,7 +260,11 @@ def _post_for(
 
 
 def _span_for(
-    post: _Post, family_posts: Sequence[float], length_ft: float, counts: dict[str, int]
+    post: _Post,
+    family_posts: Sequence[float],
+    other_posts: Sequence[float],
+    length_ft: float,
+    counts: dict[str, int],
 ) -> tuple[float, float]:
     """The curb span one post governs, per SPEC §B.2 and 34 RCNY 4-08."""
     whole_side = (0.0, length_ft)
@@ -267,7 +272,7 @@ def _span_for(
     if post.arity is Arity.SINGLE and post.forward is not None:
         span = _single_arrow_span(post, family_posts, length_ft)
     elif post.arity is Arity.DOUBLE:
-        span = _double_arrow_span(post, family_posts, length_ft)
+        span = _double_arrow_span(post, family_posts, other_posts, length_ft)
     if span[1] - span[0] < MIN_SPAN_FT:
         counts["degenerate"] += 1
         span = whole_side
@@ -289,19 +294,33 @@ def _single_arrow_span(
 
 
 def _double_arrow_span(
-    post: _Post, family_posts: Sequence[float], length_ft: float
+    post: _Post, family_posts: Sequence[float], other_posts: Sequence[float], length_ft: float
 ) -> tuple[float, float]:
-    """A two-way arrow governs the whole side unless same-family posts bound it both ways.
+    """A two-way arrow runs each way to the post that says where its own rule stops.
 
-    34 RCNY 4-08 makes one authorized sign govern the block, so the default is
-    the whole blockface-side; a same-family post on each side means DOT has
-    subdivided the block and the rule stops where the next one starts.
+    Each direction is resolved on its own: the nearest same-family post first,
+    because that is DOT subdividing the block; failing that the nearest post of
+    any other family, because a new sign is where a new regime starts; and only
+    a direction with no post at all reaches the corner, which is 34 RCNY 4-08's
+    "one authorized sign governs the block".
+
+    The old rule fell back to the whole side as soon as one direction had no
+    same-family post, which buried a metered curb under a bus stop on 8 AVE
+    side E (docs/VALIDATION.md §4 D1).
     """
-    before = _last_before(family_posts, post.distance_ft)
-    after = _next_after(family_posts, post.distance_ft)
-    if before is None or after is None:
-        return (0.0, length_ft)
-    return (before, after)
+    start = _bound(_last_before, family_posts, other_posts, post.distance_ft)
+    end = _bound(_next_after, family_posts, other_posts, post.distance_ft)
+    return (0.0 if start is None else start, length_ft if end is None else end)
+
+
+def _bound(
+    pick: Callable[[Sequence[float], float], float | None],
+    family_posts: Sequence[float],
+    other_posts: Sequence[float],
+    distance_ft: float,
+) -> float | None:
+    same_family = pick(family_posts, distance_ft)
+    return same_family if same_family is not None else pick(other_posts, distance_ft)
 
 
 def _next_after(posts: Sequence[float], distance_ft: float) -> float | None:

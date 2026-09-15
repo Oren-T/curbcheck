@@ -79,6 +79,16 @@ def add_segment(
     )
 
 
+def add_placeholder(
+    conn: sqlite3.Connection, reg_seg_id: str, *, lat: float, gap_kind: str, side: str = "E"
+) -> None:
+    """A coverage placeholder: a span the ETL writes with no rules, saying why it is empty."""
+    add_segment(conn, reg_seg_id, lat=lat, sign_ids=[], side=side)
+    conn.execute(
+        "UPDATE regulation_segment SET gap_kind = ? WHERE reg_seg_id = ?", (gap_kind, reg_seg_id)
+    )
+
+
 def add_sign(
     conn: sqlite3.Connection, sign_id: str, description: str, code: str = "PS-127C"
 ) -> None:
@@ -300,6 +310,29 @@ def test_a_segment_with_no_signs_is_no_data_with_no_sign_list(conn: sqlite3.Conn
     assert result.verdict is Verdict.NO_DATA
     assert result.signs == []
     assert result.capacity_cars == 10
+
+
+def test_a_placeholder_span_reports_why_it_has_no_data(conn: sqlite3.Connection) -> None:
+    """`gap_kind` is what lets the grey state say "no signs" or "signs we could not place"."""
+    add_placeholder(conn, "seg-nosigns", lat=ORIGIN_LAT + 0.0013, gap_kind="no_signs")
+    add_placeholder(conn, "seg-unmatched", lat=ORIGIN_LAT + 0.0014, gap_kind="unmatched_signs")
+
+    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+
+    assert by_id["seg-nosigns"].verdict is Verdict.NO_DATA
+    assert by_id["seg-nosigns"].gap_kind == "no_signs"
+    assert by_id["seg-unmatched"].gap_kind == "unmatched_signs"
+    assert by_id["seg-blank"].gap_kind is None
+
+
+def test_a_database_without_gap_kind_still_searches(conn: sqlite3.Connection) -> None:
+    """Older snapshots predate the column; they lose the reason, not the search."""
+    conn.execute("ALTER TABLE regulation_segment DROP COLUMN gap_kind")
+
+    results = run_search(conn)
+
+    assert len(results) == 4
+    assert all(result.gap_kind is None for result in results)
 
 
 def test_geometry_comes_back_as_geojson(conn: sqlite3.Connection) -> None:

@@ -104,6 +104,14 @@ def avenue_chain_length_ft() -> float:
     return block.length_ft
 
 
+def first_block_length_ft() -> float:
+    """Measured length of the BROAD AVE block between E 1 ST and E 2 ST, in feet."""
+    block = grid_graph().find_block("BROAD AVENUE", "E 1 STREET", "E 2 STREET")
+    if block is None:
+        raise AssertionError("the fixture grid no longer spans E 1 ST to E 2 ST")
+    return block.length_ft
+
+
 def staged_sign(
     sign_id: str,
     *,

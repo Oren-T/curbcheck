@@ -15,6 +15,7 @@ import {
   SIGN_NOT_ON_THIS_STRETCH,
   UNPARSED_RULE,
   VERDICT_EXPLANATION,
+  noDataExplanation,
 } from "./copy.js";
 import { clear, definition, el, verdictBadge } from "./dom.js";
 import {
@@ -77,7 +78,7 @@ function body(view) {
       ]),
     );
     nodes.push(caveatList(result.caveats));
-    const explanation = VERDICT_EXPLANATION[verdictKey(verdict)];
+    const explanation = verdictExplanation(verdict, result.gap_kind);
     if (explanation) {
       nodes.push(el("p", { className: `notice notice-${verdictKey(verdict)}`, text: explanation }));
     }
@@ -98,6 +99,12 @@ function body(view) {
   nodes.push(...meterSection(detail.meter_rates));
   nodes.push(...segmentSection(detail.segment));
   return nodes;
+}
+
+/** The §11 explanation for a verdict: for `no_data`, the one its gap kind earns. */
+function verdictExplanation(verdict, gapKind) {
+  const key = verdictKey(verdict);
+  return key === "no_data" ? noDataExplanation(gapKind) : VERDICT_EXPLANATION[key];
 }
 
 /**
@@ -143,7 +150,7 @@ function signSection(detail, result) {
         el("h3", { text: "Signs on this stretch" }),
         el("p", {
           className: "notice notice-no_data",
-          text: VERDICT_EXPLANATION.no_data,
+          text: noDataExplanation(result && result.gap_kind),
         }),
       ]),
     ];

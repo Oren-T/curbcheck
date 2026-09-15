@@ -407,6 +407,13 @@ button {
   gap: 6px;
 }
 
+/* Grey is the verdict a driver is most likely to misread as "nothing here",
+   so the legend says in words what the absence of colour means (SPEC §11). */
+.legend-note {
+  flex-basis: 100%;
+  color: var(--ink-soft);
+}
+
 /* The swatches repeat the map's dash patterns so the legend is readable
    without colour vision. */
 .swatch {

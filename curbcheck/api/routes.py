@@ -33,7 +33,8 @@ DISCLAIMER = (
     "the only authoritative regulation. Always read the posted sign before parking. "
     "Sign-free prohibitions — within 15 feet of a fire hydrant (34 RCNY §4-08(e)(2)), "
     "crosswalks, bus stops, and driveways — apply even where no sign is shown. CurbCheck "
-    "does not predict whether a space is physically available. "
+    "does not predict whether a space is physically available. A blank or grey curb means "
+    "no data, not no restriction. "
     "Data © NYC Open Data; basemap © OpenStreetMap contributors."
 )
 

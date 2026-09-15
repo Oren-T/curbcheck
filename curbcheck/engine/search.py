@@ -58,9 +58,11 @@ _ID_CHUNK = 400
 _M_PER_DEG_LAT = 111_132.0
 _M_PER_DEG_LON_AT_EQUATOR = 111_320.0
 
+_CANDIDATE_COLUMNS = (
+    "reg_seg_id, segment_id, side, geom, length_ft, capacity_cars, confidence, derived_from"
+)
 _CANDIDATE_SQL = (
-    "SELECT reg_seg_id, segment_id, side, geom, length_ft, capacity_cars, confidence,"
-    " derived_from FROM regulation_segment"
+    "SELECT {columns} FROM regulation_segment"
     " WHERE max_lon >= ? AND min_lon <= ? AND max_lat >= ? AND min_lat <= ?"
 )
 _ASP_SQL = "SELECT date, is_major_legal_holiday, meters_suspended, label FROM asp_suspension"
@@ -70,6 +72,8 @@ _REGULATION_SQL = (
     " arrow, raw_sign_description, parse_method, parse_confidence FROM regulation"
     " WHERE reg_seg_id IN ("
 )
+# PRAGMA takes no bound parameters, so the table name is a literal here.
+_GAP_KIND_PRAGMA = "PRAGMA table_info(regulation_segment)"
 _SIGN_SQL = "SELECT sign_id, order_number, sign_code, sign_description FROM sign WHERE sign_id IN ("
 _METER_SQL = "SELECT segment_id, side, rate_label, hour_rates FROM meter_rate WHERE segment_id IN ("
 
@@ -105,6 +109,11 @@ class SearchResult:
     metered: bool = False
     score: float = 0.0
     rate_label: str | None = None
+    # NULL on a real span. A placeholder covering a centerline side with no
+    # rules says why it is empty, so the grey state can tell a data gap
+    # ('no_signs') from a matching gap ('unmatched_signs') -- a blank curb and
+    # an unplaced sign need different words (SPEC §11, docs/VALIDATION.md §5).
+    gap_kind: str | None = None
 
 
 @dataclass(frozen=True)
@@ -149,6 +158,7 @@ class _Candidate:
     snap_confidence: float
     sign_ids: list[str]
     walk_min: float
+    gap_kind: str | None = None
 
 
 def search(
@@ -251,8 +261,11 @@ def _candidates_in_radius(
 ) -> list[_Candidate]:
     lat_pad = radius_m / _M_PER_DEG_LAT
     lon_pad = radius_m / _meters_per_degree_lon(lat)
+    has_gap_kind = _has_gap_kind(conn)
+    columns = _CANDIDATE_COLUMNS + (", gap_kind" if has_gap_kind else "")
     rows = conn.execute(
-        _CANDIDATE_SQL, (lon - lon_pad, lon + lon_pad, lat - lat_pad, lat + lat_pad)
+        _CANDIDATE_SQL.format(columns=columns),
+        (lon - lon_pad, lon + lon_pad, lat - lat_pad, lat + lat_pad),
     ).fetchall()
 
     origin = Point(0.0, 0.0)
@@ -273,6 +286,7 @@ def _candidates_in_radius(
                 snap_confidence=float(row["confidence"] or 0.0),
                 sign_ids=_json_string_list(row["derived_from"]),
                 walk_min=walk_minutes_for_meters(distance_m),
+                gap_kind=_optional_str(row["gap_kind"]) if has_gap_kind else None,
             )
         )
     return candidates
@@ -395,6 +409,7 @@ def _build_result(
         metered=verdict.metered,
         score=score,
         rate_label=rate_label,
+        gap_kind=candidate.gap_kind,
     )
 
 
@@ -428,6 +443,16 @@ _VERDICT_ORDER: dict[Verdict, int] = {
     Verdict.ILLEGAL: 2,
     Verdict.NO_DATA: 3,
 }
+
+
+def _has_gap_kind(conn: sqlite3.Connection) -> bool:
+    """Whether this database has `regulation_segment.gap_kind`.
+
+    One `PRAGMA table_info` per search, cheaper than the bbox query beside it.
+    The column arrived after the first databases were built, and a snapshot from
+    before it is still usable — it just cannot say *why* a stretch is empty.
+    """
+    return any(str(row[1]) == "gap_kind" for row in conn.execute(_GAP_KIND_PRAGMA))
 
 
 def _meters_per_degree_lon(lat: float) -> float:
