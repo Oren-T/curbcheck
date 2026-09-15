@@ -38,8 +38,10 @@ curbcheck/
     search.py      Radius query + per-segment verdict + ranking
   geocode.py       Local address / intersection lookup over centerline address ranges
   api/
-    app.py         FastAPI app, security headers, static file mount
+    app.py         FastAPI app, security headers, static mount, range-served basemap
     routes.py      /api/search, /api/segment/{id}, /api/geocode, /api/health, /api/sync-status
+    schemas.py     Pydantic request models; every HTTP input passes through one
+    errors.py      The single `{error: {code, message}}` shape
 web/
   index.html       Single page
   app.js           UI state and form handling
