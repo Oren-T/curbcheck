@@ -42,6 +42,21 @@ export const DISCLAIMER =
   "available. Data © NYC Open Data; basemap © OpenStreetMap contributors.";
 
 // D13: an unparsed sign's `regulation` object is a placeholder whose fields mean
-// nothing, so the panel shows this instead of pretending to read it.
+// nothing, so the panel shows this instead of pretending to read it. It is the
+// amber "the machine could not read it" signal of SPEC §11 and must be reserved
+// for that case: a sign the parser really did fail on. The two strings below
+// cover the other two reasons a sign can carry no rule here, and neither of them
+// is a parser failure.
 export const UNPARSED_RULE =
   "The software could not read this sign. Only the raw text above is trustworthy.";
+
+// D10: a panel that states no regulation (bus route, pay-by-cell locator,
+// location plate) never reaches the parser. `/api/segment` lists it for audit.
+export const PANEL_STATES_NO_RULE =
+  "This panel states no parking rule. It is shown because it is posted on this block.";
+
+// `/api/segment` lists every sign on the parent centerline segment, including
+// the ones governing the other side or a different stretch of the same side.
+export const SIGN_NOT_ON_THIS_STRETCH =
+  "This sign is posted on this block but does not govern this stretch. Read it anyway if you " +
+  "are parking near it.";

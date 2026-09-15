@@ -108,3 +108,26 @@ def test_basemap_directory_holds_every_asset_the_style_asks_for() -> None:
     assert stacks, "no glyph directories vendored"
     for stack in stacks:
         assert (fonts_dir / stack / "0-255.pbf").is_file()
+
+
+def test_unparsed_warning_is_reserved_for_signs_the_parser_failed_on() -> None:
+    """SPEC §11's amber "could not read it" must not fire on a sign that was read.
+
+    `/api/segment` lists every sign on the parent centerline segment, so the
+    detail panel meets signs carrying no rule on *this* stretch for two reasons
+    that are not parser failures: a non-regulation panel (D10), and a sign
+    governing the other side or another span. D13 gives every sign in this
+    stretch's own stack a `regulation` row, unparsed ones included, so the
+    no-rule branch of `signCard` can never be a parser failure.
+    """
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+
+    for name in ("PANEL_STATES_NO_RULE", "SIGN_NOT_ON_THIS_STRETCH"):
+        assert f"export const {name}" in copy, f"copy.js lost {name}"
+        assert name in detail, f"detail.js no longer uses {name}"
+
+    # UNPARSED_RULE survives in exactly one place: `ruleBlock`, which only ever
+    # sees a rule whose own `parse_method` says `unparsed`.
+    assert detail.count("UNPARSED_RULE") == 2, "UNPARSED_RULE is used outside ruleBlock"
+    assert 'entry.parse_method === "unparsed"' in detail

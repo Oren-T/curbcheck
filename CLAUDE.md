@@ -17,6 +17,9 @@ changes, and delete anything that is no longer true.
 - `docs/DECISIONS.md` — every departure from the spec, with evidence (D1–D19).
 - `docs/ARCHITECTURE.md` — module map, schema, data flow.
 - `docs/DATA.md` — measured facts about the source datasets.
+- `docs/VALIDATION.md` — the ground-truth run against NYC DOT's own sign
+  viewer: what agrees, what does not, and why the tool still needs a
+  louder advisory than SPEC §17's.
 - `docs/API.md` — the local HTTP contract. `docs/SECURITY.md` — where each
   control lives. `docs/VALIDATION.md` — ground-truth accuracy.
 - `README.md` — the outside view: quick start, limitations, data sources.

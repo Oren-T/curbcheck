@@ -11,6 +11,8 @@
 import {
   ASP_SUSPENSION_CAVEAT,
   TEMPORARY_SIGNAGE_CAVEAT,
+  PANEL_STATES_NO_RULE,
+  SIGN_NOT_ON_THIS_STRETCH,
   UNPARSED_RULE,
   VERDICT_EXPLANATION,
 } from "./copy.js";
@@ -225,8 +227,24 @@ function signCard(sign, rules, fallback) {
           }),
           ...rules.map(ruleBlock),
         ]
-      : [el("p", { className: "notice notice-ambiguous", text: UNPARSED_RULE })]),
+      : [noRuleNotice(sign)]),
   ]);
+}
+
+/**
+ * Why a listed sign carries no rule on this stretch.
+ *
+ * D13 gives every sign in this stretch's stack a `regulation` row, unparsed ones
+ * included, so a sign reaching this branch is never one the parser failed on: it
+ * is a non-regulation panel (D10) or a sign governing another side or span, which
+ * `/api/segment` lists for audit. Saying "the software could not read this sign"
+ * about either would spend SPEC §11's amber warning on a sign that was read fine.
+ */
+function noRuleNotice(sign) {
+  if (sign.is_regulation === false) {
+    return el("p", { className: "notice notice-note", text: PANEL_STATES_NO_RULE });
+  }
+  return el("p", { className: "notice notice-note", text: SIGN_NOT_ON_THIS_STRETCH });
 }
 
 /** One parsed rule in plain English, with every field spelled out beneath it. */
