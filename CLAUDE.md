@@ -56,8 +56,8 @@ sides with no rule at all, 99.83% of rows parsed, 100% semantic / zero
 false-permitted on the 520-description gold set, 0 of 6,558 metered segments
 unpriced, 26 of 30 sampled sides agreeing with DOT's viewer — which renders the
 same SIMS export we read, so that is a check on our source, not a survey.
-Address search comes from a local index of 63,245 doors, 5,645 corners, 5,817
-places and 2,814 street spellings (D29): median 0 m error on a 400-door sample,
+Address search comes from a local index of 63,245 doors, 5,645 corners, 5,796
+places and 2,815 street spellings, matched on any word (D29): median 0 m error on a 400-door sample,
 nothing leaving the machine, answered from one read-only connection per worker
 thread whose 48 MB page cache holds `/api/geocode` at a 6 ms p50 on this data
 mount (32 ms on a street the connection has not read yet), where it was 489 ms;
