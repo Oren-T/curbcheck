@@ -99,3 +99,42 @@ fiona from the install.
 
 **Would reverse it:** an ETL step that genuinely needs grouped tabular
 operations at a size where dict-based code gets slow or unreadable.
+
+## D3 (refined). Arrow arity from the glyph, bearing from `arrow_direction`
+
+**Decided:** 2026-09-14, refining D3. The glyph in the description says only
+whether the sign has one arrow or two (`-->` with any dash count, or the words
+`SINGLE ARROW`, versus `<->`). The compass word in `arrow_direction` says
+which way a single arrow points. It is populated on every single-arrow row and
+blank on double-arrow and no-arrow rows.
+
+**Why:** `<--` occurs on 2 of 74,590 active rows. DOT writes every single
+arrow as `-->` and records the bearing separately. See `docs/DATA.md`.
+
+## D9. Active filter is `sign_design_voided_on_date IS NULL` only
+
+**Decided:** 2026-09-14. `record_type` is the literal `Current` on every row
+citywide, so it carries no information. The active set is Manhattan rows with
+a null voided date: 74,590 rows. The `record_type` predicate is kept as an
+assertion in staging so a future change in the export is noticed.
+
+## D10. Non-regulation panels are classified out before parsing
+
+**Decided:** 2026-09-14. About 22% of active rows are MTA bus route panels,
+pay-by-cell locator plates, and blank location panels. They are kept in the
+`sign` table for audit but never produce a `regulation` row and do not count
+against parser coverage.
+
+## D11. Calendar and basemap sources
+
+**Decided:** 2026-09-14. The DOT ASP suspension calendar is fetched from
+nyc.gov as ICS with a browser User-Agent (the 403 is UA-based only). The
+2026 ICS yields 47 suspended days over 42 dates; the seven "meters not in
+effect" days in its descriptions are the six Major Legal Holidays, so that
+rule is read from the calendar rather than hardcoded. The basemap is a
+Manhattan extract of the Protomaps daily build, obtained with `pmtiles
+extract` over range requests (23 MB, no planet download), with fonts and
+sprites vendored from the protomaps basemaps-assets repository and the style
+vendored from the `@protomaps/basemaps` npm package. `build-metadata.protomaps.dev`
+and `raw.githubusercontent.com` are added to the allowlist for the basemap
+step only.
