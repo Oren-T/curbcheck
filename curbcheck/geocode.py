@@ -86,6 +86,10 @@ MAX_PREFIX_VARIANTS = 40
 MAX_STREETS_PER_ADDRESS = 6
 MAX_STREETS_PER_SIDE = 8
 MAX_FUZZY_STREETS = 10
+# Below this, an edit-distance-1 guess is not a correction: nearly every
+# short variant is within one edit of every other, so "3 A" would "correct"
+# to dozens of streets the user did not type.
+MIN_FUZZY_CHARS = 4
 MAX_PLACE_CANDIDATES = 60
 
 CONFIDENCE_ADDRESS_POINT = 0.98
@@ -140,7 +144,10 @@ _VARIANT_PREFIX_SQL = (
     "SELECT DISTINCT street_norm FROM street_variant WHERE variant >= ? AND variant < ?"
     " ORDER BY variant, street_norm LIMIT ?"
 )
-_VARIANTS_SQL = "SELECT variant, street_norm FROM street_variant"
+_VARIANTS_SQL = (
+    "SELECT variant, street_norm FROM street_variant"
+    " WHERE length(variant) >= ? AND length(variant) <= ?"
+)
 _STREET_SQL = "SELECT display, lon, lat FROM street WHERE street_norm = ?"
 _ADDRESS_EXACT_SQL = (
     "SELECT display, zipcode, lon, lat FROM address_point"
@@ -201,6 +208,16 @@ class GeocodeKind(StrEnum):
     ZIP = "zip"
     PLACE = "place"
     PIN = "pin"
+
+
+# A street's pin is a vertex of one of its own centerline segments and a corner
+# is a segment endpoint (`etl.addresses._street_points`, `_write_intersections`),
+# so both are at distance zero from the centerline by construction and asking
+# `within_coverage` costs a scan to learn nothing. The kinds read off another
+# dataset -- a surveyed door, a place, a ZIP centroid -- are still checked. On
+# the data mount this is the difference between 15 ms and 1,135 ms for
+# "broadwa", whose eight street candidates are spread the length of the island.
+_ON_THE_CENTERLINE = frozenset({GeocodeKind.STREET, GeocodeKind.INTERSECTION})
 
 
 @dataclass(frozen=True)
@@ -294,9 +311,12 @@ def geocode(
     This is what `/api/geocode` and `/api/search` call. Offering a destination
     and then refusing to search it is the shape of failure the coverage rule
     exists to end (UX audit P0-3), so the filter lives between the two rather
-    than in either.
+    than in either. One read transaction covers the suggestion and all eight
+    coverage checks, which on the data mount is the difference between one
+    page-1 read and nine.
     """
-    return _in_coverage(conn, suggest(conn, text, limit=limit), limit)
+    with read_snapshot(conn):
+        return _in_coverage(conn, suggest(conn, text, limit=limit), limit)
 
 
 def clean_query(text: str) -> str:
@@ -424,7 +444,9 @@ def _in_coverage(
     for candidate in candidates:
         if len(kept) >= limit:
             break
-        if within_coverage(conn, lon=candidate.lon, lat=candidate.lat):
+        if candidate.kind in _ON_THE_CENTERLINE or within_coverage(
+            conn, lon=candidate.lon, lat=candidate.lat
+        ):
             kept.append(candidate)
     return kept
 
@@ -468,14 +490,15 @@ def _prefix_bound(prefix: str) -> str:
 def _fuzzy_streets(conn: sqlite3.Connection, folded: str) -> list[str]:
     """Street norms whose variant is within one edit of `folded`.
 
-    A linear scan over the ~2,800 variants, filtered on length first. Measured
-    at about 3 ms, and it only runs when the exact and prefix passes found
-    nothing at all.
+    A scan over the ~2,800 variants, narrowed in SQL to the ones whose length
+    could be within one edit. It only runs when the exact and prefix passes
+    found nothing at all, which is what keeps a correctly-typed prefix from
+    ever paying for someone else's typo.
     """
+    if len(folded) < MIN_FUZZY_CHARS:
+        return []
     matches: set[str] = set()
-    for variant, street_norm in conn.execute(_VARIANTS_SQL):
-        if abs(len(variant) - len(folded)) > 1:
-            continue
+    for variant, street_norm in conn.execute(_VARIANTS_SQL, (len(folded) - 1, len(folded) + 1)):
         if _within_one_edit(str(variant), folded):
             matches.add(str(street_norm))
     return sorted(matches)[:MAX_FUZZY_STREETS]

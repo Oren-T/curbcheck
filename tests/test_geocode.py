@@ -351,6 +351,11 @@ def test_a_typo_in_a_street_name_still_resolves_at_a_lower_confidence(conn):
     assert candidate.confidence == pytest.approx(0.45 * 0.8)
 
 
+def test_a_query_too_short_to_correct_is_not_corrected(conn):
+    """Nearly every short variant is within one edit of every other one."""
+    assert suggest(conn, "3 A") == []
+
+
 def test_a_zip_returns_its_centre_and_says_how_coarse_that_is(conn):
     [candidate] = suggest(conn, "10028")
 
@@ -425,15 +430,29 @@ def test_geocode_is_suggest_filtered_to_what_the_app_can_answer_about(conn):
 
 
 def test_a_candidate_outside_coverage_is_never_offered(conn):
-    """Offering a destination and then refusing to search it is UX audit P0-3."""
+    """Offering a destination and then refusing to search it is UX audit P0-3.
+
+    Written with `address` candidates because those are the kinds that come off
+    a dataset other than the centerline, and so the only ones that can land
+    outside coverage at all.
+    """
     inside = GeocodeCandidate(
-        label="3 AVE", lat=NODE_85[1], lon=NODE_85[0], kind=GeocodeKind.STREET, confidence=0.3
+        label="1517 3 AVE", lat=NODE_85[1], lon=NODE_85[0], kind=GeocodeKind.ADDRESS, confidence=0.9
     )
     hoboken = GeocodeCandidate(
-        label="WASHINGTON ST", lat=40.7440, lon=-74.0324, kind=GeocodeKind.STREET, confidence=0.9
+        label="1 WASHINGTON ST", lat=40.7440, lon=-74.0324, kind=GeocodeKind.ADDRESS, confidence=0.9
     )
 
     assert _in_coverage(conn, [hoboken, inside], 8) == [inside]
+
+
+def test_a_street_is_in_coverage_without_being_asked(conn):
+    """Its pin is a vertex of its own centerline, so the question has one answer."""
+    far_away = GeocodeCandidate(
+        label="3 AVE", lat=0.0, lon=0.0, kind=GeocodeKind.STREET, confidence=0.3
+    )
+
+    assert _in_coverage(conn, [far_away], 8) == [far_away]
 
 
 # --- reverse --------------------------------------------------------------
