@@ -28,6 +28,8 @@ from curbcheck.api.app import CONTENT_SECURITY_POLICY, create_app
 from curbcheck.api.routes import ASP_SUSPENSION_CAVEAT, TEMPORARY_SIGNAGE_CAVEAT
 from curbcheck.db import create_schema, days_to_mask
 from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT
+from curbcheck.etl.addresses import build_address_index
+from curbcheck.geocode import MAX_QUERY_CHARS
 from curbcheck.model import ALL_DAYS
 
 # The block from docs/DATA.md §2.3: 3 AVE between E 85 ST and E 86 ST.
@@ -40,6 +42,12 @@ DESTINATION = {"lat": 40.7784, "lon": -73.9542}
 XSS_SIGN_TEXT = "2 HOUR PARKING <script>alert('x')</script> 9AM-7PM"
 
 WINDOW = {"t1": "2026-09-15T09:00:00", "t2": "2026-09-15T11:00:00"}
+
+# The one surveyed door on the fixture block, halfway along it.
+ADDRESS_1519 = (
+    (NODE_85[0] + NODE_86[0]) / 2,
+    (NODE_85[1] + NODE_86[1]) / 2,
+)
 
 
 def _geojson(start: tuple[float, float], end: tuple[float, float]) -> str:
@@ -67,6 +75,20 @@ def _build_database(path: Path) -> None:
     conn.execute(
         "INSERT INTO street_node (node_id, lon, lat, street_names) VALUES (?,?,?,?)",
         ("n85", NODE_85[0], NODE_85[1], json.dumps(["3 AVE", "E 85 ST"])),
+    )
+    # The suggester reads its own tables, so the fixture builds them the way a
+    # sync would rather than hand-writing rows into them.
+    build_address_index(
+        conn,
+        address_rows=[
+            {
+                "house_number": "1519",
+                "full_street_name": "3 AVE",
+                "zipcode": "10028",
+                "the_geom": {"type": "Point", "coordinates": list(ADDRESS_1519)},
+            }
+        ],
+        place_rows=[],
     )
     for sign_id, description in (("sign-1", XSS_SIGN_TEXT), ("sign-2", "NO STANDING ANYTIME")):
         conn.execute(
@@ -725,12 +747,42 @@ def test_geocode_returns_candidates_for_a_real_address(client):
     [candidate] = body["candidates"]
     assert candidate["kind"] == "address"
     assert set(candidate) == {"label", "lat", "lon", "kind", "confidence", "secondary"}
-    assert candidate["secondary"] == "Manhattan"
+    assert candidate["secondary"] == "Manhattan 10028"
 
 
-@pytest.mark.parametrize("q", ["", "x" * 201])
+@pytest.mark.parametrize("q", ["", "x" * (MAX_QUERY_CHARS + 1)])
 def test_out_of_range_geocode_queries_are_422(client, q):
     assert client.get("/api/geocode", params={"q": q}).status_code == 422
+
+
+def test_geocode_offers_a_street_when_the_house_number_cannot_be_placed(client):
+    body = client.get("/api/geocode", params={"q": "9999 3 Ave"}).json()
+
+    assert body["candidates"][0]["kind"] == "address"
+    assert body["candidates"][0]["label"] == "near 1519 3 AVE"
+
+
+def test_geocode_never_returns_more_than_eight_candidates(client):
+    for query in ("3 Ave", "1519 3rd Ave", "3 Ave & E 85 St", "10028"):
+        assert len(client.get("/api/geocode", params={"q": query}).json()["candidates"]) <= 8
+
+
+def test_geocode_is_never_cached(client):
+    """A typed address must not sit in a proxy or a disk cache (threat T6)."""
+    response = client.get("/api/geocode", params={"q": "1519 3rd Ave"})
+
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.headers["Content-Type"].startswith("application/json")
+
+
+def test_reverse_reads_a_pin_back_as_the_nearest_door(client):
+    body = client.get(
+        "/api/reverse", params={"lat": ADDRESS_1519[1], "lon": ADDRESS_1519[0]}
+    ).json()
+
+    assert body["kind"] == "address"
+    assert body["label"] == "near 1519 3 AVE"
+    assert body["distance_m"] == 0.0
 
 
 # --- health and sync status ----------------------------------------------

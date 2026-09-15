@@ -65,6 +65,10 @@
           <span id="drawer-summary" class="drawer-summary">Search</span>
         </button>
 
+        <!-- A 2 px indeterminate bar across the top of the rail while a search
+             runs. The answer under it dims rather than disappearing. -->
+        <div id="rail-progress" class="rail-progress" hidden aria-hidden="true"></div>
+
         <div id="rail-scroll" class="rail-scroll is-first-load">
           <h1 class="wordmark">CurbCheck</h1>
 
@@ -87,7 +91,7 @@
                   aria-autocomplete="list"
                   aria-describedby="pin-readout"
                   placeholder="Address or cross street"
-                  maxlength="200"
+                  maxlength="120"
                 />
                 <ul
                   id="autocomplete-list"

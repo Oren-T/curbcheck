@@ -232,13 +232,22 @@ def street_variants(street_norm: str) -> set[str]:
     return {variant for variant in variants if variant}
 
 
-def place_tokens(name: str) -> frozenset[str]:
-    """Words of a place name, minus the ones too common to narrow anything."""
-    return frozenset(
+def place_words(name: str) -> list[str]:
+    """Words of a place name in the order they were written, minus the common ones.
+
+    The order matters on the query side: only the last word is still being
+    typed, so only the last word is matched as a prefix.
+    """
+    return [
         CARDINALS.get(token, token)
         for token in fold(name).split(" ")
         if token and token not in PLACE_STOPWORDS
-    )
+    ]
+
+
+def place_tokens(name: str) -> frozenset[str]:
+    """The distinct words a place name is indexed under."""
+    return frozenset(place_words(name))
 
 
 def stage_address_points(

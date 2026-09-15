@@ -31,6 +31,7 @@ with warnings.catch_warnings():
 
 from curbcheck.api.app import CONTENT_SECURITY_POLICY, create_app
 from curbcheck.db import create_schema, days_to_mask
+from curbcheck.geocode import MAX_QUERY_CHARS
 from curbcheck.model import ALL_DAYS
 
 NODE_85 = (-73.9544835, 40.7781469)
@@ -348,7 +349,7 @@ def test_sync_status_returns_hostile_keys_and_values_as_stored(client):
 
 @pytest.mark.parametrize("payload", list(PAYLOADS.values()))
 def test_hostile_geocode_queries_answer_without_raising(client, payload):
-    response = client.get("/api/geocode", params={"q": payload[:200]})
+    response = client.get("/api/geocode", params={"q": payload[:MAX_QUERY_CHARS]})
     assert response.status_code == 200
     assert response.json()["candidates"] == []
 

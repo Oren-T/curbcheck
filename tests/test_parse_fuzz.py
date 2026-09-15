@@ -1,8 +1,8 @@
 """Mutation fuzzing of the three functions that read untrusted text.
 
-`parse_description`, `normalize_street_name` and `geocode.parse_query` are the
-places hostile bytes from NYC Open Data and from the address box first meet
-code. SPEC §12 phase 1 asks for exactly this: fuzz the sign-text parser with
+`parse_description`, `normalize_street_name`, `geocode.parse_query` and
+`geocode.suggest` are the places hostile bytes from NYC Open Data and from the
+address box first meet code. SPEC §12 phase 1 asks for exactly this: fuzz the sign-text parser with
 adversarial strings before trusting it.
 
 The contract each function is held to here is narrow and absolute:
@@ -12,7 +12,10 @@ The contract each function is held to here is narrow and absolute:
   or an API request (catastrophic regex backtracking is the usual way that
   happens);
 - `parse_description` never claims to have read a rule it did not (a raising
-  parser and a guessing parser are both failures, per SPEC §11).
+  parser and a guessing parser are both failures, per SPEC §11);
+- `suggest` returns candidates and never mutates the database, however the
+  query is spelled: it reaches SQLite on every call, and every value it sends
+  is a bound parameter.
 
 Marked `slow` and deselected by default: `make test` runs in seconds and this
 takes about a minute. Run it with `pytest -m slow`.
@@ -21,6 +24,7 @@ takes about a minute. Run it with `pytest -m slow`.
 from __future__ import annotations
 
 import random
+import sqlite3
 import string
 import time
 from collections.abc import Callable
@@ -29,9 +33,19 @@ from pathlib import Path
 import pytest
 
 from curbcheck.config import REPO_ROOT
+from curbcheck.db import create_schema
+from curbcheck.etl.addresses import build_address_index
 from curbcheck.etl.parse import parse_description
 from curbcheck.etl.streets import normalize_street_name
-from curbcheck.geocode import AddressQuery, IntersectionQuery, StreetQuery, parse_query
+from curbcheck.geocode import (
+    AddressQuery,
+    GeocodeCandidate,
+    IntersectionQuery,
+    StreetQuery,
+    ZipQuery,
+    parse_query,
+    suggest,
+)
 from curbcheck.model import ParseMethod
 
 ITERATIONS = 20_000
@@ -196,6 +210,65 @@ def test_normalize_street_name_never_raises_on_arbitrary_text() -> None:
 @pytest.mark.slow
 def test_parse_query_never_raises_on_arbitrary_text() -> None:
     def check(text: str, result: object) -> None:
-        assert result is None or isinstance(result, (AddressQuery, IntersectionQuery, StreetQuery))
+        assert result is None or isinstance(
+            result, (AddressQuery, IntersectionQuery, StreetQuery, ZipQuery)
+        )
 
     _fuzz(parse_query, [*QUERY_SEEDS, *street_seeds(), *description_seeds()], check=check)
+
+
+def fuzz_index() -> sqlite3.Connection:
+    """A one-block index, in memory: the fuzzer is about the code path, not the data."""
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    create_schema(conn)
+    conn.execute(
+        "INSERT INTO street_segment (segment_id, street_name, street_norm, geom,"
+        " min_lon, min_lat, max_lon, max_lat, left_low_address, left_high_address)"
+        " VALUES ('1', '3 AVE', '3 AVE', ?, -73.955, 40.778, -73.953, 40.779, '1510', '1528')",
+        ('{"type": "LineString", "coordinates": [[-73.9545, 40.7781], [-73.9540, 40.7788]]}',),
+    )
+    conn.execute(
+        "INSERT INTO street_node (node_id, lon, lat, street_names)"
+        " VALUES ('n1', -73.9545, 40.7781, '[\"3 AVE\", \"E 85 ST\"]')"
+    )
+    build_address_index(
+        conn,
+        address_rows=[
+            {
+                "house_number": "1517",
+                "full_street_name": "3 AVE",
+                "zipcode": "10028",
+                "the_geom": {"type": "Point", "coordinates": [-73.9542, 40.7785]},
+            }
+        ],
+        place_rows=[
+            {
+                "feature_name": "GRACIE MANSION",
+                "the_geom": {"type": "Point", "coordinates": [-73.9432, 40.7760]},
+            }
+        ],
+    )
+    conn.commit()
+    return conn
+
+
+@pytest.mark.slow
+def test_suggest_never_raises_and_never_writes() -> None:
+    conn = fuzz_index()
+    rows_before = conn.execute("SELECT count(*) FROM address_point").fetchone()[0]
+
+    def check(text: str, result: object) -> None:
+        assert isinstance(result, list)
+        assert all(isinstance(candidate, GeocodeCandidate) for candidate in result)
+        assert len(result) <= 8
+
+    try:
+        _fuzz(
+            lambda text: suggest(conn, text),
+            [*QUERY_SEEDS, *street_seeds(), *description_seeds()],
+            check=check,
+        )
+        assert conn.execute("SELECT count(*) FROM address_point").fetchone()[0] == rows_before
+    finally:
+        conn.close()

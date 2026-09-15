@@ -1,24 +1,36 @@
-"""Local geocoder: query parsing, parity, interpolation, intersections, and the fallbacks."""
+"""The suggester over a synthetic index: the ladder, the folds, and hostile input.
+
+Everything here runs against a hand-built Upper East Side block so the numbers
+in the assertions can be checked by hand. `tests/test_geocode_real.py` holds the
+cases that only mean something against the real database.
+"""
 
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
+import statistics
 
 import pytest
 
 from curbcheck.db import create_schema
+from curbcheck.engine.geo import M_PER_DEG_LAT, meters_per_degree_lon
+from curbcheck.etl.addresses import build_address_index
 from curbcheck.geocode import (
+    MAX_QUERY_CHARS,
     REVERSE_ADDRESS_MAX_M,
     AddressQuery,
     GeocodeCandidate,
     GeocodeKind,
     IntersectionQuery,
     StreetQuery,
+    ZipQuery,
     _in_coverage,
     geocode,
     parse_query,
     reverse_geocode,
+    suggest,
 )
 
 # A synthetic Upper East Side block, modelled on the worked example in
@@ -26,10 +38,28 @@ from curbcheck.geocode import (
 # odd house numbers on the east side and even on the west.
 NODE_85 = (-73.9544835, 40.7781469)
 NODE_86 = (-73.9539850, 40.7788304)
+NODE_87 = (-73.9530000, 40.7795000)
+NODE_LEX_85 = (-73.9560000, 40.7779000)
+
+# Surveyed doors on the odd (east) side. 1519 is deliberately absent: it is the
+# real gap the interpolation rung exists for (docs/DATA.md §5.1).
+ODD_DOORS = {1509: 0.0, 1517: 0.5, 1529: 1.0}
+# The even (west) side, offset so the two sides are distinguishable. 1518 is
+# absent and 1528 is present, so an even number interpolates between 1510 and
+# 1528 and never snaps across the street to 1517.
+EVEN_DOORS = {1510: 0.02, 1528: 0.98}
+EVEN_SIDE_LON_OFFSET = -0.00005
 
 
 def _line(start: tuple[float, float], end: tuple[float, float]) -> str:
     return json.dumps({"type": "LineString", "coordinates": [list(start), list(end)]})
+
+
+def _between(start: tuple[float, float], end: tuple[float, float], fraction: float) -> list[float]:
+    return [
+        start[0] + (end[0] - start[0]) * fraction,
+        start[1] + (end[1] - start[1]) * fraction,
+    ]
 
 
 def _add_segment(
@@ -42,17 +72,17 @@ def _add_segment(
     left: tuple[str, str] | None = None,
     right: tuple[str, str] | None = None,
 ) -> None:
-    geom = _line(start, end)
     conn.execute(
-        "INSERT INTO street_segment (segment_id, street_name, street_norm, geom,"
-        " min_lon, min_lat, max_lon, max_lat, left_low_address, left_high_address,"
-        " right_low_address, right_high_address)"
-        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO street_segment (segment_id, street_name, street_norm, from_node, to_node,"
+        " geom, min_lon, min_lat, max_lon, max_lat, left_low_address, left_high_address,"
+        " right_low_address, right_high_address) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (
             segment_id,
             street_name,
             street_name,
-            geom,
+            _node_id(start),
+            _node_id(end),
+            _line(start, end),
             min(start[0], end[0]),
             min(start[1], end[1]),
             max(start[0], end[0]),
@@ -65,11 +95,24 @@ def _add_segment(
     )
 
 
+def _node_id(lonlat: tuple[float, float]) -> str:
+    return f"{lonlat[0]:.7f},{lonlat[1]:.7f}"
+
+
 def _add_node(conn: sqlite3.Connection, lonlat: tuple[float, float], names: list[str]) -> None:
     conn.execute(
         "INSERT INTO street_node (node_id, lon, lat, street_names) VALUES (?,?,?,?)",
-        (f"{lonlat[0]:.7f},{lonlat[1]:.7f}", lonlat[0], lonlat[1], json.dumps(names)),
+        (_node_id(lonlat), lonlat[0], lonlat[1], json.dumps(names)),
     )
+
+
+def _address_row(house: str, street: str, position: list[float], zipcode: str = "10028") -> dict:
+    return {
+        "house_number": house,
+        "full_street_name": street,
+        "zipcode": zipcode,
+        "the_geom": {"type": "Point", "coordinates": position},
+    }
 
 
 @pytest.fixture
@@ -91,29 +134,72 @@ def conn() -> sqlite3.Connection:
         segment_id="3682",
         street_name="3 AVE",
         start=NODE_86,
-        end=(-73.953, 40.7795),
+        end=NODE_87,
         left=("1530", "1548"),
         right=("1529", "1545"),
     )
-    # A street with no published address range at all: 46% of Manhattan
-    # segments look like this (docs/DATA.md §2.2).
+    # A street with no published address range and no surveyed door: the shape
+    # that degrades all the way to the street itself.
     _add_segment(
-        connection,
-        segment_id="9001",
-        street_name="E 85 ST",
-        start=(-73.9560, 40.7779),
-        end=NODE_85,
+        connection, segment_id="9001", street_name="E 85 ST", start=NODE_LEX_85, end=NODE_85
     )
     _add_segment(
         connection,
         segment_id="9002",
-        street_name="E 85 ST",
-        start=NODE_85,
-        end=(-73.9530, 40.7784),
+        street_name="E 86 ST",
+        start=(NODE_86[0] - 0.0020, NODE_86[1]),
+        end=NODE_86,
+    )
+    _add_segment(
+        connection,
+        segment_id="9003",
+        street_name="LEXINGTON AVE",
+        start=(NODE_LEX_85[0], NODE_LEX_85[1] - 0.002),
+        end=NODE_LEX_85,
+    )
+    # A street AddressPoint never files a door on, but which publishes a range:
+    # the 36 streets the last rung exists for (docs/DATA.md §5.1).
+    _add_segment(
+        connection,
+        segment_id="9100",
+        street_name="CHISUM PL",
+        start=(-73.9350, 40.8200),
+        end=(-73.9340, 40.8210),
+        left=("2", "20"),
+        right=("1", "19"),
     )
     _add_node(connection, NODE_85, ["3 AVE", "E 85 ST"])
     _add_node(connection, NODE_86, ["3 AVE", "E 86 ST"])
-    _add_node(connection, (-73.9560, 40.7779), ["E 85 ST", "LEXINGTON AVE"])
+    _add_node(connection, NODE_LEX_85, ["E 85 ST", "LEXINGTON AVE"])
+
+    addresses = [
+        _address_row(str(house), "3 AVE", _between(NODE_85, NODE_86, fraction))
+        for house, fraction in ODD_DOORS.items()
+    ]
+    addresses.extend(
+        _address_row(
+            str(house),
+            "3 AVE",
+            [
+                _between(NODE_85, NODE_86, fraction)[0] + EVEN_SIDE_LON_OFFSET,
+                _between(NODE_85, NODE_86, fraction)[1],
+            ],
+        )
+        for house, fraction in EVEN_DOORS.items()
+    )
+    places = [
+        {
+            "feature_name": "GRACIE MANSION",
+            "the_geom": {"type": "Point", "coordinates": [-73.9432, 40.7760]},
+        },
+        # Its last word sorts before its first, which is how a place search
+        # that lost the typed order shows up.
+        {
+            "feature_name": "WASHINGTON ARCH",
+            "the_geom": {"type": "Point", "coordinates": [-73.9973, 40.7308]},
+        },
+    ]
+    build_address_index(connection, address_rows=addresses, place_rows=places)
     connection.commit()
     return connection
 
@@ -128,10 +214,11 @@ def conn() -> sqlite3.Connection:
         ("123 East 85th Street", AddressQuery(house_number=123, street="E 85 ST")),
         ("1500 3rd Ave", AddressQuery(house_number=1500, street="3 AVE")),
         ("  1500   THIRD   AVENUE ", AddressQuery(house_number=1500, street="3 AVE")),
+        ("1500 3rd av", AddressQuery(house_number=1500, street="3 AV")),
         ("123a E 85 St", AddressQuery(house_number=123, street="E 85 ST")),
     ],
 )
-def test_address_forms_parse_to_the_same_normalized_street(text, expected):
+def test_address_forms_parse_to_the_same_folded_street(text, expected):
     assert parse_query(text) == expected
 
 
@@ -142,6 +229,8 @@ def test_address_forms_parse_to_the_same_normalized_street(text, expected):
         ("E 86 St and 3 Ave", IntersectionQuery("E 86 ST", "3 AVE")),
         ("E 86 St / 3 Ave", IntersectionQuery("E 86 ST", "3 AVE")),
         ("E 86 St at 3 Ave", IntersectionQuery("E 86 ST", "3 AVE")),
+        ("E 86 St @ 3 Ave", IntersectionQuery("E 86 ST", "3 AVE")),
+        ("86 & 3", IntersectionQuery("86", "3")),
     ],
 )
 def test_intersection_forms_parse_to_two_streets(text, expected):
@@ -152,97 +241,141 @@ def test_bare_street_name_parses_as_a_street():
     assert parse_query("Third Avenue") == StreetQuery(street="3 AVE")
 
 
-@pytest.mark.parametrize("text", ["", "   ", "x" * 201])
+def test_five_digits_parse_as_a_zip():
+    assert parse_query("10021") == ZipQuery(zipcode="10021")
+
+
+@pytest.mark.parametrize("text", ["", "   ", "x" * (MAX_QUERY_CHARS + 1), "\x00\x01"])
 def test_empty_and_oversized_queries_parse_to_none(text):
     assert parse_query(text) is None
 
 
-# --- address interpolation ----------------------------------------------
+# --- the address ladder ---------------------------------------------------
 
 
-def test_even_house_number_interpolates_along_the_segment(conn):
-    # 1519 is the midpoint of the odd range 1509-1525.
-    [candidate] = geocode(conn, "1519 3rd Ave")
-    assert candidate.kind == GeocodeKind.ADDRESS
+def test_a_surveyed_door_is_the_top_answer_and_carries_its_zip(conn):
+    [candidate] = [c for c in suggest(conn, "1517 3rd Ave") if c.kind is GeocodeKind.ADDRESS]
+
+    assert candidate.label == "1517 3 AVE"
+    assert candidate.confidence == pytest.approx(0.98)
+    assert candidate.secondary == "Manhattan 10028"
+    assert (candidate.lon, candidate.lat) == pytest.approx(_between(NODE_85, NODE_86, 0.5))
+
+
+def test_a_missing_number_is_placed_between_its_two_surveyed_neighbours(conn):
+    # 1519 is absent; 1517 and 1529 are present, so it lands a sixth of the way
+    # between them and says so on its second line.
+    [candidate] = [c for c in suggest(conn, "1519 3rd ave") if c.kind is GeocodeKind.ADDRESS]
+
     assert candidate.label == "1519 3 AVE"
-    fraction = (1519 - 1509) / (1525 - 1509)
-    assert candidate.lon == pytest.approx(
-        NODE_85[0] + fraction * (NODE_86[0] - NODE_85[0]), abs=1e-9
-    )
-    assert candidate.lat == pytest.approx(
-        NODE_85[1] + fraction * (NODE_86[1] - NODE_85[1]), abs=1e-9
-    )
+    assert candidate.confidence == pytest.approx(0.75)
+    assert candidate.secondary == "Manhattan · between 1517 and 1529"
+    fraction = 0.5 + 0.5 * (1519 - 1517) / (1529 - 1517)
+    assert (candidate.lon, candidate.lat) == pytest.approx(_between(NODE_85, NODE_86, fraction))
 
 
-def test_low_and_high_of_a_range_land_on_the_segment_ends(conn):
-    [low] = geocode(conn, "1510 3 Ave")
-    [high] = geocode(conn, "1528 3 Ave")
-    assert (low.lon, low.lat) == pytest.approx(NODE_85, abs=1e-9)
-    assert (high.lon, high.lat) == pytest.approx(NODE_86, abs=1e-9)
+def test_interpolation_stays_on_the_side_the_parity_says(conn):
+    """1518 is even, so it is placed between 1510 and 1528, never between the odd doors."""
+    [candidate] = [c for c in suggest(conn, "1518 3 Ave") if c.kind is GeocodeKind.ADDRESS]
+
+    assert candidate.label == "1518 3 AVE"
+    assert candidate.secondary == "Manhattan · between 1510 and 1528"
+    assert candidate.lon < _between(NODE_85, NODE_86, 0.5)[0] + EVEN_SIDE_LON_OFFSET / 2
 
 
-def test_parity_keeps_an_odd_number_off_the_even_side(conn):
-    # 1511 is inside the even range 1510-1528 numerically but belongs to the
-    # odd side, so exactly one blockface may claim it.
-    candidates = geocode(conn, "1511 3 Ave")
-    assert len(candidates) == 1
-    assert candidates[0].kind == GeocodeKind.ADDRESS
+def test_a_number_outside_every_run_of_doors_reads_as_near_the_closest_one(conn):
+    [candidate] = [c for c in suggest(conn, "9999 3 Ave") if c.kind is GeocodeKind.ADDRESS]
+
+    assert candidate.label == "near 1529 3 AVE"
+    assert candidate.confidence == pytest.approx(0.60)
 
 
-def test_house_number_in_the_second_block_picks_that_block(conn):
-    [candidate] = geocode(conn, "1548 3 Ave")
-    assert candidate.lon == pytest.approx(-73.953, abs=1e-9)
+def test_a_street_with_no_doors_falls_back_to_the_published_range(conn):
+    """The last rung: CSCL's own range, for one of the 36 streets with no door."""
+    [candidate] = [c for c in suggest(conn, "10 Chisum Pl") if c.kind is GeocodeKind.ADDRESS]
+
+    assert candidate.label == "10 CHISUM PL"
+    assert candidate.confidence == pytest.approx(0.50)
+    assert candidate.lon == pytest.approx(-73.9350 + 0.0010 * (10 - 2) / (20 - 2))
 
 
-# --- fallbacks -----------------------------------------------------------
+def test_a_street_with_neither_doors_nor_ranges_degrades_to_the_street(conn):
+    [candidate] = suggest(conn, "200 E 85 St")
+
+    assert candidate.kind is GeocodeKind.STREET
+    assert candidate.label == "E 85 ST"
+    assert candidate.confidence < 0.5
 
 
-def test_house_number_past_every_range_falls_back_to_the_nearest_block_corner(conn):
-    [candidate] = geocode(conn, "1600 3 Ave")
-    assert candidate.kind == GeocodeKind.INTERSECTION
-    assert candidate.confidence < 0.6
-    # 1530-1548 is the nearest range and 1600 counts past its far end.
-    assert candidate.lon == pytest.approx(-73.953, abs=1e-9)
+def test_an_unknown_street_returns_no_candidates(conn):
+    assert suggest(conn, "123 NOWHERE BLVD") == []
 
 
-def test_house_number_below_every_range_falls_back_to_the_near_corner(conn):
-    [candidate] = geocode(conn, "1400 3 Ave")
-    assert candidate.kind == GeocodeKind.INTERSECTION
-    assert (candidate.lon, candidate.lat) == pytest.approx(NODE_85, abs=1e-9)
+# --- the other kinds ------------------------------------------------------
 
 
-def test_street_with_no_address_ranges_falls_back_to_its_midpoint(conn):
-    [candidate] = geocode(conn, "200 E 85 St")
-    assert candidate.kind == GeocodeKind.STREET
-    assert candidate.confidence < 0.6
-    assert -73.9560 < candidate.lon < -73.9530
+def test_an_intersection_returns_the_shared_node(conn):
+    [candidate] = suggest(conn, "3 Ave & E 86 St")
+
+    assert candidate.kind is GeocodeKind.INTERSECTION
+    assert (candidate.lon, candidate.lat) == pytest.approx(NODE_86)
+    assert candidate.confidence == pytest.approx(0.95)
 
 
-def test_unknown_street_returns_no_candidates(conn):
-    assert geocode(conn, "123 NOWHERE BLVD") == []
+def test_an_intersection_is_order_independent_and_survives_spelled_out_names(conn):
+    [written_out] = suggest(conn, "East 86th Street and Third Avenue")
+    [abbreviated] = suggest(conn, "3 AVE & E 86 ST")
 
-
-# --- intersections -------------------------------------------------------
-
-
-def test_intersection_returns_the_shared_node(conn):
-    [candidate] = geocode(conn, "3 Ave & E 86 St")
-    assert candidate.kind == GeocodeKind.INTERSECTION
-    assert (candidate.lon, candidate.lat) == pytest.approx(NODE_86, abs=1e-9)
-    assert candidate.confidence > 0.9
-
-
-def test_intersection_is_order_independent_and_survives_spelled_out_names(conn):
-    [written_out] = geocode(conn, "East 86th Street and Third Avenue")
-    [abbreviated] = geocode(conn, "3 AVE & E 86 ST")
     assert (written_out.lon, written_out.lat) == (abbreviated.lon, abbreviated.lat)
 
 
-def test_streets_that_do_not_meet_return_nothing(conn):
-    assert geocode(conn, "LEXINGTON AVE & E 86 ST") == []
+def test_a_numbered_cross_street_resolves_without_its_directional(conn):
+    [candidate] = suggest(conn, "3 Ave & 86")
+
+    assert (candidate.lon, candidate.lat) == pytest.approx(NODE_86)
 
 
-# --- hostile input -------------------------------------------------------
+def test_two_streets_that_never_meet_degrade_to_the_two_streets(conn):
+    """Claiming a corner that is not in the data would be the dishonest answer."""
+    candidates = suggest(conn, "LEXINGTON AVE & 3 AVE")
+
+    assert [c.kind for c in candidates] == [GeocodeKind.STREET, GeocodeKind.STREET]
+    assert {c.label for c in candidates} == {"LEXINGTON AVE", "3 AVE"}
+    assert all(c.confidence == pytest.approx(0.30) for c in candidates)
+
+
+def test_a_typo_in_a_street_name_still_resolves_at_a_lower_confidence(conn):
+    [candidate] = [c for c in suggest(conn, "CHISM PL") if c.kind is GeocodeKind.STREET]
+
+    assert candidate.label == "CHISUM PL"
+    assert candidate.confidence == pytest.approx(0.45 * 0.8)
+
+
+def test_a_zip_returns_its_centre_and_says_how_coarse_that_is(conn):
+    [candidate] = suggest(conn, "10028")
+
+    assert candidate.kind is GeocodeKind.ZIP
+    assert candidate.label == "10028"
+    assert candidate.secondary == "Manhattan · ZIP centre of 5 addresses"
+
+
+def test_a_place_name_is_found_by_its_words(conn):
+    [candidate] = suggest(conn, "gracie mansion")
+
+    assert candidate.kind is GeocodeKind.PLACE
+    assert candidate.label == "GRACIE MANSION"
+
+
+@pytest.mark.parametrize(
+    ("typed", "label"),
+    [("gracie mans", "GRACIE MANSION"), ("washington ar", "WASHINGTON ARCH")],
+)
+def test_a_half_typed_place_name_still_matches_on_the_last_word(conn, typed, label):
+    """Only the last word is a prefix, so the words have to stay in typed order."""
+    assert suggest(conn, typed)[0].label == label
+
+
+# --- hostile input --------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -262,58 +395,33 @@ def test_streets_that_do_not_meet_return_nothing(conn):
     ],
 )
 def test_hostile_queries_never_raise_and_never_mutate(conn, text):
-    assert isinstance(geocode(conn, text), list)
-    assert conn.execute("SELECT count(*) FROM street_segment").fetchone()[0] == 4
-    assert conn.execute("SELECT count(*) FROM street_node").fetchone()[0] == 3
+    assert isinstance(suggest(conn, text), list)
+    assert conn.execute("SELECT count(*) FROM street_segment").fetchone()[0] == 6
+    assert conn.execute("SELECT count(*) FROM address_point").fetchone()[0] == 5
 
 
 def test_limit_bounds_the_candidate_list(conn):
-    assert geocode(conn, "1519 3rd Ave", limit=1) == geocode(conn, "1519 3rd Ave")[:1]
+    assert suggest(conn, "3 Ave", limit=1) == suggest(conn, "3 Ave")[:1]
     with pytest.raises(ValueError, match="limit"):
-        geocode(conn, "1519 3rd Ave", limit=0)
-
-
-def test_missing_directional_on_a_numbered_street_tries_east_and_west(conn):
-    # People type "86th St"; every Manhattan cross street is "E 86 ST" or
-    # "W 86 ST", so both are tried and only the one in the data matches.
-    [candidate] = geocode(conn, "3 Ave & 86th St")
-    assert (candidate.lon, candidate.lat) == pytest.approx(NODE_86, abs=1e-9)
-
-
-# --- the second line ------------------------------------------------------
-
-
-def test_a_candidate_says_which_borough_it_is_in(conn):
-    [candidate] = geocode(conn, "1519 3 Ave")
-
-    assert candidate.secondary == "Manhattan"
-
-
-def test_a_candidate_names_the_cross_streets_when_the_block_has_them(conn):
-    """The second line is what tells two identical house numbers apart."""
-    conn.execute(
-        "UPDATE street_segment SET from_node = ?, to_node = ? WHERE segment_id = ?",
-        (f"{NODE_85[0]:.7f},{NODE_85[1]:.7f}", f"{NODE_86[0]:.7f},{NODE_86[1]:.7f}", "3681"),
-    )
-
-    [candidate] = geocode(conn, "1519 3 Ave")
-
-    assert candidate.secondary == "E 85 ST → E 86 ST"
+        suggest(conn, "3 Ave", limit=0)
 
 
 def test_the_candidate_list_is_never_longer_than_eight(conn):
     for index in range(12):
-        _add_segment(
-            conn,
-            segment_id=f"dup-{index}",
-            street_name="3 AVE",
-            start=(NODE_85[0] + index * 1e-5, NODE_85[1]),
-            end=(NODE_86[0] + index * 1e-5, NODE_86[1]),
-            left=("1510", "1528"),
-            right=("1509", "1525"),
+        conn.execute(
+            "INSERT INTO address_point (street_norm, house_number, display, zipcode, lon, lat)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
+            ("3 AVE", 1517, f"1517{chr(ord('A') + index)} 3 AVE", "10028", *NODE_85),
         )
 
-    assert len(geocode(conn, "1519 3 Ave")) == 8
+    assert len(suggest(conn, "1517 3 Ave")) == 8
+
+
+# --- coverage and the public entry point ----------------------------------
+
+
+def test_geocode_is_suggest_filtered_to_what_the_app_can_answer_about(conn):
+    assert geocode(conn, "1517 3rd Ave") == suggest(conn, "1517 3rd Ave")
 
 
 def test_a_candidate_outside_coverage_is_never_offered(conn):
@@ -331,32 +439,21 @@ def test_a_candidate_outside_coverage_is_never_offered(conn):
 # --- reverse --------------------------------------------------------------
 
 
-def test_a_pin_on_a_block_with_numbers_reads_back_as_an_address(conn):
+def test_a_pin_beside_a_door_reads_back_as_that_door(conn):
     """A pin is the one destination the user cannot read back to themselves (P1-4)."""
-    match = reverse_geocode(conn, lon=-73.95424, lat=40.77849)
+    lon, lat = _between(NODE_85, NODE_86, 0.5)
+
+    match = reverse_geocode(conn, lon=lon + 0.0001, lat=lat)
 
     assert match is not None
     assert match.kind is GeocodeKind.ADDRESS
-    assert match.label.endswith(" 3 AVE")
-    assert match.distance_m < REVERSE_ADDRESS_MAX_M
+    assert match.label == "near 1517 3 AVE"
+    assert 0.0 < match.distance_m < REVERSE_ADDRESS_MAX_M
+    assert match.distance_m == round(match.distance_m, 1)
 
 
-def test_the_interpolated_house_number_keeps_the_parity_of_its_side(conn):
-    """NYC puts odd numbers on one side and even on the other; rounding across is wrong."""
-    east = reverse_geocode(conn, lon=-73.95424, lat=40.778440)
-    west = reverse_geocode(conn, lon=-73.95431, lat=40.778513)
-
-    assert east is not None and west is not None
-    east_number = int(east.label.split(" ")[0])
-    west_number = int(west.label.split(" ")[0])
-    assert east_number % 2 != west_number % 2
-    assert 1509 <= east_number <= 1528
-    assert 1509 <= west_number <= 1528
-
-
-def test_a_pin_far_from_any_numbered_block_falls_back_to_the_corner(conn):
-    """E 85 ST publishes no ranges, so a pin on it reads back as the nearest corner."""
-    match = reverse_geocode(conn, lon=-73.95585, lat=40.77792)
+def test_a_pin_far_from_any_door_falls_back_to_the_nearest_corner(conn):
+    match = reverse_geocode(conn, lon=NODE_LEX_85[0], lat=NODE_LEX_85[1] + 0.0002)
 
     assert match is not None
     assert match.kind is GeocodeKind.INTERSECTION
@@ -377,9 +474,63 @@ def test_a_pin_with_nothing_around_it_reverses_to_nothing(conn):
     assert reverse_geocode(conn, lon=-74.0324, lat=40.7440) is None
 
 
-def test_a_reverse_match_reports_how_far_away_it_is(conn):
-    match = reverse_geocode(conn, lon=-73.95424, lat=40.77849)
+def test_a_pin_at_a_nonsense_coordinate_reverses_to_nothing(conn):
+    assert reverse_geocode(conn, lon=float("nan"), lat=float("inf")) is None
 
-    assert match is not None
-    assert match.distance_m == round(match.distance_m, 1)
-    assert 0.0 <= match.distance_m < 60.0
+
+# --- accuracy -------------------------------------------------------------
+
+# The fast twin of `test_geocode_real.py`'s accuracy regression, so a
+# `make check` with no database still fails when the ladder drifts. One
+# straight avenue with a surveyed door every 40 ft; a third of them are hidden
+# from the index, and geocoding those exercises the interpolation rung against
+# a location we know exactly.
+ACCURACY_DOORS = 90
+ACCURACY_SPACING_DEG = 0.00012
+ACCURACY_MEDIAN_MAX_M = 10.0
+ACCURACY_P95_MAX_M = 60.0
+
+
+def _door_position(index: int) -> list[float]:
+    return [-73.97, 40.75 + index * ACCURACY_SPACING_DEG]
+
+
+@pytest.fixture
+def straight_avenue() -> tuple[sqlite3.Connection, dict[int, list[float]]]:
+    connection = sqlite3.connect(":memory:")
+    connection.row_factory = sqlite3.Row
+    create_schema(connection)
+    start, end = _door_position(0), _door_position(ACCURACY_DOORS - 1)
+    _add_segment(
+        connection,
+        segment_id="long",
+        street_name="LONG AVE",
+        start=(start[0], start[1]),
+        end=(end[0], end[1]),
+    )
+    truth = {1 + 2 * index: _door_position(index) for index in range(ACCURACY_DOORS)}
+    indexed = [
+        _address_row(str(house), "LONG AVE", position)
+        for order, (house, position) in enumerate(truth.items())
+        if order % 3 != 1
+    ]
+    build_address_index(connection, address_rows=indexed, place_rows=[])
+    connection.commit()
+    return connection, truth
+
+
+def test_every_door_on_a_street_geocodes_to_within_ten_metres(straight_avenue):
+    connection, truth = straight_avenue
+    errors = []
+    for house, position in truth.items():
+        [candidate] = suggest(connection, f"{house} LONG AVE", limit=1)
+        errors.append(
+            math.hypot(
+                (candidate.lon - position[0]) * meters_per_degree_lon(position[1]),
+                (candidate.lat - position[1]) * M_PER_DEG_LAT,
+            )
+        )
+    errors.sort()
+
+    assert statistics.median(errors) <= ACCURACY_MEDIAN_MAX_M
+    assert errors[int(len(errors) * 0.95)] <= ACCURACY_P95_MAX_M
