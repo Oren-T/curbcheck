@@ -214,6 +214,14 @@ Only glyph ranges `0-255`, `256-511`, and `8192-8447` are vendored, per
 fontstack. The third is not optional: Manhattan labels contain U+2013 and
 MapLibre 404s without it.
 
+**Corrected 2026-09-15 (c):** three ranges were not enough. The validation run
+logged a 404 for `768-1023` and for `7680-7935` on *every* map load
+(docs/VALIDATION.md U2) — Combining Diacritical Marks and Latin Extended
+Additional, which Manhattan's Vietnamese and accented business names are written
+with. Both are now in `GLYPH_RANGES`, for each of the three fontstacks the style
+uses; `web/basemap/` grows from 1.13 MB to 1.76 MB. The rest of (c) stands: a
+range outside Latin/Greek/Cyrillic still 404s, by choice.
+
 **Why:** all three were measured in the browser against the running server, not
 inferred. (b) matters beyond convenience — putting an absolute URL in the style
 file would bake a host and port into a committed artifact and would break the

@@ -12,8 +12,8 @@ Three sources, all fetched once and then committed:
    executed, so it is pinned by version and checked against the sha512 integrity
    the registry publishes before node ever sees it (threat T1).
 2. The glyphs, from `protomaps/basemaps-assets`. Only the ranges listed in
-   `GLYPH_RANGES`: the full 256-range set is 6.2 MB per fontstack and the style
-   uses three of them (see `web/basemap/MANIFEST.md` for the consequence).
+   `GLYPH_RANGES`: the full 256-range set is 6.2 MB per fontstack and Manhattan
+   labels use five of them (see `web/basemap/MANIFEST.md` for the consequence).
 3. The v4 light sprite sheet, same repository.
 
 Run: `python scripts/fetch_basemap_assets.py [--check]`. `--check` re-downloads
@@ -68,8 +68,12 @@ SPRITE_URL = f"/basemap/sprites/{SPRITE_VERSION}/{FLAVOR}"
 
 # Basic Latin + Latin-1 Supplement, then Latin Extended-A/B and Greek/Cyrillic,
 # then General Punctuation: MapLibre asks for 8192-8447 as soon as a label
-# contains an en dash (U+2013), which Manhattan street labels do.
-GLYPH_RANGES = ("0-255", "256-511", "8192-8447")
+# contains an en dash (U+2013), which Manhattan street labels do. The last two
+# were added after the validation run logged a 404 for each on every map load
+# (docs/VALIDATION.md U2): 768-1023 is Combining Diacritical Marks (U+0301,
+# U+0306) and 7680-7935 is Latin Extended Additional (U+1EA1, U+1ED9, U+1EDF),
+# which Manhattan's Vietnamese and accented business names are written with.
+GLYPH_RANGES = ("0-255", "256-511", "768-1023", "7680-7935", "8192-8447")
 
 SPRITE_FILES = (
     f"{FLAVOR}.json",

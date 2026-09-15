@@ -156,3 +156,18 @@ def test_the_grey_state_distinguishes_a_data_gap_from_a_matching_gap() -> None:
     assert "could not place them" in copy
     assert detail.count("noDataExplanation") >= 2, "detail.js no longer branches on gap_kind"
     assert "means no data, not no restriction" in index, "the legend lost the no-data sentence"
+
+
+def test_the_glyph_ranges_the_validation_run_404ed_on_are_vendored() -> None:
+    """docs/VALIDATION.md U2: every map load asked for these and got a 404.
+
+    U+0301 and U+0306 (768-1023) and U+1EA1/U+1ED9/U+1EDF (7680-7935) are in
+    Manhattan's accented and Vietnamese labels; 8192-8447 holds the en dash that
+    street labels themselves use (decision D16(c)).
+    """
+    fonts_dir = WEB_DIR / "basemap" / "fonts"
+    stacks = [path for path in fonts_dir.iterdir() if path.is_dir()]
+    assert stacks, "no glyph directories vendored"
+    for stack in stacks:
+        for glyph_range in ("768-1023", "7680-7935", "8192-8447"):
+            assert (stack / f"{glyph_range}.pbf").is_file(), f"{stack.name} lacks {glyph_range}"
