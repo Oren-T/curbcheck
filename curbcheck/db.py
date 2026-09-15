@@ -104,7 +104,11 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         -- the data, so a car count is an upper bound (SPEC §8.5).
         capacity_approximate INTEGER NOT NULL DEFAULT 1,
         confidence    REAL NOT NULL DEFAULT 0.0,
-        derived_from  TEXT NOT NULL DEFAULT '[]'
+        derived_from  TEXT NOT NULL DEFAULT '[]',
+        -- NULL on a real span. A placeholder covering a side with no rules at
+        -- all says why it is empty, so SPEC §11's grey "no sign data" state can
+        -- tell a data gap ('no_signs') from a matching gap ('unmatched_signs').
+        gap_kind      TEXT
     )
     """,
     """
