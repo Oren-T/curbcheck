@@ -29,6 +29,7 @@ from shapely.geometry import LineString, mapping
 from shapely.ops import substring
 
 from curbcheck.config import CAR_LENGTH_FT
+from curbcheck.db import geojson_bbox
 from curbcheck.etl.snap import COMPASS_UNITS, SnapResult, side_offset_sign
 from curbcheck.etl.stage import StagedSign
 from curbcheck.etl.streets import (
@@ -327,7 +328,7 @@ def _placeholder(segment: StreetSegment, side: str, gap_kind: str) -> Regulation
         end_ft=round(segment.length_ft, 2),
         length_ft=round(segment.length_ft, 2),
         geometry=geometry,
-        bbox=_bbox(geometry),
+        bbox=geojson_bbox(geometry),
         capacity_cars=None,
         capacity_approximate=True,
         confidence=0.0,
@@ -486,7 +487,7 @@ def _resolve_face(
                 end_ft=round(end_ft, 2),
                 length_ft=round(span_length, 2),
                 geometry=geometry,
-                bbox=_bbox(geometry),
+                bbox=geojson_bbox(geometry),
                 capacity_cars=int(span_length // CAR_LENGTH_FT),
                 # v1 cannot subtract hydrant, driveway or crosswalk setbacks:
                 # none of them are in the data yet (SPEC §8.5, config.HYDRANT_SETBACK_FT).
@@ -701,13 +702,6 @@ def _manual_offset(span: LineString, offset_ft: float, offset_sign: int) -> Line
             )
         )
     return LineString(points)
-
-
-def _bbox(geometry: Mapping[str, Any]) -> tuple[float, float, float, float]:
-    coords = [tuple(position) for position in geometry["coordinates"]]
-    lons = [float(position[0]) for position in coords]
-    lats = [float(position[1]) for position in coords]
-    return (min(lons), min(lats), max(lons), max(lats))
 
 
 def _chain_key(snap: SnapResult) -> str:

@@ -302,7 +302,7 @@ def _rates_for_blockface(
             source=SOURCE_PARKNYC,
             confidence=confidence,
             geometry=geojson,
-            bbox=None if geometry is None else _bbox(geometry),
+            bbox=None if geometry is None else geometry.bounds,
         )
         for segment in lookup.match.segments
     ]
@@ -436,11 +436,6 @@ def _blockface_line(geometry: Any) -> LineString | None:
 
 def _geojson(line: LineString) -> dict[str, Any]:
     return {"type": "LineString", "coordinates": [[x, y] for x, y in line.coords]}
-
-
-def _bbox(line: LineString) -> tuple[float, float, float, float]:
-    min_lon, min_lat, max_lon, max_lat = line.bounds
-    return (min_lon, min_lat, max_lon, max_lat)
 
 
 def _fallback_id(row: Mapping[str, Any]) -> str:

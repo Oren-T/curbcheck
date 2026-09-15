@@ -39,7 +39,7 @@ from curbcheck.etl.segments import (
     reading_of,
     resolve_segments,
 )
-from curbcheck.etl.snap import SnapReport, SnapResult, snap_signs
+from curbcheck.etl.snap import COMPASS_UNITS, SnapReport, SnapResult, snap_signs
 from curbcheck.etl.stage import StageReport, stage_centerline, stage_signs
 from curbcheck.etl.streets import StreetGraph, StreetSegment, build_graph
 from curbcheck.model import (
@@ -78,15 +78,6 @@ META_PLACEHOLDER = Regulation(
 META_CONFIDENCE = 0.7
 
 _META_NOTE = "a sibling sign says METERS ARE NOT IN EFFECT ABOVE TIMES"
-
-# Compass unit vectors in lon/lat, used to read a single arrow's bearing against
-# the direction a regulation segment's curb line is drawn in.
-_COMPASS_LONLAT: dict[str, tuple[float, float]] = {
-    "N": (0.0, 1.0),
-    "S": (0.0, -1.0),
-    "E": (1.0, 0.0),
-    "W": (-1.0, 0.0),
-}
 
 _INSERT_NODE = (
     "INSERT OR REPLACE INTO street_node (node_id, lon, lat, street_names) VALUES (?, ?, ?, ?)"
@@ -638,7 +629,7 @@ def _resolve_arrow(
         return arrow
     if forward is None or not arrow_direction:
         return Arrow.NONE
-    compass = _COMPASS_LONLAT.get(arrow_direction.strip().upper()[:1])
+    compass = COMPASS_UNITS.get(arrow_direction.strip().upper()[:1])
     if compass is None:
         return Arrow.NONE
     alignment = forward[0] * compass[0] + forward[1] * compass[1]
