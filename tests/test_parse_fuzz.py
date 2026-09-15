@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import random
 import sqlite3
+import statistics
 import string
 import time
 from collections.abc import Callable
@@ -51,9 +52,17 @@ from curbcheck.model import ParseMethod
 ITERATIONS = 20_000
 
 # Measured worst case over 20k inputs on the real corpus is about 15 ms for
-# `parse_description` and under 1 ms for the other two. 50 ms leaves room for a
-# slow CI runner while still failing on a quadratic blowup.
-MAX_CALL_S = 0.050
+# `parse_description` and under 1 ms for the other two, and the median of every
+# one of the four is well under a millisecond.
+#
+# Two bounds rather than one, because they catch different things. The per-call
+# bound is what a pathological string trips, and it is deliberately loose: a
+# single call that lands next to a full test run on a loaded machine has been
+# seen twenty times its own median, and a bound that fails on load is a bound
+# nobody believes. The median bound is what a quadratic blowup trips, and it is
+# tight, because a regression in the grammar moves every call rather than one.
+MAX_CALL_S = 0.250
+MAX_MEDIAN_S = 0.005
 
 SEED = 20260915
 
@@ -169,6 +178,7 @@ def _fuzz(
     function: Callable[[str], object], seeds: list[str], *, check: Callable[[str, object], None]
 ) -> None:
     rng = random.Random(SEED)
+    elapsed_s = []
     slowest = 0.0
     slowest_input = ""
     for _ in range(ITERATIONS):
@@ -179,11 +189,16 @@ def _fuzz(
         except Exception as error:
             pytest.fail(f"{function.__name__} raised {type(error).__name__} on {text!r}: {error}")
         elapsed = time.perf_counter() - started
+        elapsed_s.append(elapsed)
         if elapsed > slowest:
             slowest, slowest_input = elapsed, text
         check(text, result)
     assert slowest < MAX_CALL_S, (
         f"{function.__name__} took {slowest * 1000:.1f} ms on {slowest_input[:120]!r}"
+    )
+    median_s = statistics.median(elapsed_s)
+    assert median_s < MAX_MEDIAN_S, (
+        f"{function.__name__} median {median_s * 1000:.2f} ms over {ITERATIONS} calls"
     )
 
 
