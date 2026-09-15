@@ -384,7 +384,9 @@ def test_the_map_draws_every_verdict_with_its_own_pattern_and_the_list_does_not_
         for verdict in ("legal", "ambiguous", "illegal", "no_data")
         if f"{verdict}: {{" in style
     }
-    assert set(blocks) == {"legal", "ambiguous", "illegal", "no_data"}, "VERDICT_STYLE lost a verdict"
+    assert set(blocks) == {"legal", "ambiguous", "illegal", "no_data"}, (
+        "VERDICT_STYLE lost a verdict"
+    )
     assert "dash: [0, 2.2]" in blocks["no_data"], "the no_data line lost its dot pattern"
     assert "dash: null" in blocks["legal"], "the legal line stopped being solid"
 
