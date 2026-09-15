@@ -13,7 +13,7 @@ Update it when the state changes; delete anything no longer true.
 - `docs/SPEC.md` — the original specification. Sections 3 (threat model) and
   11 (failure surfacing) are binding. Other sections are guidance and several
   have been overridden; see `docs/DECISIONS.md` before trusting a detail.
-- `docs/DECISIONS.md` — every departure from the spec, with evidence (D1–D25).
+- `docs/DECISIONS.md` — every departure from the spec, with evidence (D1–D26).
 - `docs/ARCHITECTURE.md` — module map, schema, data flow.
 - `docs/DATA.md` — measured facts about the source datasets.
 - `docs/VALIDATION.md` — the ground-truth run against NYC DOT's own sign
@@ -52,12 +52,13 @@ curbcheck parse-report   Grammar coverage over the description corpus
 ## Where it stands (2026-09-15 snapshot)
 
 74,590 active signs (74,389 after duplicates) → 96.4% snapped, 95.8% of
-blockface-sides covered, 28,436 curb spans plus 5,656 grey placeholders for the
+blockface-sides covered, 30,524 curb spans plus 5,648 grey placeholders for the
 street sides with no rule at all, 99.83% of rows parsed, 100% semantic / zero
-false-permitted on the 520-description gold set, 0 of 6,317 metered segments
-unpriced, 27 of 30 sampled sides agreeing with DOT's viewer — which renders the
+false-permitted on the 520-description gold set, 0 of 6,558 metered segments
+unpriced, 26 of 30 sampled sides agreeing with DOT's viewer — which renders the
 same SIMS export we read, so that is a check against our source, not a survey.
-Real spans on one blockface-side tile it and never overlap (D25).
+Real spans on one centerline segment-side tile it and never overlap (D25, D26),
+whichever of DOT's blockface tuples they came from.
 
 ## Non-negotiables
 

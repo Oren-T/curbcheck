@@ -633,3 +633,139 @@ broom, illegal) and 460–633 (broom alone, **legal**). The split, not an amber
 stripe over the whole block, and the 173 ft DOT actually leaves parkable stays
 green.
 
+
+## 11. Re-validation after the per-segment stack (2026-09-15)
+
+§10 measured the flatten that ran per blockface-side and left 175 cross-chain
+overlap pairs. `docs/DECISIONS.md` D26 projects every span onto the centerline
+segments it covers and stacks per segment-side instead, so two DOT blockface
+tuples over one piece of curb reach `resolve` together. This section is the
+re-measure after `curbcheck sync --offline` (112.5 s, of which 58.5 s is the
+geometry step). Nothing above is rewritten.
+
+### 11.1 Before and after
+
+| Measure | §10 (per chain-side) | Per segment-side |
+|---|---|---|
+| Real `regulation_segment` rows | 28,436 | **30,524** |
+| Placeholders (D23) | 5,656 | **5,648** (5,291 `no_signs`, 357 `unmatched_signs`) |
+| `regulation_segment` rows in all | 34,092 | **36,172** |
+| `regulation` rows | 54,750 | **59,020** |
+| Curb covered by a real span, counted per row | 4,733,456 ft | **4,666,727 ft** |
+| Mean real span length | 166.5 ft | **152.9 ft** |
+| Real spans carrying more than one sign | 21,168 | **23,072** |
+| Overlapping span pairs (`--overlaps`) | 175 | **16** |
+| … of which on one `(segment_id, side)` | 0 | **0** |
+| Street sides carrying a rule (`coverage.sides_with_rules`) | 13,114 | **13,111** |
+| Whole-side / arrow-extended / D5-merged spans | 1,964 / 53,622 / 16,113 | unchanged |
+| Per-chain spans entering the projection | 28,360 | unchanged |
+| Verdict spot checks (§7) | 6 / 6 | **6 / 6** |
+| Sync runtime | 104.6 s | **112.5 s** |
+
+The curb figure is again the one to read: a further 66,729 ft — 12.6 miles — was
+being counted twice, once under each of the two chains DOT describes it with.
+`regulation` rows rise because a sign whose span crosses two centerline segments
+now has a row on each, and because the stacks are larger.
+
+Real spans rise by 2,088 because a span is now cut wherever a segment ends, not
+only where another span does. The cost is slivers: **165 real spans are shorter
+than 5 ft and 35 shorter than 1 ft**, against 40 and 5 in §10, where a span
+boundary falls within a few feet of a corner. They are honest — a foot of curb
+either is or is not under a rule — but they hold no cars and nothing treats them
+specially yet.
+
+`coverage.sides_with_rules` falls by 3 because the key is now segment-local. Three
+curbs — on E 120 ST, RIVERSIDE DR and JANE ST — are lettered one way by one chain
+and another way by another (`E`/`N`, `E`/`S`), and were counted as two sides each.
+No curb lost its rules.
+
+### 11.2 The overlap check
+
+`python scripts/validation_regress.py --overlaps`: **16 overlapping pairs over 22
+spans**, down from 175 over 204. Every one is the same shape, and it is not the
+shape §10.2 recorded: CSCL carries the Riverside Drive viaduct twice, once as
+`RIVERSIDE DR` (six segments, `rw_type` 3) and once as `12 AVE` (seven segments,
+mostly `rw_type` 1), with identical geometry and different `physicalid`s. DOT
+posts signs under both names, so both draw spans over one curb. 57 groups of
+CSCL segments share a geometry this way borough-wide; the rest are bridges and
+ramps with no parkable curb. Deduplicating the centerline is a separate change
+with its own count, recorded rather than fixed.
+
+`engine.search._demote_contested_spans` therefore has **nothing to do on this
+database**: it keys on `(segment_id, side)`, and no two real spans share one and
+overlap. It stays as defence in depth for a database built before D25/D26, and
+it cannot see the 16 pairs either, because they sit on two different
+`segment_id`s. `--overlaps` compares geometry and is the check that does.
+
+### 11.3 The 1 AVE / E 82 ST / E 84 ST case from §10.2
+
+Those three streets held 136 of the 204 spans in §10's residue. They now hold
+**none**. The clearest single block is segment 2572, 259 ft of 1 AVE:
+
+| | spans | curb counted |
+|---|---|---|
+| §10 | 8 | 906 ft |
+| now | 10 | **518 ft = 2 × 259 ft** |
+
+Before, its west curb was tiled twice over — 0–67.8 and 67.8–275.8 ft from one
+chain, 85.1–188.1 and 188.1–259.1 from another, in two different chains' feet,
+and the second tiling ran 16 ft past the segment's own end. Now it is
+0–71, 71–174, 174–191.2, 191.2–259.1, each carrying the union of both chains'
+signs, and both curbs are covered exactly once.
+
+### 11.4 The 30 sampled sides
+
+`python scripts/validation_regress.py --baseline data/curbcheck.sqlite.prev`,
+where `.prev` is the §10 database: **26 of 30 agree; 4 are listed for a human**.
+Three are the `n/v` rows §10.3 lists — 13, 24 and 25 — which DOT's viewer never
+answered. The fourth is new and is a move towards DOT, not away:
+
+**Side 28, WADSWORTH AVE side E, segment 26761** reads legal in all three windows
+where it read illegal before. §2's own note says the DOT blockface is chopped
+into five centerline pieces by the Cross Bronx ramps and that **only 1 of its 3
+posts** landed on the sampled piece, which is why §3 excludes this row from the
+scored set. All three now land on it: the `NO STANDING ANYTIME -->` post covers
+0–45 ft of this 56.6 ft piece and the two `FRIDAY 9:30AM-11AM` broom posts cover
+45–56.6 ft. The Wednesday, Saturday and Sunday windows are not Friday, so those
+11.6 ft are legal, and DOT's own posts say so. The old illegal came from the
+broom span being filed under a sibling piece by the midpoint rule D26 removes.
+
+Sides 9 (8 AVE side E, the §4 D1 disagreement) and 4 (PECK SLIP) are unchanged.
+
+### 11.5 The live query
+
+Pin 40.7784 / -73.9557 (E 79 ST at 3 AVE), Wednesday 2026-09-16 10:00–12:00,
+5-minute walk:
+
+| | legal | illegal | ambiguous | no_data | total |
+|---|---|---|---|---|---|
+| §10 (per chain-side) | 97 | 122 | 0 | 22 | 241 |
+| Per segment-side | **83** | **137** | **0** | **22** | **242** |
+
+These are **not comparable row for row**, and less so than §10.4's were: a span
+that ran over three centerline segments used to be one row whose geometry
+covered all three, and is now three rows judged separately, so a legal stretch
+whose far end left the radius no longer brings the whole chain in with it. The
+curb in radius falls from 62,960 ft to 44,445 ft for the same reason, and the
+legal *share* of it rises slightly, 51.5% to 52.6%.
+
+The comparable measure is borough-wide curb feet for the same window:
+
+| | legal | illegal | ambiguous | no_data |
+|---|---|---|---|---|
+| §10 | 1,766,393 ft | 2,774,160 ft | 188,100 ft | 4,803 ft |
+| now | **1,734,908 ft** | **2,738,964 ft** | 188,100 ft | 4,755 ft |
+
+Both fall, and they fall by 66,729 ft together, which is exactly the curb that
+was being counted under two chains at once. Ambiguous is unchanged and is
+entirely D17's meta-panel rule; the query-time demotion contributes none of it.
+
+### 11.6 What D23's placeholder accounting caught
+
+Nine segments were drawing a grey "no data" placeholder over a curb that already
+had rules, because the placeholder key was the compass letter and their two
+chains lettered the curbs by different axes: FDR DR (1644), E 120 ST (168197),
+BATTERY PL (173026), RIVERSIDE DR (206512), MAIN ST (68386), JANE ST (692),
+CARMINE ST (79803), JONES ST (91620) and RUTGERS SLIP (99799). With a
+segment-local key the invariant "a side with a real span never draws grey" holds
+again, and grey rows fall 5,656 → 5,648.

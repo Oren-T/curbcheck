@@ -484,3 +484,53 @@ chains. That is why D24's guard stays, and why it now logs.
 too coarse for provenance — that a user needs to see which post a rule came from
 per stretch, rather than the set of signs on it. `regulation` rows are already
 per (span, sign), so this would be a display change, not a model change.
+
+## D26. A curb span is stacked per centerline segment-side, not per chain-side
+
+**Decided:** 2026-09-15. After the arrow rules resolve a blockface-side's spans
+in chain feet, every span is cut at the boundaries of the centerline segments it
+runs over and re-expressed in each segment's own digitization direction, with
+the curb named as the left or right of that direction and the compass letter
+kept only as a label. D25's flatten then runs per `(segment_id, local side)`, so
+the spans that reach one piece of curb from *any* chain land in one stack.
+`regulation_segment.segment_id` is now exact and `start_ft`/`end_ft` are
+segment-local; both were chain quantities filed under "the segment at the
+midpoint" before.
+
+**Why:** D25 flattened per blockface-side, and DOT writes some signs against
+`1 AVENUE, E 16 ST -> E 18 ST` and others against `1 AVENUE, E 16 ST -> E 17 ST`.
+Those are two chains over one piece of curb, flattened independently, so 175
+pairs of spans still covered the same curb and the permission in one of them
+still read LEGAL over the prohibition in the other — SPEC §8.6's P0 defect,
+surviving D25 (`docs/VALIDATION.md` §10.2). The segment is the only frame the
+two chains share, and it is not the chain's: CSCL digitizes each segment in its
+own arbitrary direction, so a chain crossing one backwards has to convert with
+`length - x`, and the compass letter has to become left-or-right of the
+segment's own direction before "west curb" from either chain is one key.
+
+Measured on the 2026-09-15 snapshot: overlapping span pairs 175 -> 16, real
+spans 28,436 -> 30,524, `regulation` rows 54,750 -> 59,020, and the curb counted
+twice falls a further 66,729 ft to 4,666,727. 1 AVE and E 82/E 84 ST, which were
+136 of the 204 spans in the residue, hold none: segment 2572 carried 8 spans
+over 906 ft of a 259 ft segment and now carries 10 over 518 ft, which is both
+its curbs tiled exactly once. `_demote_contested_spans` has nothing to do.
+
+Two smaller things fall out. Nine segments whose two chains lettered the curbs
+by different axes — FDR DR, JANE ST, BATTERY PL and six more — were drawing a
+D23 placeholder over a curb that already had rules, because the placeholder key
+was the compass letter; the segment-local key ends that, and grey rows fall
+5,656 -> 5,648. And `coverage.sides_with_rules` reads 13,111 rather than 13,114
+because three curbs that two chains lettered two ways (E 120 ST, RIVERSIDE DR,
+JANE ST) were being counted twice; no curb lost its rules.
+
+**What it does not reach:** CSCL carries one roadway twice. The Riverside Drive
+viaduct is both `RIVERSIDE DR` and `12 AVE` with two `physicalid`s and identical
+geometry, DOT posts signs under both names, and both draw spans over the same
+curb — the 16 pairs left. That is a centerline deduplication, a different change
+with its own count, and `--overlaps` measures it because it compares geometry;
+`_demote_contested_spans` keys on `segment_id` and cannot see it.
+
+**Would reverse it:** a finding that a driver needs the span measured from the
+corner DOT names rather than from the centerline segment's own start. The chain
+and its from-node are still in `street_segment`, so that is a presentation
+change, but it would be a reason to store both.

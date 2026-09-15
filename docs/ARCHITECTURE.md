@@ -33,7 +33,7 @@ curbcheck/
       days.py        Day expressions      times.py    Clock times and seasonal ranges
       vocabulary.py  Phrase tables        panels.py   `panel_class`, the non-regulation strings
       report.py      Coverage of the grammar over the live description corpus
-    segments.py    Signs on a blockface-side -> regulation segments via arrow extrapolation
+    segments.py    Signs on a blockface-side -> curb spans, stacked per centerline segment-side
     meters.py      ParkNYC blockface rates -> meter_rate rows
     calendar.py    ASP suspension / holiday calendar -> asp_suspension rows
     build.py       Runs the steps in order, then atomically swaps the new DB in
@@ -112,17 +112,21 @@ therefore imports nothing else in `etl/`.
    post of its own family or to the corner; a `<->` runs each way to the nearest
    same-family post, failing that to the nearest post of *any* family, and
    reaches the corner only where a direction holds no post at all (D20); no
-   arrow means the whole blockface-side (34 RCNY 4-08). Then three passes:
+   arrow means the whole blockface-side (34 RCNY 4-08). Then four passes:
    spans whose posts state an identical rule and that touch or overlap are
-   unioned into one (16,113 merged, D5 in `docs/VALIDATION.md` §4); the spans
-   left on the side are **flattened** — cut at every boundary, each resulting
-   stretch carrying the union of the signs that cover it, stretches nothing
-   covers dropped (D25) — so no two rows ever govern the same foot of curb and
-   a ban and a permission that overlap reach `resolve` in one stack; and every
-   `rw_type` 1 street side still uncovered gets a placeholder (D23). The
-   pre-flatten per-post spans exist only in memory. The parse cache then fills
-   `regulation` once the spans exist, one row per (span, sign), which is where
-   the provenance a flattened span's `derived_from` names is written out.
+   unioned into one (16,113 merged, D5 in `docs/VALIDATION.md` §4); every span
+   is **projected** off its chain onto the centerline segments it runs over,
+   re-measured in each segment's own digitization direction and re-sided as the
+   left or right of it, so the spans two different DOT blockface tuples put on
+   one piece of curb share a key (D26); the spans on one segment-side are
+   **flattened** — cut at every boundary, each resulting stretch carrying the
+   union of the signs that cover it, stretches nothing covers dropped (D25) —
+   so no two rows ever govern the same foot of curb and a ban and a permission
+   that overlap reach `resolve` in one stack; and every `rw_type` 1 street side
+   still uncovered gets a placeholder (D23). The pre-projection per-post spans
+   exist only in memory. The parse cache then fills `regulation` once the spans
+   exist, one row per (span, sign), which is where the provenance a flattened
+   span's `derived_from` names is written out.
 7. **meters** joins ParkNYC rates by normalized street names and side, with
    geometry as a check and the rate-zone polygon as the fallback. One row per
    *centerline segment* a blockface covers, not one per blockface, because
@@ -136,7 +140,7 @@ therefore imports nothing else in `etl/`.
 Geometry is stored as GeoJSON text in EPSG:4326 plus `min_lon, min_lat,
 max_lon, max_lat` columns. Radius queries filter on the bbox in SQL and refine
 with shapely in Python. At Manhattan scale — 11,102 street segments, 74,389
-signs and 34,092 curb spans (28,436 real plus 5,656 grey placeholders) on the
+signs and 36,172 curb spans (30,524 real plus 5,648 grey placeholders) on the
 2026-09-15 snapshot — this is instant and needs no spatial extension. `db.create_schema` writes every column up front;
 there is no migration path and none is needed, because `curbcheck sync` always
 builds a fresh file and `db.swap_in` renames it over the old one.
@@ -146,7 +150,7 @@ builds a fresh file and `db.swap_in` renames it over the old one.
 | `sign` | source sign row (active Manhattan) | `sign_id` (truncated SHA-256 of the row, D5), `order_number`, streets, side, `distance_from_intersection`, `sign_code`, `sign_description`, published x/y, `derived_lon/lat`, `segment_id`, `snap_confidence`, `snap_notes`, `is_regulation`, `panel_class` (the parser's `regulation` / `panel:*` labels, D19) |
 | `street_segment` | centerline segment | `segment_id`, `street_name`, `street_norm`, `from_node`, `to_node`, `width_ft`, `length_ft`, geom, address ranges |
 | `street_node` | intersection | `node_id`, lon/lat, street names meeting there |
-| `regulation_segment` | resolved curb span, real or placeholder. Real spans on one blockface-side tile it and never overlap (D25) | `reg_seg_id`, `segment_id`, `side`, `start_ft`, `end_ft`, geom, bbox, `length_ft`, `capacity_cars`, `capacity_approximate`, `confidence`, `derived_from` (JSON list of sign_ids — every sign governing the stretch, not only the post the span started from), `gap_kind` |
+| `regulation_segment` | resolved curb span, real or placeholder. Real spans on one centerline segment-side tile it and never overlap (D25, D26) | `reg_seg_id`, `segment_id` (**exact**: a span never crosses a segment), `side` (the compass letter DOT lettered the curb with; the stack key behind it is the left/right of the segment's own digitization direction, D26), `start_ft`, `end_ft` (**segment-local**, from the segment's own start, not from the corner DOT measures a post from), geom, bbox, `length_ft`, `capacity_cars`, `capacity_approximate`, `confidence`, `derived_from` (JSON list of sign_ids — every sign governing the stretch, from every chain that reaches it, not only the post the span started from), `gap_kind` |
 | — placeholder rows | `rw_type` 1 street side no span covers (D23) | `derived_from='[]'`, `confidence=0`, `capacity_cars` NULL, the whole side's curb line, and `gap_kind` — `no_signs` where the source lists no active sign for that blockface-side (5,298), `unmatched_signs` where it lists some and none snapped (358). NULL on a real span. An empty rule stack is always `no_data`, never `legal` |
 | `regulation` | one parsed rule on one span | `reg_id`, `reg_seg_id`, the `Regulation` fields (`action`, `permitted`, `vehicle_class`, `exclusive`, `days_mask`, `time_from/to`, `metered`, `max_duration_min`, `flags`, `effective_from/to`, `arrow`), `raw_sign_description`, `parse_method`, `parse_confidence`, `parse_notes` |
 | `meter_rate` | ParkNYC blockface × centerline segment | `blockface_id`, `segment_id`, `side`, `rate_label`, `hour_rates` (JSON), `commercial_hour_rates`, `max_session_min`, `source`, `confidence`, geom |
@@ -165,11 +169,12 @@ corrected) → `search._demote_contested_spans` → `cost.score` → sort → re
 with raw sign text attached.
 
 `_demote_contested_spans` turns a legal span that a prohibitive span on the same
-centerline side geometrically overlaps into `ambiguous`. Since D25 the ETL
-writes no such pair within a blockface-side, so it is defence in depth for a
-database built before D25 and for the 175 pairs that overlap across two chains
-through one segment, and it logs a warning whenever it fires
-(`docs/VALIDATION.md` §10.2).
+centerline side geometrically overlaps into `ambiguous`. Since D25 and D26 the
+ETL writes no such pair at all, so it has nothing to do on a current database
+and is defence in depth for one built before them; it logs a warning whenever it
+fires. Its key is `(segment_id, side)`, so it does not reach the 16 pairs left
+on the one roadway CSCL draws twice — `scripts/validation_regress.py --overlaps`
+compares geometry and does (`docs/VALIDATION.md` §11.2).
 
 Verdict states are `legal`, `illegal`, `ambiguous`, `no_data`. The UI never
 collapses these into two colors. A span with no rules at all — every
