@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>CurbCheck — Manhattan curb parking</title>
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <!-- SPEC §17: this banner is persistent and is never collapsed or dismissed.
+         app.js replaces the text with the API's `disclaimer` when one arrives. -->
+    <header class="disclaimer" role="note" aria-label="Disclaimer">
+      <p id="disclaimer-text">
+        <strong>CurbCheck is advisory only.</strong> This tool derives parking legality and price
+        from NYC Open Data (NYC DOT Sign Information Management System) and may be incomplete, out
+        of date, or misread by the software.
+        <strong
+          >Parking regulations change and temporary or construction signage may override what is
+          shown here.</strong
+        >
+        The posted sign at the curb is the only authoritative regulation.
+        <strong>Always read the posted sign before parking.</strong> Sign-free prohibitions — within
+        15 feet of a fire hydrant (34 RCNY §4-08(e)(2)), crosswalks, bus stops, and driveways —
+        apply even where no sign is shown. CurbCheck does not predict whether a space is physically
+        available. Data © NYC Open Data; basemap © OpenStreetMap contributors.
+      </p>
+    </header>
+
+    <main class="layout">
+      <section class="panel" aria-label="Search and results">
+        <h1 class="wordmark">CurbCheck</h1>
+
+        <form id="search-form" class="search-form" autocomplete="off">
+          <div class="field">
+            <label for="destination">Destination</label>
+            <input
+              type="text"
+              id="destination"
+              name="destination"
+              placeholder="123 E 85 St, or 3 Ave &amp; E 85 St"
+              maxlength="200"
+            />
+            <div class="pin-row">
+              <button type="button" id="pin-toggle" class="toggle" aria-pressed="false">
+                Drop a pin instead
+              </button>
+              <span id="pin-readout" class="hint"></span>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="t1">Arrive</label>
+              <input type="datetime-local" id="t1" name="t1" required />
+            </div>
+            <div class="field">
+              <label for="t2">Leave</label>
+              <input type="datetime-local" id="t2" name="t2" required />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="walk-minutes">
+              Walk at most <output id="walk-minutes-out" for="walk-minutes">10</output> min
+            </label>
+            <input
+              type="range"
+              id="walk-minutes"
+              name="walk-minutes"
+              min="1"
+              max="30"
+              step="1"
+              value="10"
+            />
+          </div>
+
+          <fieldset class="weights">
+            <legend>How much each thing counts</legend>
+            <div class="field">
+              <label for="weight-walk">
+                Walking <output id="weight-walk-out" for="weight-walk">1.0</output>
+              </label>
+              <input type="range" id="weight-walk" min="0" max="3" step="0.1" value="1" />
+            </div>
+            <div class="field">
+              <label for="weight-money">
+                Money <output id="weight-money-out" for="weight-money">1.0</output>
+              </label>
+              <input type="range" id="weight-money" min="0" max="3" step="0.1" value="1" />
+            </div>
+            <div class="field">
+              <label for="weight-risk">
+                Risk of being wrong <output id="weight-risk-out" for="weight-risk">0.5</output>
+              </label>
+              <input type="range" id="weight-risk" min="0" max="3" step="0.1" value="0.5" />
+            </div>
+          </fieldset>
+
+          <button type="submit" id="search-button" class="primary">Search</button>
+        </form>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+        <ul id="suggestions" class="suggestions"></ul>
+        <ul id="search-caveats" class="caveats"></ul>
+
+        <h2 id="results-heading" class="results-heading">Results</h2>
+        <ol id="results" class="results" aria-labelledby="results-heading"></ol>
+      </section>
+
+      <section class="map-area" aria-label="Map">
+        <div id="map" class="map"></div>
+        <p class="map-attribution">
+          ©
+          <a
+            href="https://www.openstreetmap.org/copyright"
+            target="_blank"
+            rel="noopener noreferrer"
+            >OpenStreetMap contributors</a
+          >
+          · Protomaps · Data: NYC Open Data (DOT, DCP)
+        </p>
+        <ul class="legend" aria-label="Verdict legend">
+          <li><span class="swatch swatch-legal" aria-hidden="true"></span>Legal</li>
+          <li><span class="swatch swatch-ambiguous" aria-hidden="true"></span>Ambiguous</li>
+          <li><span class="swatch swatch-illegal" aria-hidden="true"></span>Illegal</li>
+          <li><span class="swatch swatch-no_data" aria-hidden="true"></span>No data</li>
+        </ul>
+        <aside id="detail" class="detail" aria-label="Segment detail" hidden></aside>
+      </section>
+    </main>
+
+    <!-- pmtiles.js is the browser IIFE build and must define the `pmtiles`
+         global before map.js registers the protocol (web/vendor/MANIFEST.md). -->
+    <script src="./vendor/pmtiles/pmtiles.js"></script>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

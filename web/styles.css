@@ -1,0 +1,603 @@
+/*
+ * CurbCheck styles. No web fonts and no remote assets of any kind (SPEC §3.4):
+ * the type is whatever the operating system already has.
+ *
+ * Colour rule: red and green are the pair a red/green colour-vision deficiency
+ * collapses, so no verdict is ever signalled by colour alone. Each one also
+ * carries its written label, a symbol, and — on the map — its own dash pattern,
+ * repeated in the legend swatches below.
+ */
+
+:root {
+  --legal: #0f7b3f;
+  --ambiguous: #b45309;
+  --illegal: #b42318;
+  --no_data: #6b7280;
+  --ink: #16191d;
+  --ink-soft: #4b5563;
+  --line: #d6dae0;
+  --panel-bg: #ffffff;
+  --page-bg: #f3f4f6;
+  --accent: #1d4ed8;
+  --warn-bg: #fff8e6;
+  --warn-line: #d9a441;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--page-bg);
+}
+
+/* Disclaimer (SPEC §17): always visible, never dismissible. */
+.disclaimer {
+  flex: 0 0 auto;
+  background: var(--warn-bg);
+  border-bottom: 2px solid var(--warn-line);
+  padding: 8px 16px;
+}
+
+.disclaimer p {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  max-width: 130ch;
+}
+
+.layout {
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(340px, 26%) 1fr;
+  min-height: 0;
+}
+
+.panel {
+  background: var(--panel-bg);
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  padding: 14px 16px 32px;
+}
+
+.wordmark {
+  margin: 0 0 10px;
+  font-size: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* Form */
+
+.search-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  /* Grid and flex items default to min-width:auto, which lets a datetime-local
+     input's intrinsic width push it out of its column. */
+  min-width: 0;
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+label,
+legend {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+input[type="text"],
+input[type="datetime-local"] {
+  font: inherit;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: inherit;
+  /* A datetime-local input's intrinsic width is wider than the column it sits
+     in at 1280px; without both of these it overflows the panel. */
+  min-width: 0;
+  width: 100%;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+output {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.weights {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px 10px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+.primary {
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.primary:disabled {
+  background: var(--no_data);
+  cursor: progress;
+}
+
+.toggle {
+  padding: 4px 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12.5px;
+}
+
+.toggle[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* Status, caveats, suggestions */
+
+.status {
+  margin: 12px 0 6px;
+  font-size: 13px;
+  color: var(--ink-soft);
+  min-height: 1.4em;
+}
+
+.status-error {
+  color: var(--illegal);
+  font-weight: 600;
+}
+
+.suggestions {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.suggestion {
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.caveats {
+  list-style: disc;
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.caveats li + li {
+  margin-top: 4px;
+}
+
+.results-heading {
+  font-size: 14px;
+  margin: 4px 0 8px;
+}
+
+.results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Result cards */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.card:hover {
+  border-color: var(--accent);
+  border-left-color: currentColor;
+}
+
+.card-selected {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.card-legal {
+  border-left-color: var(--legal);
+}
+
+.card-ambiguous {
+  border-left-color: var(--ambiguous);
+  border-left-style: dashed;
+}
+
+.card-illegal {
+  border-left-color: var(--illegal);
+  border-left-style: dotted;
+}
+
+.card-no_data {
+  border-left-color: var(--no_data);
+  border-left-style: dotted;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-rank {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.card-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.card-reason {
+  font-size: 12.5px;
+}
+
+/* Verdict badge: colour plus symbol plus word, never colour alone. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.badge-symbol {
+  font-size: 12px;
+}
+
+.badge-legal {
+  background: var(--legal);
+}
+
+.badge-ambiguous {
+  background: var(--ambiguous);
+}
+
+.badge-illegal {
+  background: var(--illegal);
+}
+
+.badge-no_data {
+  background: var(--no_data);
+}
+
+/* Map */
+
+.map-area {
+  position: relative;
+  min-height: 0;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+.map-attribution {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 2px 6px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.85);
+  border-top-left-radius: 4px;
+  z-index: 2;
+}
+
+.map-attribution a {
+  color: inherit;
+}
+
+.legend {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The swatches repeat the map's dash patterns so the legend is readable
+   without colour vision. */
+.swatch {
+  width: 26px;
+  height: 0;
+  border-top-width: 4px;
+}
+
+.swatch-legal {
+  border-top: 5px solid var(--legal);
+}
+
+.swatch-ambiguous {
+  border-top: 4px dashed var(--ambiguous);
+}
+
+.swatch-illegal {
+  border-top: 4px dotted var(--illegal);
+}
+
+.swatch-no_data {
+  border-top: 3px dotted var(--no_data);
+}
+
+/* Detail panel */
+
+.detail {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(440px, 48%);
+  z-index: 3;
+  overflow-y: auto;
+  padding: 12px 14px 28px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--line);
+  box-shadow: -4px 0 14px rgba(0, 0, 0, 0.12);
+}
+
+.detail[hidden] {
+  display: none;
+}
+
+.detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.detail-title {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+
+.detail-close {
+  padding: 3px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+.detail-verdict {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.detail-reason {
+  margin: 0;
+  font-weight: 600;
+}
+
+.detail h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin: 16px 0 6px;
+}
+
+.detail h4 {
+  font-size: 12.5px;
+  margin: 10px 0 4px;
+  color: var(--ink-soft);
+}
+
+.detail-caveats {
+  margin-top: 10px;
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+  border-radius: 6px;
+  padding: 6px 10px 8px;
+}
+
+.detail-caveats h3 {
+  margin-top: 2px;
+}
+
+.detail-caveats ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+}
+
+.notice {
+  margin: 8px 0;
+  padding: 7px 9px;
+  border-radius: 6px;
+  font-size: 13px;
+  border-left: 5px solid var(--no_data);
+  background: #f3f4f6;
+}
+
+.notice-ambiguous {
+  border-left: 5px dashed var(--ambiguous);
+  background: #fdf6ec;
+}
+
+.notice-no_data {
+  border-left: 5px dotted var(--no_data);
+}
+
+.sign-card {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 10px;
+}
+
+/* Raw sign text, quoted verbatim. Wrapped, never truncated. */
+.sign-text {
+  font-family: var(--mono);
+  font-size: 12.5px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0 0 8px;
+  padding: 7px 9px;
+  background: #11161c;
+  color: #f2f5f8;
+  border-radius: 5px;
+}
+
+.rule {
+  border-top: 1px solid var(--line);
+  padding-top: 6px;
+  margin-top: 6px;
+}
+
+.rule-summary {
+  margin: 0 0 4px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px 10px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.facts dt {
+  color: var(--ink-soft);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1000px) {
+  .layout {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto minmax(320px, 55vh);
+  }
+
+  .panel {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    overflow-y: visible;
+  }
+
+  .detail {
+    width: 100%;
+  }
+
+  body {
+    overflow-y: auto;
+  }
+}
