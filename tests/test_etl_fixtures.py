@@ -113,6 +113,34 @@ def dead_end_graph() -> StreetGraph:
     return build_graph(stage_centerline(dead_end_rows()))
 
 
+# A second BROAD AVE carriageway between E 1 ST and E 2 ST, 74 ft east of the
+# first: CSCL models a divided roadway as two parallel centerlines sharing the
+# cross-street nodes, so both spell an equally short chain (docs/DATA.md §2.3).
+DIVIDED_LON_OFFSET = 0.0009
+
+
+def divided_rows() -> list[dict[str, Any]]:
+    rows = grid_rows()
+    rows.append(
+        centerline_row(
+            "avenue-0-east",
+            "BROAD AVE",
+            [
+                [AVENUE_LON, CROSS_LATS[0]],
+                [AVENUE_LON + DIVIDED_LON_OFFSET, CROSS_LATS[0] + 0.0002],
+                [AVENUE_LON + DIVIDED_LON_OFFSET, CROSS_LATS[1] - 0.0002],
+                [AVENUE_LON, CROSS_LATS[1]],
+            ],
+            streetwidth="60",
+        )
+    )
+    return rows
+
+
+def divided_graph() -> StreetGraph:
+    return build_graph(stage_centerline(divided_rows()))
+
+
 def grid_graph() -> StreetGraph:
     return build_graph(stage_centerline(grid_rows()))
 

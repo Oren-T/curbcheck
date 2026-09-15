@@ -14,7 +14,7 @@ import math
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 
 from curbcheck.etl.stage import StagedSign
 from curbcheck.etl.streets import BlockMatch, NameMatch, StreetGraph, feet_to_lonlat
@@ -236,7 +236,7 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
     chain_quality = 1.0
     if not block.is_unique:
         chain_quality = 0.6
-        notes.append(f"{block.chain_count} equally short chains span this block")
+        block = _outer_carriageway(lookup.alternatives, sign, notes)
     elif not block.is_single_segment:
         chain_quality = 0.9
         notes.append(f"block spans {len(block.segments)} centerline segments")
@@ -276,6 +276,72 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
         distance_clamped=sign.distance_from_intersection_ft > block.length_ft,
         side_ambiguous=side_ambiguous,
     )
+
+
+def side_normal(line_ft: LineString, side: str) -> tuple[float, float]:
+    """Unit vector from the chain towards the curb the side letter names."""
+    offset_sign, _ = side_offset_sign(line_ft, side)
+    start, end = line_ft.coords[0], line_ft.coords[-1]
+    dx, dy = end[0] - start[0], end[1] - start[1]
+    span = math.hypot(dx, dy)
+    if span == 0:
+        return (0.0, 0.0)
+    return (-dy / span * offset_sign, dx / span * offset_sign)
+
+
+def _outer_carriageway(
+    candidates: Sequence[BlockMatch], sign: StagedSign, notes: list[str]
+) -> BlockMatch:
+    """Pick between equally short chains: the one whose named curb faces outwards.
+
+    CSCL models a divided roadway as two parallel centerlines, and both spell an
+    equally short chain between the same pair of nodes. A sign whose
+    `side_of_street` is W belongs to the west curb of the *west* carriageway, so
+    the right chain is the one for which offsetting towards the named side moves
+    *away* from its sibling. That is geometric, not compass-based, so it holds on
+    Manhattan's tilted grid. The published coordinate only breaks a remaining tie
+    (SPEC §B.1). Before this, the walk took whichever chain it saw first and put
+    7.2% of snapped rows at risk of half a roadway width
+    (docs/VALIDATION.md §4 D3).
+    """
+    notes.append(f"{len(candidates)} equally short chains span this block")
+    scored = []
+    for index, candidate in enumerate(candidates):
+        centroid = candidate.line_ft.interpolate(0.5, normalized=True)
+        sibling = _nearest_sibling(candidates, index)
+        normal = side_normal(candidate.line_ft, sign.side_of_street)
+        dx, dy = sibling.x - centroid.x, sibling.y - centroid.y
+        span = math.hypot(dx, dy) or 1.0
+        facing = normal[0] * dx / span + normal[1] * dy / span
+        scored.append((round(facing, 6), _published_distance_ft(sign, centroid), index, candidate))
+    scored.sort()
+    chosen = scored[0]
+    if chosen[0] < scored[-1][0]:
+        notes.append(
+            f"tie broken by side: the {sign.side_of_street} curb of this chain faces away"
+            " from the parallel carriageway"
+        )
+    else:
+        notes.append("tie broken by the published coordinate; the side letter did not separate")
+    return chosen[3]
+
+
+def _nearest_sibling(candidates: Sequence[BlockMatch], index: int) -> Point:
+    """Centroid of the competing chain closest to this one."""
+    here = candidates[index].line_ft.interpolate(0.5, normalized=True)
+    others = [
+        other.line_ft.interpolate(0.5, normalized=True)
+        for position, other in enumerate(candidates)
+        if position != index
+    ]
+    return min(others, key=here.distance)
+
+
+def _published_distance_ft(sign: StagedSign, centroid: Point) -> float:
+    """Feet from the sign's published point to a chain's midpoint, or 0 with no point."""
+    if sign.sign_x_coord is None or sign.sign_y_coord is None:
+        return 0.0
+    return math.hypot(centroid.x - sign.sign_x_coord, centroid.y - sign.sign_y_coord)
 
 
 def snap_signs(

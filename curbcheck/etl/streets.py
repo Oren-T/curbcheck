@@ -14,7 +14,7 @@ import difflib
 import logging
 import re
 from collections import deque
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
@@ -130,6 +130,11 @@ COORD_PLACES = 7
 # docs/DATA.md §2.4). The longest real case is Riverside Dr across ~16 blocks;
 # this bound keeps a bad name match from walking the length of Broadway.
 MAX_CHAIN_SEGMENTS = 30
+
+# How many equally short chains are kept for the caller to choose between. Two
+# is the real case (a divided roadway); the bound stops a pathological node
+# layout from unfolding exponentially.
+MAX_TIED_CHAINS = 8
 
 # difflib ratio above which a street name with no exact or aliased match is
 # accepted as a misspelling. 0.92 admits FORSYTHE ST -> FORSYTH ST and rejects
@@ -302,6 +307,8 @@ class BlockLookup:
     on: StreetNameLookup
     from_: StreetNameLookup
     to: StreetNameLookup
+    alternatives: tuple[BlockMatch, ...] = ()
+    """Every equally short chain, `match` first. Longer than one on a divided roadway."""
 
 
 @dataclass(frozen=True)
@@ -430,12 +437,14 @@ class StreetGraph:
             return BlockLookup(
                 None, "cross_street_does_not_meet_on_street", on_name, from_name, to_name
             )
-        chain = self._shortest_chain(on_name.norm, from_nodes, to_nodes)
-        if chain is None:
+        chains = self._shortest_chains(on_name.norm, from_nodes, to_nodes)
+        if not chains:
             return BlockLookup(None, "no_chain_between_nodes", on_name, from_name, to_name)
-        segment_ids, start_node, end_node, chain_count = chain
-        match = self._build_block(on_name.norm, segment_ids, start_node, end_node, chain_count)
-        return BlockLookup(match, "matched", on_name, from_name, to_name)
+        matches = tuple(
+            self._build_block(on_name.norm, segment_ids, start_node, end_node, len(chains))
+            for segment_ids, start_node, end_node in chains
+        )
+        return BlockLookup(matches[0], "matched", on_name, from_name, to_name, matches)
 
     def _dead_end_block(
         self,
@@ -481,6 +490,7 @@ class StreetGraph:
             on_name,
             resolved if from_is_dead else from_name,
             to_name if from_is_dead else resolved,
+            (match,),
         )
 
     def _best_terminal_run(
@@ -540,54 +550,54 @@ class StreetGraph:
             if cross_norm in self.nodes[node_id].street_norms
         ]
 
-    def _shortest_chain(
+    def _shortest_chains(
         self, street_norm: str, from_nodes: Sequence[str], to_nodes: Sequence[str]
-    ) -> tuple[list[str], str, str, int] | None:
-        """Breadth-first walk over one street's segments, counting distinct shortest chains.
+    ) -> list[tuple[list[str], str, str]]:
+        """Every shortest chain of one street's segments between the two node sets.
 
-        The count is what tells a clean block from an ambiguous one: two parallel
-        segments between the same pair of nodes (a divided roadway) both spell a
-        shortest chain, and the caller must lose confidence rather than pick
-        silently.
+        More than one means the block is ambiguous: two parallel segments between
+        the same pair of nodes are a divided roadway, and the caller has to pick
+        between the carriageways rather than take whichever the walk saw first
+        (docs/VALIDATION.md §4 D3).
         """
         targets = set(to_nodes)
         distance: dict[str, int] = dict.fromkeys(from_nodes, 0)
-        path_count: dict[str, int] = dict.fromkeys(from_nodes, 1)
-        parent: dict[str, tuple[str, str]] = {}
+        parents: dict[str, list[tuple[str, str]]] = {}
         frontier = deque(sorted(from_nodes))
         depth = 0
         while frontier and depth < MAX_CHAIN_SEGMENTS:
-            reached: dict[str, int] = {}
+            reached: dict[str, list[tuple[str, str]]] = {}
             for node_id in frontier:
                 for segment_id in self._incident.get((street_norm, node_id), ()):
                     neighbour = self.segments[segment_id].other_end(node_id)
                     if neighbour == node_id or distance.get(neighbour, depth + 1) <= depth:
                         continue
-                    reached[neighbour] = reached.get(neighbour, 0) + path_count[node_id]
-                    parent.setdefault(neighbour, (node_id, segment_id))
+                    reached.setdefault(neighbour, []).append((node_id, segment_id))
             depth += 1
-            for neighbour, count in reached.items():
+            for neighbour, links in reached.items():
                 distance[neighbour] = depth
-                path_count[neighbour] = count
+                parents[neighbour] = sorted(links)
             hits = sorted(node for node in reached if node in targets)
             if hits:
-                end_node = hits[0]
-                total = sum(path_count[node] for node in hits)
-                return (*self._walk_back(end_node, parent), total)
+                return [chain for node in hits for chain in self._walk_back_all(node, parents)]
             frontier = deque(sorted(reached))
-        return None
+        return []
 
-    def _walk_back(
-        self, end_node: str, parent: dict[str, tuple[str, str]]
-    ) -> tuple[list[str], str, str]:
-        segment_ids: list[str] = []
-        node_id = end_node
-        while node_id in parent:
-            previous, segment_id = parent[node_id]
-            segment_ids.append(segment_id)
-            node_id = previous
-        segment_ids.reverse()
-        return (segment_ids, node_id, end_node)
+    def _walk_back_all(
+        self, end_node: str, parents: Mapping[str, list[tuple[str, str]]]
+    ) -> list[tuple[list[str], str, str]]:
+        """Unfold the BFS parent links into whole chains, newest link first."""
+        chains: list[tuple[list[str], str, str]] = []
+        stack: list[tuple[list[str], str]] = [([], end_node)]
+        while stack and len(chains) < MAX_TIED_CHAINS:
+            segment_ids, node_id = stack.pop()
+            links = parents.get(node_id)
+            if not links:
+                chains.append((list(reversed(segment_ids)), node_id, end_node))
+                continue
+            for previous, segment_id in reversed(links):
+                stack.append(([*segment_ids, segment_id], previous))
+        return chains
 
     def _build_block(
         self,

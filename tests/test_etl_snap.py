@@ -9,6 +9,7 @@ from test_etl_fixtures import (
     AVENUE_LON,
     CROSS_LATS,
     dead_end_graph,
+    divided_graph,
     grid_graph,
     staged_sign,
 )
@@ -220,6 +221,20 @@ def test_a_dead_end_blockface_snaps_at_a_modest_confidence_cost():
         abs=1e-4,
     )
     assert any("dead end" in note for note in named.snap_notes)
+
+
+def test_a_divided_roadway_picks_the_carriageway_whose_named_curb_faces_out():
+    # docs/VALIDATION.md §4 D3: on PARK AVE a `Side: W` sign belongs to the west
+    # curb of the *west* carriageway, not to the median of the east one.
+    graph = divided_graph()
+
+    west = snap_one(staged_sign("w", to_street="E 2 STREET", side="W"), graph)
+    east = snap_one(staged_sign("e", to_street="E 2 STREET", side="E"), graph)
+
+    assert west.segment_id == "avenue-0"
+    assert east.segment_id == "avenue-0-east"
+    assert any("tie broken by side" in note for note in west.snap_notes)
+    assert any("2 equally short chains" in note for note in east.snap_notes)
 
 
 def test_coverage_report_separates_a_matching_gap_from_a_data_gap():
