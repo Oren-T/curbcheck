@@ -8,7 +8,11 @@
  */
 
 import * as api from "./api.js";
-import { CALENDAR_MISSING_CAVEAT, TEMPORARY_SIGNAGE_CAVEAT } from "./copy.js";
+import {
+  CALENDAR_MISSING_CAVEAT,
+  PIN_MODE_NEEDS_A_CLICK,
+  TEMPORARY_SIGNAGE_CAVEAT,
+} from "./copy.js";
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
 import { clear, el, replaceChildren } from "./dom.js";
 import { nextTopOfHour, statusLine, toLocalInputValue } from "./format.js";
@@ -154,6 +158,12 @@ function onSubmit(event) {
   const address = dom.destination.value.trim();
   if (address === "" && state.destination === null) {
     setStatus("Type an address or an intersection, or drop a pin on the map.", "error");
+    return;
+  }
+  // `dropPin` disarms pin mode, so still being armed means no pin was placed
+  // since it was turned on. Searching would silently reuse the old destination.
+  if (address === "" && state.pinMode) {
+    setStatus(PIN_MODE_NEEDS_A_CLICK, "error");
     return;
   }
   if (dom.t2.value <= dom.t1.value) {

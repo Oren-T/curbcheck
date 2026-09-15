@@ -189,3 +189,23 @@ def test_a_failed_search_clears_the_previous_answer() -> None:
     for expected in ("state.results = []", "clear(dom.results)", "curbMap.clearResults()"):
         assert expected in clear_results, f"clearResults no longer does {expected}"
     assert "clearResults()" in map_js
+
+
+def test_an_armed_pin_with_no_click_refuses_instead_of_reusing_the_old_pin() -> None:
+    """`dropPin` disarms pin mode, so still-armed means no pin was placed.
+
+    Searching then would answer about the previous destination, which the user
+    has already said they are leaving. Checked by reading the source for the
+    same reason as the test above: there is no JS test runner here.
+    """
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+
+    submit = app.split("function onSubmit")[1].split("\n}")[0]
+    refusal = submit.split('if (address === "" && state.pinMode)')
+    assert len(refusal) == 2, "onSubmit no longer refuses an armed pin with no destination"
+    assert "PIN_MODE_NEEDS_A_CLICK" in refusal[1]
+    assert "return" in refusal[1].split("}")[0]
+    assert "export const PIN_MODE_NEEDS_A_CLICK" in copy
+    # The guard has to come before the search runs, not after it.
+    assert submit.index("state.pinMode") < submit.index("runSearch(")

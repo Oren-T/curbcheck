@@ -61,6 +61,14 @@ export const CALENDAR_MISSING_CAVEAT =
   "Holiday and street-cleaning suspension calendar is missing; holiday and ASP verdicts " +
   "may be wrong";
 
+// Pin mode is armed but no pin has been placed yet. Reusing the previous
+// destination here would answer a question about a block the user has already
+// said they are leaving, and every verdict on the page would be about the wrong
+// curb without saying so.
+export const PIN_MODE_NEEDS_A_CLICK =
+  "Pin mode is on but no pin is placed. Click the map to set the destination, or type an " +
+  "address instead.";
+
 // SPEC §11, "Emergency ASP suspensions (offline mode)".
 export const ASP_SUSPENSION_CAVEAT =
   "Emergency ASP suspensions are not reflected. Same-day weather and parade suspensions are " +
