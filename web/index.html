@@ -27,7 +27,7 @@
       <button
         type="button"
         id="notice-toggle"
-        class="strip-toggle"
+        class="link-button strip-toggle"
         aria-expanded="false"
         aria-controls="full-notice"
       >
@@ -65,8 +65,12 @@
           <span id="drawer-summary" class="drawer-summary">Search</span>
         </button>
 
-        <div id="rail-scroll" class="rail-scroll">
+        <div id="rail-scroll" class="rail-scroll is-first-load">
           <h1 class="wordmark">CurbCheck</h1>
+
+          <!-- Shown on the first load only: one sentence saying what the app
+               answers, so the rail opens as a product and not as a form. -->
+          <p class="tagline">Legal curb near your destination, priced and ranked.</p>
 
           <form id="search-form" class="search-card" autocomplete="off">
             <div class="field">

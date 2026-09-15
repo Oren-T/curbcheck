@@ -146,14 +146,14 @@ h4 {
   backdrop-filter: var(--blur-panel);
   -webkit-backdrop-filter: var(--blur-panel);
   box-shadow:
-    inset 3px 0 0 var(--v-ambiguous),
+    inset 2px 0 0 var(--v-ambiguous),
     0 1px 0 var(--c-glass-border);
   color: var(--v-ambiguous-ink);
 }
 
 .strip-text {
   margin: 0;
-  font-size: var(--t-small);
+  font-size: var(--t-caption);
   line-height: var(--lh-tight);
   display: flex;
   flex-wrap: wrap;
@@ -164,27 +164,20 @@ h4 {
   font-weight: var(--w-semibold);
 }
 
+/* A text link, not a bordered pill: the strip is permanent, and a permanent
+   button in it reads as an action the user is being asked to take. */
 .strip-toggle {
   margin-left: auto;
   flex: 0 0 auto;
-  padding: var(--s-2) var(--s-5);
-  border: 1px solid color-mix(in srgb, var(--v-ambiguous-ink) 28%, transparent);
-  border-radius: var(--r-pill);
-  background: transparent;
   color: inherit;
   font-size: var(--t-caption);
   font-weight: var(--w-medium);
-  transition:
-    background var(--m-instant) var(--ease-out),
-    border-color var(--m-instant) var(--ease-out);
+  text-decoration-color: color-mix(in srgb, currentcolor 45%, transparent);
+  text-underline-offset: 2px;
 }
 
 .strip-toggle:hover {
-  background: color-mix(in srgb, var(--v-ambiguous-ink) 10%, transparent);
-}
-
-.strip-toggle[aria-expanded="true"] {
-  background: color-mix(in srgb, var(--v-ambiguous-ink) 14%, transparent);
+  text-decoration-color: currentcolor;
 }
 
 .full-notice {
@@ -403,6 +396,40 @@ h4 {
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-display);
   color: var(--c-text-secondary);
+}
+
+/* First load: the search card sits in the middle of the rail with one line
+   saying what the app answers. After the first search the rail is a list, so
+   the tagline goes and the content returns to the top. */
+.rail-scroll.is-first-load {
+  display: flex;
+  flex-direction: column;
+  /* `safe` matters: a plain `center` in an overflowing scroll container pushes
+     the first field above the scrollable area, where it cannot be reached.
+     Browsers without `safe` reject the declaration and fall back to
+     flex-start, which is the behaviour `safe` asks for anyway. */
+  justify-content: safe center;
+}
+
+.rail-scroll.is-first-load .wordmark {
+  position: absolute;
+  left: var(--s-7);
+  top: var(--s-7);
+  margin: 0;
+}
+
+.tagline {
+  margin: 0 0 var(--s-7);
+  max-width: 28ch;
+  font-size: var(--t-lead);
+  font-weight: var(--w-medium);
+  line-height: var(--lh-tight);
+  letter-spacing: var(--track-display);
+  color: var(--c-text-secondary);
+}
+
+.rail-scroll:not(.is-first-load) .tagline {
+  display: none;
 }
 
 .wordmark::before {
@@ -676,8 +703,19 @@ h4 {
     padding: var(--s-3) var(--s-6) var(--s-8);
   }
 
+  /* The drawer's peek detent is 148 px: centring inside it would put the
+     search field off the top of a two-line window. */
+  .rail-scroll.is-first-load {
+    display: block;
+  }
+
   .wordmark {
     display: none;
+  }
+
+  .tagline {
+    margin-bottom: var(--s-5);
+    font-size: var(--t-body);
   }
 
   .skip-link + .skip-link:focus-visible {

@@ -245,8 +245,11 @@
   --c-glass-raised: rgba(255, 255, 255, 0.9); /* sheets, which sit over more map */
   --c-glass-border: rgba(26, 25, 23, 0.08);
   --c-glass-hairline: rgba(255, 255, 255, 0.7); /* inner top highlight on glass */
-  --c-strip: rgba(251, 242, 222, 0.88);
-  --c-strip-solid: #fbf2de;
+  /* Lighter than --v-ambiguous-soft on purpose: the strip is permanent, and
+     a permanent band of colour reads as an error state. The ink stays
+     --v-ambiguous-ink, whose contrast can only improve on a paler tint. */
+  --c-strip: rgba(253, 249, 240, 0.86);
+  --c-strip-solid: #fdf9f0;
   --c-chip: rgba(255, 255, 255, 0.6);
   --c-scrim: rgba(26, 25, 23, 0.28); /* behind the phone detail sheet */
 
@@ -264,7 +267,7 @@
   --c-select-glow: rgba(26, 86, 176, 0.3);
   --track-display: -0.02em; /* tight-tracked headings */
 
-  --strip-h: 36px;
+  --strip-h: 32px;
   --drawer-peek: 148px;
 }
 

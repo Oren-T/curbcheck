@@ -90,6 +90,7 @@ const dom = {
   noticeToggle: byId("notice-toggle"),
   fullNotice: byId("full-notice"),
   rail: document.querySelector(".rail"),
+  railScroll: byId("rail-scroll"),
   drawerHandle: byId("drawer-handle"),
   drawerSummary: byId("drawer-summary"),
   mapContainer: byId("map"),
@@ -169,6 +170,9 @@ function windowErrorSentence(code) {
 }
 
 async function runSearch(where, window_) {
+  // The centred first-load card is a one-time state: once a question has been
+  // asked, the rail is a list and the search collapses to its summary.
+  dom.railScroll.classList.remove("is-first-load");
   const walkMinutes = searchCard.walkMinutes();
   state.walkMinutes = walkMinutes;
   setSearching(true);
@@ -709,6 +713,12 @@ window.addEventListener("resize", () => {
   curbMap.resize();
   updatePadding();
 });
+
+// On a phone the drawer's peek detent shows two lines, which is not enough to
+// reach the destination field. First load is the one moment the user has
+// nothing to look at on the map, so the drawer opens on the question.
+drawer.open("half");
+drawer.setSummary("Where to?");
 
 updatePadding();
 reportHealth();
