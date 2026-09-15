@@ -274,6 +274,32 @@ export function streetLabelParts(streetName) {
 }
 
 /**
+ * A geocoder label as the UI prints it.
+ *
+ * CSCL, AddressPoint and CommonPlace all store names in capitals, so
+ * `/api/geocode` and `/api/reverse` answer `1519 3 AVE`, `BLEECKER ST`,
+ * `1 WORLD TRADE CENTER`. Shouted back in the destination box and in the
+ * collapsed search summary — the one line that names the curb every verdict on
+ * the page is about — it reads as a database row rather than as a place, and it
+ * disagrees with the cards, which have been title-cased since
+ * `streetLabelParts` landed.
+ *
+ * This is display only, and the same rule the cards use: the raw label stays on
+ * the candidate and is kept as the field's tooltip, and no sign text, no
+ * `street_name` in a facts block and nothing in a request is touched (SPEC §10).
+ */
+export function placeLabel(label) {
+  const text = typeof label === "string" ? label.trim() : "";
+  if (text === "") {
+    return "";
+  }
+  // "near" is the API's own word for "this is the closest door, not your pin"
+  // and is already lower case; title-casing it would read as a street name.
+  const near = /^near\s+(.+)$/i.exec(text);
+  return near ? `near ${titleCaseStreet(near[1])}` : titleCaseStreet(text);
+}
+
+/**
  * "near <place>" for a dropped pin, said once.
  *
  * `/api/reverse` already names the closest door as `"near 1519 3 AVE"` because

@@ -15,6 +15,7 @@
 import * as api from "./api.js";
 import { DROP_A_PIN, NO_CANDIDATES } from "./copy.js";
 import { el, replaceChildren } from "./dom.js";
+import { placeLabel } from "./format.js";
 
 const DEBOUNCE_MS = 150;
 const MIN_QUERY_CHARS = 2;
@@ -123,7 +124,14 @@ export function createAutocomplete({ input, list, onPick, onDropPin, onError = (
           attrs: { "aria-hidden": "true" },
         }),
         el("span", { className: "ac-body" }, [
-          el("span", { className: "ac-label", text: candidate.label || "" }),
+          // Title-cased for the row, byte-for-byte in the tooltip: the label is
+          // how the user recognises the place, the raw string is how they check
+          // it against the data.
+          el("span", {
+            className: "ac-label",
+            text: placeLabel(candidate.label),
+            attrs: { title: candidate.label || null },
+          }),
           candidate.secondary
             ? el("span", { className: "ac-secondary", text: candidate.secondary })
             : null,

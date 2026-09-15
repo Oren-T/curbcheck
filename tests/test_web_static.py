@@ -598,3 +598,33 @@ def test_a_reversed_pin_says_near_once() -> None:
     drop = app.split("async function dropPin")[1].split("\n}")[0]
     assert "nearLabel(place.label)" in drop, "dropPin is wording the label itself again"
     assert "`near ${place.label}`" not in drop
+
+
+def test_a_place_name_is_title_cased_for_display_and_kept_raw_beside_it() -> None:
+    """The cards have been title-cased since `streetLabelParts`; the box was not.
+
+    CSCL, AddressPoint and CommonPlace store every name in capitals, so the
+    destination field and the collapsed search summary — the one line naming the
+    curb every verdict on the page is about — read `1519 3 AVE` next to cards
+    reading `E 85 St · north side`. Display only: the geocoder's own string is
+    kept as the tooltip, and nothing in a request or an "as posted" block moves
+    (SPEC §10).
+    """
+    fmt = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+    assert "export function placeLabel" in fmt
+    place = fmt.split("export function placeLabel")[1].split("\n}")[0]
+    assert "titleCaseStreet" in place, "placeLabel stopped using the cards' own formatter"
+
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    pick = app.split("function pickCandidate(candidate)")[1].split("\n}")[0]
+    assert "placeLabel(candidate.label)" in pick
+    assert "raw: candidate.label" in pick, "the published string is no longer kept"
+    assert "dom.destination.value = candidate.label" not in pick
+
+    autocomplete = (WEB_DIR / "autocomplete.js").read_text(encoding="utf-8")
+    assert "placeLabel(candidate.label)" in autocomplete, "the dropdown still shouts"
+    assert "title: candidate.label" in autocomplete, "the row dropped its raw label"
+
+    card = (WEB_DIR / "searchcard.js").read_text(encoding="utf-8")
+    collapse = card.split("collapse(destinationLabel")[1].split("\n    },")[0]
+    assert "As published:" in collapse, "the summary no longer offers the raw label"

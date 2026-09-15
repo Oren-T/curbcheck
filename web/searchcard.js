@@ -307,11 +307,17 @@ export function createSearchCard({ dom, onRerank, onWalkChange, onStaleChange })
     isStale: () => stale,
 
     /** After a search the card folds to one line; Edit brings it back. */
-    collapse(destinationLabel) {
+    collapse(destinationLabel, rawLabel = "") {
       dom.form.hidden = true;
       dom.summary.hidden = false;
+      const name = el("b", { text: destinationLabel });
+      // The line is title-cased to match the cards; the geocoder's own string
+      // stays reachable, because it is what the data actually says.
+      if (rawLabel && rawLabel !== destinationLabel) {
+        name.title = `As published: ${rawLabel}`;
+      }
       replaceChildren(dom.summaryText, [
-        el("b", { text: destinationLabel }),
+        name,
         el("span", { text: `${dom.windowSummary.textContent} · ${walkMinutes()} min walk` }),
       ]);
     },

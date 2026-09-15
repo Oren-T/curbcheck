@@ -26,7 +26,7 @@ import {
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
 import { clear, collapsible, el, replaceChildren } from "./dom.js";
 import { createDrawer } from "./drawer.js";
-import { nearLabel, statusLine, walkText } from "./format.js";
+import { nearLabel, placeLabel, statusLine, walkText } from "./format.js";
 import { renderLegend } from "./legend.js";
 import { CurbMap, loadStyle } from "./map.js";
 import { rankLegal } from "./rank.js";
@@ -222,8 +222,9 @@ function showResponse(response, walkMinutes) {
     // the one in the box — UX_AUDIT P1-4 wants the resolved place echoed, not
     // six decimal places.
     const picked = state.resolved && dom.destination.value.trim() === state.resolvedText;
-    const label = picked ? state.resolved.label : destination.label || "";
-    state.resolved = { lat: destination.lat, lon: destination.lon, label };
+    const label = picked ? state.resolved.label : placeLabel(destination.label || "");
+    const raw = picked ? state.resolved.raw || label : destination.label || "";
+    state.resolved = { lat: destination.lat, lon: destination.lon, label, raw };
     curbMap.setDestination([destination.lon, destination.lat], state.resolved.label);
     curbMap.setWalkRadius([destination.lon, destination.lat], walkMinutes);
     dom.recentre.hidden = false;
@@ -234,7 +235,10 @@ function showResponse(response, walkMinutes) {
   curbMap.fitResults();
 
   searchCard.markSearched();
-  searchCard.collapse(state.resolved ? state.resolved.label : dom.destination.value.trim());
+  searchCard.collapse(
+    state.resolved ? state.resolved.label : dom.destination.value.trim(),
+    state.resolved ? state.resolved.raw : "",
+  );
 
   if (state.results.length === 0) {
     dom.resultsHeading.hidden = true;
@@ -545,17 +549,21 @@ function setPinMode(enabled) {
 }
 
 async function dropPin([lon, lat]) {
-  state.resolved = { lat, lon, label: `${lat.toFixed(5)}, ${lon.toFixed(5)}` };
+  const coordinates = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  state.resolved = { lat, lon, label: coordinates, raw: coordinates };
   curbMap.setDestination([lon, lat], state.resolved.label);
   curbMap.setWalkRadius([lon, lat], searchCard.walkMinutes());
   setPinMode(false);
   showToast(dom.toasts, "Pin set");
   try {
     const place = await api.reverse(lat, lon);
-    const label = place && place.label ? nearLabel(place.label) : state.resolved.label;
+    const raw = place && place.label ? nearLabel(place.label) : coordinates;
+    const label = placeLabel(raw);
     state.resolved.label = label;
+    state.resolved.raw = raw;
     state.resolvedText = label;
     dom.destination.value = label;
+    dom.destination.title = raw;
     dom.pinReadout.textContent = place && place.secondary ? place.secondary : "";
     curbMap.setDestination([lon, lat], label);
   } catch {
@@ -567,13 +575,17 @@ async function dropPin([lon, lat]) {
 }
 
 function pickCandidate(candidate) {
-  state.resolved = { lat: candidate.lat, lon: candidate.lon, label: candidate.label };
-  state.resolvedText = candidate.label;
-  dom.destination.value = candidate.label;
+  // Display label in the box, the geocoder's own string kept beside it: DOT and
+  // CSCL shout every name, and the box is read next to the title-cased cards.
+  const label = placeLabel(candidate.label);
+  state.resolved = { lat: candidate.lat, lon: candidate.lon, label, raw: candidate.label || "" };
+  state.resolvedText = label;
+  dom.destination.value = label;
+  dom.destination.title = candidate.label || "";
   // setPinMode clears the readout line, so the secondary label goes in after it.
   setPinMode(false);
   dom.pinReadout.textContent = candidate.secondary || "";
-  curbMap.setDestination([candidate.lon, candidate.lat], candidate.label);
+  curbMap.setDestination([candidate.lon, candidate.lat], label);
   curbMap.setWalkRadius([candidate.lon, candidate.lat], searchCard.walkMinutes());
   curbMap.centerOn([candidate.lon, candidate.lat], 15);
   // Focus stays in the field: moving it to Search during the Enter keydown lets
@@ -702,6 +714,7 @@ dom.summaryEdit.addEventListener("click", () => searchCard.expand());
 dom.destination.addEventListener("input", () => {
   if (dom.destination.value !== state.resolvedText) {
     state.resolved = null;
+    dom.destination.title = "";
   }
   if (dom.destination.value !== "" && state.pinMode) {
     setPinMode(false);
