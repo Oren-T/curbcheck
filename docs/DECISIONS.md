@@ -138,3 +138,32 @@ sprites vendored from the protomaps basemaps-assets repository and the style
 vendored from the `@protomaps/basemaps` npm package. `build-metadata.protomaps.dev`
 and `raw.githubusercontent.com` are added to the allowlist for the basemap
 step only.
+
+## D12. Engine readings of three under-specified rules
+
+**Decided:** 2026-09-14. (a) `including_sunday` overrides the holiday meter
+exemption as well as the Sunday one: a sign that states its own calendar is
+taken at its word. (b) A posted `max_duration_min` is enforced for the whole
+window even on days when the meter is not running, because DOT does not say
+the time limit lifts with the charge. (c) Where several ParkNYC zones cover one
+blockface (SPEC §13.1b) the search quotes the dearest and sets
+`price_known=false` with a "confirm at the meter" caveat.
+
+**Why:** each case can only err towards a false "legal" or a false "illegal",
+and SPEC §8.6 makes a false legal the P0 defect. (a) and (b) both choose the
+reading that keeps a spot off the legal list; (c) never understates cost.
+
+**Would reverse it:** a DOT statement that a time limit applies only while the
+meter is in operation, which would make (b) wrong and cost the user spots.
+
+## D13. Unparsed signs still get a `regulation` row
+
+**Decided:** 2026-09-14. A sign the grammar cannot read is written as a
+`regulation` row with `parse_method='unparsed'`, `parse_confidence=0`, and its
+raw description. The engine reads only that row's metadata, never its fields,
+and forces the whole segment to AMBIGUOUS.
+
+**Why:** the stacking engine sees a segment as its list of `regulation` rows.
+If an unreadable sign produced no row, a blockface whose only other sign says
+"2 HOUR PARKING" would come back a confident LEGAL with the dangerous sign
+invisible. See `docs/ARCHITECTURE.md` and SPEC §11.
