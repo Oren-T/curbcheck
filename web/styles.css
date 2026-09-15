@@ -649,11 +649,12 @@ h4 {
     padding: var(--s-6) var(--s-6) var(--s-8);
   }
 
+  /* Hugs the left of the map so the detail sheet, which is min(520px, 100%)
+     here, does not sit on top of it. */
   .legend {
     left: calc(340px + var(--s-5) * 2);
-    right: var(--s-5);
     bottom: var(--s-5);
-    max-width: none;
+    max-width: 360px;
   }
 }
 
@@ -692,14 +693,31 @@ h4 {
     width: 18px;
   }
 
-  .map-control {
-    top: auto;
-    bottom: calc(var(--drawer-peek) + var(--s-8));
-    right: var(--s-4);
+  /* The drawer owns the bottom of a phone screen, so the two floating controls
+     ride above it in their own bands. `.rail` precedes `.map-area`, so its
+     detent is readable here as a sibling state and does not have to be
+     mirrored in JS. */
+  .map-area {
+    --drawer-offset: var(--drawer-peek);
+  }
+
+  .rail[data-detent="half"] ~ .map-area {
+    --drawer-offset: 58vh;
   }
 
   .map-attribution {
-    bottom: calc(var(--drawer-peek) + var(--s-3));
+    bottom: calc(var(--drawer-offset) + var(--s-4));
+  }
+
+  .map-control {
+    top: auto;
+    bottom: calc(var(--drawer-offset) + var(--s-10));
+    right: var(--s-4);
+  }
+
+  .rail[data-detent="full"] ~ .map-area .map-control,
+  .rail[data-detent="full"] ~ .map-area .map-attribution {
+    display: none;
   }
 
   .rail {
