@@ -6,7 +6,7 @@ Re-run it with `--check` to verify these bytes against the upstream sources.
 Everything MapLibre loads for the basemap is in this directory, so panning the
 map makes zero third-party requests (SPEC §16, threat T6). The tiles themselves
 are **not** here: `data/basemap/manhattan.pmtiles` is 23 MB, gitignored, and
-served by the API at `/basemap/manhattan.pmtiles` (docs/DATA.md §5).
+served by the API at `/basemap/manhattan.pmtiles` (docs/DATA.md §6).
 
 ## Attribution (required, not optional)
 

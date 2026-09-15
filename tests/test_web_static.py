@@ -702,31 +702,21 @@ def test_the_ranked_list_says_what_it_is_not_showing() -> None:
     assert "view.counts.legal" in render, "the subset note is counting its own list"
 
 
-def test_a_placeholder_with_unplaced_signs_is_never_called_empty() -> None:
-    """The engine says "no sign data on this block" about every `no_data` span.
-
-    On a `gap_kind: "unmatched_signs"` placeholder that is false, not merely
-    vague: DOT publishes signs for that blockface, and 332 of the 499 unmatched
-    blockface-sides carry a NO STANDING/PARKING/STOPPING ANYTIME sign
-    (`docs/VALIDATION.md` §5). Measured on `5dd8b7fe8bd4a328` (E 46 ST, south
-    side) the sheet headlined "no sign data on this block" directly above the
-    §11 sentence saying DOT does publish signs here, above the verbatim
-    `NO STANDING ANYTIME` text of one of them.
-    """
+def test_the_reason_line_is_printed_as_the_engine_wrote_it() -> None:
+    """The engine words `no_data` reasons by `gap_kind` (docs/API.md), so the UI
+    must not keep a second, diverging sentence of its own."""
     copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
-    assert "export const UNMATCHED_SIGNS_REASON" in copy
+    assert "UNMATCHED_SIGNS_REASON" not in copy
 
     fmt = (WEB_DIR / "format.js").read_text(encoding="utf-8")
-    line = fmt.split("export function reasonLine")[1].split("\n}")[0]
-    assert 'result.gap_kind === "unmatched_signs"' in line
-    assert "UNMATCHED_SIGNS_REASON" in line
-    assert "return result.reason" in line, "every other reason must arrive as the engine wrote it"
+    body = fmt.split("export function reasonLine")[1].split("\n}")[0]
+    assert "result.reason" in body
+    assert "gap_kind" not in body, "the client is rewriting the engine's reason again"
 
     # Both surfaces that print a reason go through it.
     for name in ("results.js", "detail.js"):
         source = (WEB_DIR / name).read_text(encoding="utf-8")
         assert "reasonLine(result)" in source, f"{name} prints the raw reason again"
-    assert "text: result.reason" not in (WEB_DIR / "detail.js").read_text(encoding="utf-8")
 
 
 def test_a_point_off_the_street_network_is_refused_as_coverage_not_as_arithmetic() -> None:

@@ -6,7 +6,7 @@
  * strings, and money is a decimal string that must never become a float.
  */
 
-import { CONFIDENCE_LABEL, UNMATCHED_SIGNS_REASON } from "./copy.js";
+import { CONFIDENCE_LABEL } from "./copy.js";
 
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAY_FROM_SUNDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -80,20 +80,13 @@ export function verdictChip(result) {
 }
 
 /**
- * The engine's one-line reason, corrected where it contradicts `gap_kind`.
+ * The engine's one-line reason, printed as it arrives.
  *
- * Everything else the engine says about a span is printed as it arrives; this
- * is the one sentence the UI itself makes false by pairing it with the §11
- * explanation right underneath it (`copy.js`, `UNMATCHED_SIGNS_REASON`).
+ * The engine already words `no_data` reasons by `gap_kind`, so the UI never
+ * rewrites a sentence the API is responsible for.
  */
 export function reasonLine(result) {
-  if (!result) {
-    return "";
-  }
-  if (verdictKey(result.verdict) === "no_data" && result.gap_kind === "unmatched_signs") {
-    return UNMATCHED_SIGNS_REASON;
-  }
-  return result.reason || "";
+  return (result && result.reason) || "";
 }
 
 /** True when this result may print a confidence figure at all. */

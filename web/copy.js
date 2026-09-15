@@ -46,22 +46,6 @@ export const NO_DATA_EXPLANATION = {
     "Read the posted signs.",
 };
 
-/**
- * The headline for an `unmatched_signs` span.
- *
- * The engine's own `reason` for every `no_data` span is "no sign data on this
- * block". On a `gap_kind: "unmatched_signs"` placeholder that is not vague, it
- * is false: DOT publishes signs for that blockface and 332 of the 499 unmatched
- * ones carry a NO STANDING/PARKING/STOPPING ANYTIME sign
- * (`docs/VALIDATION.md` §5). Measured on `5dd8b7fe8bd4a328` (E 46 ST, south
- * side) the sheet read "no sign data on this block" directly above the §11
- * sentence saying DOT does publish signs here, above the verbatim
- * `NO STANDING ANYTIME` text of one. The UI does not get to print both.
- *
- * Lower case, because it stands where the engine's own sentence stands.
- */
-export const UNMATCHED_SIGNS_REASON = "DOT posts signs on this block that could not be placed";
-
 /** The `no_data` wording for one span: gap-kind specific where the span says which. */
 export function noDataExplanation(gapKind) {
   return NO_DATA_EXPLANATION[gapKind] || VERDICT_EXPLANATION.no_data;
