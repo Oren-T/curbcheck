@@ -331,7 +331,9 @@ const ERROR_SENTENCE = {
   invalid_request: "That stretch of curb could not be looked up.",
   not_found: "That stretch of curb is no longer in the database. Search again.",
   database_unavailable: "There is no parking database yet. Run `curbcheck sync` to build one.",
-  internal_error: "The server hit an error it could not explain. Try again.",
+  internal_error:
+    "The server hit an unexpected error. Try again; the terminal running " +
+    "`curbcheck serve` has the details.",
   network_error: SERVER_UNREACHABLE,
   timeout: "The server took too long to answer. Try a shorter walk radius.",
   bad_response: "Something other than CurbCheck answered on this port.",
