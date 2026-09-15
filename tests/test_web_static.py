@@ -580,3 +580,21 @@ def test_a_panel_swatch_follows_the_colour_scheme_and_the_map_does_not() -> None
     assert "style.color" not in swatch, "a panel swatch is using the map's fixed hue"
     for token in ("--v-legal", "--v-ambiguous", "--v-illegal", "--v-nodata"):
         assert f'token: "{token}"' in verdicts, f"VERDICT_STYLE lost {token}"
+
+
+def test_a_reversed_pin_says_near_once() -> None:
+    """`/api/reverse` already labels the nearest door "near 1519 3 AVE".
+
+    Prefixing the word again put "near near 1519 3 AVE" in the destination box
+    and in the collapsed search summary, which is the one line naming the curb
+    every verdict on the page is about (docs/API.md, `GET /api/reverse`).
+    """
+    fmt = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+    assert "export function nearLabel" in fmt, "the near-once helper is gone"
+    helper = fmt.split("export function nearLabel")[1].split("\n}")[0]
+    assert "/^near\\s/i" in helper, "nearLabel stopped checking for the word it adds"
+
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    drop = app.split("async function dropPin")[1].split("\n}")[0]
+    assert "nearLabel(place.label)" in drop, "dropPin is wording the label itself again"
+    assert "`near ${place.label}`" not in drop

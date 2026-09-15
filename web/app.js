@@ -26,7 +26,7 @@ import {
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
 import { clear, collapsible, el, replaceChildren } from "./dom.js";
 import { createDrawer } from "./drawer.js";
-import { statusLine, walkText } from "./format.js";
+import { nearLabel, statusLine, walkText } from "./format.js";
 import { renderLegend } from "./legend.js";
 import { CurbMap, loadStyle } from "./map.js";
 import { rankLegal } from "./rank.js";
@@ -552,7 +552,7 @@ async function dropPin([lon, lat]) {
   showToast(dom.toasts, "Pin set");
   try {
     const place = await api.reverse(lat, lon);
-    const label = place && place.label ? `near ${place.label}` : state.resolved.label;
+    const label = place && place.label ? nearLabel(place.label) : state.resolved.label;
     state.resolved.label = label;
     state.resolvedText = label;
     dom.destination.value = label;

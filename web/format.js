@@ -274,6 +274,23 @@ export function streetLabelParts(streetName) {
 }
 
 /**
+ * "near <place>" for a dropped pin, said once.
+ *
+ * `/api/reverse` already names the closest door as `"near 1519 3 AVE"` because
+ * it labels the nearest thing, not the building the pin is on (docs/API.md).
+ * Prefixing that again produced "near near 1519 3 AVE" in the destination box
+ * and in the collapsed search summary. A `street` or `intersection` match
+ * arrives without the word, so it still has to be added.
+ */
+export function nearLabel(label) {
+  const text = typeof label === "string" ? label.trim() : "";
+  if (text === "") {
+    return "";
+  }
+  return /^near\s/i.test(text) ? text : `near ${text}`;
+}
+
+/**
  * Walk time in whole minutes, floored at one.
  *
  * UX_AUDIT P2-3: "0.2 min walk" is false precision, and ranking on tenths of a
