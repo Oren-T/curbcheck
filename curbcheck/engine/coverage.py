@@ -66,8 +66,13 @@ def within_coverage(
 
     Two passes, the same shape as the radius query in `engine.search`: a bbox
     prefilter in SQL that decodes no geometry, then the exact distance in
-    Python over whatever survives it. Returns on the first segment in range, so
-    a point in the middle of the street costs one geometry.
+    Python over whatever survives it.
+
+    The cursor is walked rather than drained, so a point on a street pays for
+    the rows up to the first segment in range and not for the rest of the box.
+    On the 9p data mount that is most of the check: the box around a surveyed
+    door holds ~48 segments and a door is within 250 m of many of them, so the
+    loop usually stops in the first handful of row reads.
     """
     lon_pad, lat_pad = degree_padding(lat, radius_m)
     extent = coverage_extent(conn)
@@ -81,7 +86,7 @@ def within_coverage(
             lat + lat_pad,
             lat - lat_pad,
         ),
-    ).fetchall()
+    )
 
     origin = Point(0.0, 0.0)
     for row in rows:
