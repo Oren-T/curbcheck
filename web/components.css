@@ -970,17 +970,24 @@ input[type="range"] {
   background: var(--v-nodata-soft);
 }
 
-.detail-reason {
+/* The practical answer. The largest thing in the sheet, because it is the one
+   line a driver reads before deciding. */
+.detail-headline {
   margin: 0;
   font-size: var(--t-lead);
   line-height: var(--lh-tight);
   letter-spacing: var(--track-tight);
+  font-weight: var(--w-semibold);
 }
 
-.detail-basis {
+/* The window and the rule that decided it. Body ink, not muted: this is the
+   sentence that changes a decision, and UX_AUDIT (e) 9 puts a floor of 14 px
+   under anything a parking decision depends on. */
+.detail-why {
   margin: 0;
-  font-size: var(--t-small);
-  color: var(--c-text-secondary);
+  font-size: var(--t-body);
+  line-height: var(--lh-normal);
+  color: var(--c-text);
 }
 
 /* "Before you park" — every caveat, always open, directly under the verdict. */
@@ -1063,6 +1070,37 @@ input[type="range"] {
   line-height: var(--lh-normal);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+/* The software's reading of the sign quoted above it. Indented under the
+   verbatim block and labelled "Means:", so it can never be mistaken for a
+   second quotation of the sign (SPEC §11). */
+.sign-reading {
+  margin: var(--s-3) 0 0;
+  padding-left: var(--s-4);
+  border-left: 2px solid var(--c-border-strong);
+  font-size: var(--t-small);
+  line-height: var(--lh-normal);
+  color: var(--c-text);
+}
+
+/* Whether this sign is in force for the window is the whole question, so the
+   edge carries the answer as well as the words do. The accent, never a verdict
+   hue: a rule that applies can be the one permitting parking as easily as the
+   one forbidding it, and a red edge on "2-hour metered parking" would say the
+   opposite of what the sign says. */
+.sign-reading-all,
+.sign-reading-part {
+  border-left-color: var(--c-accent);
+}
+
+.sign-reading-none {
+  color: var(--c-text-secondary);
+}
+
+.sign-reading-unread {
+  border-left-color: var(--v-ambiguous);
+  color: var(--v-ambiguous-ink);
 }
 
 .sign-meta {

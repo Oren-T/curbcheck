@@ -14,6 +14,7 @@ import threading
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -23,15 +24,26 @@ from curbcheck.api.errors import ApiError, database_unavailable
 from curbcheck.api.schemas import (
     MAX_LAT,
     MAX_LON,
+    MAX_WINDOW,
     MIN_LAT,
     MIN_LON,
+    MIN_WINDOW,
     REG_SEG_ID_PATTERN,
     SearchRequest,
 )
+from curbcheck.config import NYC_TZ
 from curbcheck.db import connect, json_string_list, regulation_from_row
 from curbcheck.engine.coverage import COVERAGE_AREA, coverage_bbox, within_coverage
-from curbcheck.engine.search import SearchResult, calendar_is_missing, has_gap_kind, search
+from curbcheck.engine.resolve import RegulationWithMeta, evaluate_segment
+from curbcheck.engine.search import (
+    SearchResult,
+    calendar_is_missing,
+    has_gap_kind,
+    load_calendar,
+    search,
+)
 from curbcheck.engine.signs import SignDetail, blockface_signs
+from curbcheck.engine.window import expand_window, rule_is_active
 from curbcheck.geocode import (
     MAX_QUERY_CHARS,
     GeocodeCandidate,
@@ -39,6 +51,7 @@ from curbcheck.geocode import (
     geocode,
     reverse_geocode,
 )
+from curbcheck.model import ParseMethod
 
 # SPEC §17, the persistent banner. Kept verbatim except for the markdown bold,
 # which is the frontend's job.
@@ -200,10 +213,24 @@ def post_search(request: Request, body: SearchRequest) -> dict[str, Any]:
 
 
 @router.get("/segment/{reg_seg_id}")
-def get_segment(request: Request, reg_seg_id: str) -> dict[str, Any]:
-    """The rule stack, the raw sign text, the meter rates, and the geometry behind one verdict."""
+def get_segment(
+    request: Request,
+    reg_seg_id: str,
+    t1: datetime | None = None,
+    t2: datetime | None = None,
+) -> dict[str, Any]:
+    """The rule stack, the raw sign text, the meter rates, and the geometry behind one verdict.
+
+    Pass the same `t1`/`t2` the search used and each rule also reports whether
+    it is in force for that window, and which single rule the verdict rests on.
+    Without them the panel can only paraphrase ("no posted rule covers this
+    window"); with them it can say the thing the driver is standing in front of
+    ("No parking, Mon-Fri 8 AM-6 PM is not in effect then"). Omitting both is
+    the pre-window behaviour: every `in_effect` is null.
+    """
     if not REG_SEG_ID_PATTERN.match(reg_seg_id):
         raise ApiError(400, "invalid_request", "not a segment id")
+    window = _segment_window(t1, t2)
 
     with open_database(request) as conn:
         query = _SEGMENT_SQL if has_gap_kind(conn) else _SEGMENT_SQL_WITHOUT_GAP_KIND
@@ -237,7 +264,12 @@ def get_segment(request: Request, reg_seg_id: str) -> dict[str, Any]:
                 "gap_kind": gap_kind,
             },
             "geometry": json.loads(str(row["geom"])),
-            "regulations": _segment_regulations(conn, reg_seg_id, signs.governing),
+            "window": None
+            if window is None
+            else {"t1": window[0].isoformat(), "t2": window[1].isoformat()},
+            "regulations": _segment_regulations(
+                conn, reg_seg_id, signs.governing, window, gap_kind=gap_kind
+            ),
             # Two groups, not one list: 9 of the 11 signs the old list showed
             # under the audited green verdict do not govern the stretch, and
             # the first of them read NO STANDING ANYTIME (UX audit P0-2).
@@ -401,10 +433,49 @@ def _first(meta: dict[str, str], *keys: str) -> str | None:
     return None
 
 
+def _segment_window(t1: datetime | None, t2: datetime | None) -> tuple[datetime, datetime] | None:
+    """The optional `?t1=&t2=` window, in New York time, or None when not asked for.
+
+    Same rules as `SearchRequest`: a naive value is local (every sign states
+    local time), and the window has to be between five minutes and a day so the
+    per-day expansion in `engine.window` stays bounded.
+    """
+    if t1 is None and t2 is None:
+        return None
+    if t1 is None or t2 is None:
+        raise ApiError(400, "invalid_request", "give both t1 and t2, or neither")
+    start = t1.replace(tzinfo=NYC_TZ) if t1.tzinfo is None else t1.astimezone(NYC_TZ)
+    end = t2.replace(tzinfo=NYC_TZ) if t2.tzinfo is None else t2.astimezone(NYC_TZ)
+    span = end - start
+    if span < MIN_WINDOW:
+        raise ApiError(
+            400,
+            "invalid_request",
+            "the parking window must be at least 5 minutes and end after it starts",
+        )
+    if span > MAX_WINDOW:
+        raise ApiError(400, "invalid_request", "the parking window must be 24 hours or less")
+    return (start, end)
+
+
+# How much of the window one rule is in force for. `None` is reserved for the
+# two cases where the question has no answer: no window was asked about, and a
+# sign the parser could not read (D13), whose `regulation` fields are a
+# placeholder and would answer "not in effect" about text nobody has read.
+IN_EFFECT_ALL = "all"
+IN_EFFECT_PART = "part"
+IN_EFFECT_NONE = "none"
+
+
 def _segment_regulations(
-    conn: sqlite3.Connection, reg_seg_id: str, governing: Sequence[SignDetail]
+    conn: sqlite3.Connection,
+    reg_seg_id: str,
+    governing: Sequence[SignDetail],
+    window: tuple[datetime, datetime] | None,
+    *,
+    gap_kind: str | None,
 ) -> list[dict[str, Any]]:
-    """The span's rules, each naming the sign it was read from.
+    """The span's rules, each naming the sign it was read from and what it does to the window.
 
     A rule is tied to its sign by the raw description: the parser reads each
     distinct description once (docs/ARCHITECTURE.md step 6), so that string is
@@ -412,14 +483,33 @@ def _segment_regulations(
     span carrying the same panel text collapse to one rule, so the first sign
     in curb order is named; `sign_id` is null when the description belongs to
     no sign still in `derived_from`.
+
+    With a window, `in_effect` says how much of it each rule covers and
+    `deciding` marks the one rule the verdict rests on. The stack is evaluated
+    here rather than trusted from the client so the panel and the card cannot
+    disagree about which sign bit.
     """
     by_description: dict[str, str] = {}
     for sign in governing:
         by_description.setdefault(sign.sign_description, sign.sign_id)
 
+    rows = conn.execute(_SEGMENT_REGULATION_SQL, (reg_seg_id,)).fetchall()
+    stack = [
+        RegulationWithMeta(
+            regulation=regulation_from_row(row),
+            parse_method=ParseMethod(str(row["parse_method"])),
+            parse_confidence=float(row["parse_confidence"]),
+            reg_seg_id=reg_seg_id,
+            raw_sign_description=str(row["raw_sign_description"]),
+        )
+        for row in rows
+    ]
+    coverage = _window_coverage(conn, stack, window, gap_kind=gap_kind)
+
     regulations = []
-    for row in conn.execute(_SEGMENT_REGULATION_SQL, (reg_seg_id,)):
+    for row, item in zip(rows, stack, strict=True):
         description = str(row["raw_sign_description"])
+        in_effect, deciding = coverage.get(id(item), (None, False))
         regulations.append(
             {
                 "reg_id": str(row["reg_id"]),
@@ -428,9 +518,54 @@ def _segment_regulations(
                 "parse_method": str(row["parse_method"]),
                 "parse_confidence": float(row["parse_confidence"]),
                 "regulation": regulation_from_row(row).model_dump(mode="json"),
+                "in_effect": in_effect,
+                "deciding": deciding,
             }
         )
     return regulations
+
+
+def _window_coverage(
+    conn: sqlite3.Connection,
+    stack: Sequence[RegulationWithMeta],
+    window: tuple[datetime, datetime] | None,
+    *,
+    gap_kind: str | None,
+) -> dict[int, tuple[str | None, bool]]:
+    """`(in_effect, deciding)` per stack entry, keyed by object identity.
+
+    Identity rather than `reg_id`, because the engine hands back the very
+    objects it was given and a `Regulation` is a Pydantic model that two
+    identical rows would compare equal on.
+    """
+    if window is None or not stack:
+        return {}
+    calendar = load_calendar(conn)
+    t1, t2 = window
+    intervals = expand_window(t1, t2, [item.regulation for item in stack])
+    total = sum(interval.minutes for interval in intervals)
+    verdict = evaluate_segment(list(stack), t1, t2, calendar, gap_kind=gap_kind)
+    deciding = verdict.deciding
+
+    coverage: dict[int, tuple[str | None, bool]] = {}
+    for item in stack:
+        is_deciding = deciding is not None and item is deciding
+        if item.parse_method is ParseMethod.UNPARSED:
+            coverage[id(item)] = (None, is_deciding)
+            continue
+        active = sum(
+            interval.minutes
+            for interval in intervals
+            if rule_is_active(item.regulation, interval, calendar)
+        )
+        if active == 0:
+            share = IN_EFFECT_NONE
+        elif active >= total:
+            share = IN_EFFECT_ALL
+        else:
+            share = IN_EFFECT_PART
+        coverage[id(item)] = (share, is_deciding)
+    return coverage
 
 
 def _segment_meter_rates(

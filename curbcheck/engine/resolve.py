@@ -42,6 +42,14 @@ CALENDAR_MISSING_CAVEAT = (
 # card with it rather than appending it to a verdict word (UX audit P0-1).
 ABSENCE_REASON = "No posted rule is in effect during this window"
 
+# Two caveats that restate the verdict rather than adding to it. Named so the
+# panel can drop the one its own "why" line already says, instead of printing
+# the same fact as a chip, a headline, a reason and a caveat -- the duplication
+# the owner read as "still not quite clear enough" (docs/ux/IMPLEMENTATION_NOTES.md
+# §19). Any client that reads only `caveats` still gets them.
+ABSENCE_CAVEAT = "No posted rule is in effect during this window; read the curb."
+PARTIAL_ABSENCE_CAVEAT = "Part of this window has no posted rule in effect; read the curb."
+
 # `regulation_segment.gap_kind`: why a placeholder span carries no rules at all.
 # Spelled out here rather than imported from `etl.segments`, which would pull
 # the snapping and staging modules into the server process for two strings.
@@ -123,7 +131,14 @@ class RegulationWithMeta:
 
 @dataclass(frozen=True)
 class IntervalOutcome:
-    """What the stack says about one sub-interval of the window."""
+    """What the stack says about one sub-interval of the window.
+
+    `deciding` is the rule this outcome rests on -- the prohibition that won
+    most-restrictive-wins, or the permission that carries the tightest limit.
+    None when nothing was in force, which is what `by_absence` means. It is
+    what lets the panel name the sign on the pole rather than paraphrase a
+    verdict: "No parking, Mon-Fri 8 AM-6 PM applies for all of it".
+    """
 
     interval: Interval
     permitted: bool
@@ -133,6 +148,7 @@ class IntervalOutcome:
     metered: bool = False
     meter_charged: bool = False
     max_duration_min: int | None = None
+    deciding: RegulationWithMeta | None = None
 
 
 @dataclass(frozen=True)
@@ -149,6 +165,24 @@ class SegmentVerdict:
     max_duration_min: int | None = None
     confidence: float = 1.0
     first_offending: IntervalOutcome | None = None
+
+    @property
+    def deciding(self) -> RegulationWithMeta | None:
+        """The one rule a driver should be told about, or None when there is not one.
+
+        ILLEGAL names the rule that bit first; a LEGAL verdict that rests on a
+        posted permission names that permission. AMBIGUOUS and NO_DATA name
+        nothing, because the point of both is that no rule was read with enough
+        confidence to be quoted, and legality by absence names nothing because
+        there was no rule in force to name.
+        """
+        if self.verdict is Verdict.ILLEGAL:
+            return None if self.first_offending is None else self.first_offending.deciding
+        if self.verdict is not Verdict.LEGAL or self.basis is not VerdictBasis.POSTED:
+            return None
+        return next(
+            (outcome.deciding for outcome in self.intervals if outcome.deciding is not None), None
+        )
 
     @property
     def basis(self) -> VerdictBasis | None:
@@ -187,6 +221,7 @@ def resolve_interval(
             permitted=False,
             reason=f"{_prohibition_reason(worst.regulation)} {_when(interval)}",
             prohibiting_action=action,
+            deciding=worst,
         )
 
     permits = [
@@ -209,6 +244,10 @@ def resolve_interval(
             metered=metered,
             meter_charged=charged,
             max_duration_min=min(limits) if limits else None,
+            # The tightest limit is the one that can make the stay illegal, so
+            # it is the permission worth quoting; an unlimited one only wins
+            # when nothing on the stretch posts a limit at all.
+            deciding=min(permits, key=_limit_rank),
         )
 
     # 34 RCNY 4-08: where no posted sign applies, parking is allowed. We still
@@ -347,9 +386,9 @@ def _caveats(
     if any(outcome.metered and not outcome.meter_charged for outcome in outcomes):
         caveats.append("Meters are not in effect for part of this window.")
     if all(outcome.by_absence for outcome in outcomes):
-        caveats.append("No posted rule is in effect during this window; read the curb.")
+        caveats.append(ABSENCE_CAVEAT)
     elif any(outcome.by_absence for outcome in outcomes):
-        caveats.append("Part of this window has no posted rule in effect; read the curb.")
+        caveats.append(PARTIAL_ABSENCE_CAVEAT)
     return caveats
 
 
@@ -362,6 +401,12 @@ def _gap_caveats(gap_kind: str | None) -> list[str]:
     """What the caveat list says about a stretch with no rules on it."""
     caveat = NO_DATA_CAVEAT.get(gap_kind or "")
     return [caveat] if caveat is not None else []
+
+
+def _limit_rank(item: RegulationWithMeta) -> int:
+    """Sort key putting the shortest posted limit first, no limit last."""
+    limit = item.regulation.max_duration_min
+    return limit if limit is not None else 1 << 30
 
 
 def _prohibition_reason(reg: Regulation) -> str:

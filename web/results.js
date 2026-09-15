@@ -29,11 +29,10 @@ import {
 
 const SHORTLIST_STEP = 12;
 
-const GROUPS = [
-  { key: "ambiguous", label: "Ambiguous" },
-  { key: "illegal", label: "Illegal" },
-  { key: "no_data", label: "No data" },
-];
+// Labels come from `verdictInfo` so the group heading, the count pill, the
+// chip on the card inside it and the legend cannot end up calling one state
+// three names.
+const GROUPS = ["ambiguous", "illegal", "no_data"];
 
 export { SHORTLIST_STEP };
 
@@ -162,9 +161,9 @@ export function renderResults(container, view) {
     );
   }
 
-  for (const group of GROUPS) {
-    if (view.visible.has(group.key)) {
-      nodes.push(groupSection(group, view, cards));
+  for (const verdict of GROUPS) {
+    if (view.visible.has(verdict)) {
+      nodes.push(groupSection(verdict, view, cards));
     }
   }
 
@@ -177,20 +176,22 @@ export function renderResults(container, view) {
  * "No data (0)" heading and a hidden "No data (53)" heading look the same from
  * the outside, and only one of them is true.
  */
-function groupSection(group, view, cards) {
-  const members = view.results.filter((result) => verdictKey(result.verdict) === group.key);
+function groupSection(verdict, view, cards) {
+  const members = view.results.filter((result) => verdictKey(result.verdict) === verdict);
   const total =
-    view.counts && typeof view.counts[group.key] === "number"
-      ? view.counts[group.key]
-      : members.length;
-  const expanded = view.openGroups.has(group.key);
-  const { root, toggle, body } = collapsible({ label: group.label, count: total, expanded });
+    view.counts && typeof view.counts[verdict] === "number" ? view.counts[verdict] : members.length;
+  const expanded = view.openGroups.has(verdict);
+  const { root, toggle, body } = collapsible({
+    label: verdictInfo(verdict).label,
+    count: total,
+    expanded,
+  });
 
   toggle.addEventListener("click", () => {
     if (toggle.getAttribute("aria-expanded") === "true") {
-      view.openGroups.add(group.key);
+      view.openGroups.add(verdict);
     } else {
-      view.openGroups.delete(group.key);
+      view.openGroups.delete(verdict);
     }
   });
 

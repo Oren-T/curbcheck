@@ -758,3 +758,68 @@ def test_a_verdict_that_is_not_legal_has_no_basis() -> None:
 
     assert illegal.basis is None
     assert no_data.basis is None
+
+
+def test_the_deciding_rule_on_an_illegal_span_is_the_prohibition_that_bit() -> None:
+    """The panel names the sign on the pole, so the verdict has to carry which one.
+
+    Two rules are in force at 09:30 on a Monday: the street-cleaning ban and a
+    permission. The one a driver needs read back to them is the ban.
+    """
+    cleaning = street_cleaning_mon_thu()
+    permission = Regulation(action=Action.PARK, permitted=True, time_from="08:00", time_to="19:00")
+    verdict = evaluate_segment(
+        stacked(permission, cleaning),
+        moment("2026-09-14T09:00"),
+        moment("2026-09-14T10:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.ILLEGAL
+    assert verdict.deciding is not None
+    assert verdict.deciding.regulation is cleaning
+
+
+def test_the_deciding_rule_on_a_posted_legal_span_is_the_tightest_permission() -> None:
+    """Two permissions, one limited: the limit is what can still make the stay illegal."""
+    limited = two_hour_meter_saturday()
+    unlimited = Regulation(action=Action.PARK, permitted=True, days=[5])
+    verdict = evaluate_segment(
+        stacked(unlimited, limited),
+        moment("2026-09-19T10:00"),
+        moment("2026-09-19T11:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.basis is VerdictBasis.POSTED
+    assert verdict.deciding is not None
+    assert verdict.deciding.regulation is limited
+
+
+def test_a_verdict_with_no_rule_in_force_names_no_rule() -> None:
+    """Absence, ambiguity and no data have nothing to quote, and must not invent one.
+
+    Naming a rule on an absence verdict would turn "nothing is in effect" into
+    "this sign says you may park", which is the P0-1 failure in one field.
+    """
+    absence = evaluate_segment(
+        stacked(street_cleaning_mon_thu()),
+        moment("2026-09-14T14:00"),
+        moment("2026-09-14T15:00"),
+        EMPTY_CALENDAR,
+    )
+    ambiguous = evaluate_segment(
+        stacked(no_parking_anytime(), method=ParseMethod.UNPARSED),
+        moment("2026-09-14T14:00"),
+        moment("2026-09-14T15:00"),
+        EMPTY_CALENDAR,
+    )
+    no_data = evaluate_segment(
+        [], moment("2026-09-14T14:00"), moment("2026-09-14T15:00"), EMPTY_CALENDAR
+    )
+
+    assert absence.basis is VerdictBasis.ABSENCE
+    assert absence.deciding is None
+    assert ambiguous.verdict is Verdict.AMBIGUOUS
+    assert ambiguous.deciding is None
+    assert no_data.deciding is None

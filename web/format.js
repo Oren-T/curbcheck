@@ -14,12 +14,19 @@ const WEEKDAY_FROM_SUNDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 /**
  * The four verdicts and the word that carries each one without colour
  * (SPEC §11). The second, non-colour channel is the line pattern the chip and
- * the map share (`verdicts.js`). `legal` splits on `basis`: see `verdictChip`.
+ * the map share (`verdicts.js`).
+ *
+ * One vocabulary, used by the chip, the card, the count pills, the group
+ * headings and the legend, so nothing on screen names the same state twice in
+ * two words. "Legal / Illegal / Ambiguous" were the engine's words for the
+ * engine's states; these are the driver's words for the driver's question, and
+ * the question is "can I park here". `legal` still splits on `basis`, but on
+ * the chip's *treatment* rather than on a fifth word: see `verdictChip`.
  */
 const VERDICT_INFO = {
-  legal: { label: "Legal" },
-  illegal: { label: "Illegal" },
-  ambiguous: { label: "Ambiguous" },
+  legal: { label: "Can park" },
+  illegal: { label: "Can't park" },
+  ambiguous: { label: "Unclear" },
   no_data: { label: "No data" },
 };
 
@@ -67,15 +74,20 @@ export function verdictKey(verdict) {
  *
  * A `legal` verdict with `basis: "absence"` is legality by *absence of a rule*,
  * not by permission, and UX_AUDIT P0-1 found the old UI announcing exactly that
- * case as "Legal · 100% confidence". It gets its own word, its own outlined
- * chip in the same colour family, and never a confidence figure.
+ * case as "Legal · 100% confidence". It keeps the outlined chip and never gets
+ * a confidence figure, but it no longer gets a *fifth verdict word*: "No rule
+ * in effect" on the chip, "No posted rule covers this window" as the headline
+ * and "none is in effect during your window" as the sentence under it were
+ * three ways of saying one thing, stacked. The chip now answers the driver's
+ * question and the panel's "why" line — once — says the rule is not in force
+ * and that no sign is giving permission.
  */
 export function verdictChip(result) {
   const key = verdictKey(result && result.verdict);
-  if (key === "legal" && result && result.basis === "absence") {
-    return { key, label: "No rule in effect", className: "verdict-absence" };
-  }
   const info = VERDICT_INFO[key];
+  if (key === "legal" && result && result.basis === "absence") {
+    return { key, label: info.label, className: "verdict-absence" };
+  }
   return { key, label: info.label, className: `verdict-${key}` };
 }
 
@@ -400,8 +412,14 @@ export function formatDays(days) {
     .join(", ");
 }
 
-/** "8:30 AM" from "08:30". */
-export function formatClock(value) {
+/**
+ * "8:30 AM" from "08:30", or "8 AM" when `dropZeroMinutes` is set.
+ *
+ * Sign hours are almost all on the hour, and "8:00 AM–6:00 PM" reads as a
+ * timetable where "8 AM–6 PM" reads as the sign. The user's own window keeps
+ * its minutes, because those are a number they typed.
+ */
+export function formatClock(value, { dropZeroMinutes = false } = {}) {
   if (typeof value !== "string" || value.length !== 5) {
     return String(value ?? "");
   }
@@ -412,15 +430,19 @@ export function formatClock(value) {
   }
   const suffix = hours < 12 ? "AM" : "PM";
   const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  if (dropZeroMinutes && minutes === "00") {
+    return `${hour12} ${suffix}`;
+  }
   return `${hour12}:${minutes} ${suffix}`;
 }
 
-/** "8:30 AM–7:00 PM", "all day", or a range flagged as wrapping past midnight. */
+/** "8:30 AM–7 PM", "all day", or a range flagged as wrapping past midnight. */
 export function formatTimeRange(timeFrom, timeTo) {
   if (!timeFrom || !timeTo) {
     return "all day";
   }
-  const range = `${formatClock(timeFrom)}–${formatClock(timeTo)}`;
+  const options = { dropZeroMinutes: true };
+  const range = `${formatClock(timeFrom, options)}–${formatClock(timeTo, options)}`;
   return timeTo <= timeFrom ? `${range} (past midnight)` : range;
 }
 
@@ -461,6 +483,37 @@ export function flagLabels(flags) {
     .map(([name]) => FLAG_LABEL[name] || name);
 }
 
+/**
+ * The flags as they read *inside a sentence*, rather than in the field table.
+ *
+ * Two differences, both because `describeRegulation` is read mid-sentence
+ * ("… applies for all of it") while the `Flags` row is read as a record of what
+ * the parser found:
+ *
+ *  - `except_sunday` and `including_sunday` are dropped: the parser already
+ *    folded them into the day set, so "Mon–Sat, except Sunday" says it twice.
+ *  - `street_cleaning` loses its parenthetical, because a nested parenthesis
+ *    inside the one the sentence already puts the flags in is unreadable. The
+ *    suspension fact keeps its two better homes: the engine's own
+ *    "Street cleaning is suspended on this date." caveat when it applies, and
+ *    the full label in the field table.
+ */
+const SENTENCE_FLAG_LABEL = {
+  street_cleaning: "street cleaning",
+  except_sunday: null,
+  including_sunday: null,
+};
+
+function sentenceFlags(flags) {
+  if (!flags || typeof flags !== "object") {
+    return [];
+  }
+  return Object.entries(flags)
+    .filter(([, value]) => value === true)
+    .map(([name]) => (name in SENTENCE_FLAG_LABEL ? SENTENCE_FLAG_LABEL[name] : FLAG_LABEL[name]))
+    .filter((label) => label !== null && label !== undefined);
+}
+
 export function vehicleLabel(vehicleClass, exclusive) {
   const label = VEHICLE_LABEL[vehicleClass] ?? vehicleClass;
   if (!label) {
@@ -469,42 +522,88 @@ export function vehicleLabel(vehicleClass, exclusive) {
   return exclusive ? `${label} only` : label;
 }
 
-export function actionLabel(action, permitted) {
-  if (permitted) {
-    return `${ACTION_NOUN[action] || "Parking"} permitted`;
+/** "2-hour", "90-minute" — a duration as an adjective, or "" when there is none. */
+export function durationAdjective(minutes) {
+  if (minutes === null || minutes === undefined) {
+    return "";
   }
-  return ACTION_PROHIBITION[action] || "Not permitted";
+  if (minutes % 60 === 0) {
+    return `${minutes / 60}-hour`;
+  }
+  return `${minutes}-minute`;
 }
 
-/** One plain-English sentence for a parsed rule. */
+/** What the rule allows or forbids, with no times in it: "No parking", "2-hour metered parking". */
+function ruleSubject(regulation) {
+  const vehicle = vehicleLabel(regulation.vehicle_class, regulation.exclusive);
+  if (!regulation.permitted) {
+    const phrase = ACTION_PROHIBITION[regulation.action] || "Not permitted";
+    return vehicle ? `${phrase} for ${vehicle}` : phrase;
+  }
+  const words = [durationAdjective(regulation.max_duration_min)];
+  if (regulation.metered) {
+    words.push("metered");
+  }
+  words.push((ACTION_NOUN[regulation.action] || "Parking").toLowerCase());
+  const subject = words.filter((word) => word !== "").join(" ");
+  const sentence = vehicle ? `${subject} for ${vehicle}` : subject;
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1);
+}
+
+/** ", Mon–Fri 8 AM–6 PM" or " at any time" — the clause that says when. */
+function ruleWhen(regulation) {
+  const days = formatDays(regulation.days);
+  if (!regulation.time_from || !regulation.time_to) {
+    return days === "every day" ? " at any time" : `, ${days}, any time`;
+  }
+  return `, ${days} ${formatTimeRange(regulation.time_from, regulation.time_to)}`;
+}
+
+/**
+ * One parsed rule as the sentence a driver would say: what, then when.
+ *
+ * "No parking, Mon–Fri 8 AM–6 PM". "2-hour metered parking, Mon–Sat 8 AM–7 PM".
+ * This is the only place a `Regulation` becomes English — the panel's "why"
+ * line, the reading under each quoted sign, and the rule stack all render from
+ * it, so none of the three can describe a different rule from the others
+ * (STYLE_GUIDE §2, "one way to do each thing").
+ *
+ * The old wording led with the engine's own vocabulary ("Parking permitted for
+ * passenger cars 8:00 AM–6:00 PM Mon–Fri · metered, max 2 hours"), which put
+ * the decisive fact — the hours — in the middle and the limit in a trailing
+ * list. The limit is now an adjective on the thing it limits.
+ */
 export function describeRegulation(regulation) {
   if (!regulation) {
     return "";
   }
-  const parts = [actionLabel(regulation.action, regulation.permitted)];
-  const vehicle = vehicleLabel(regulation.vehicle_class, regulation.exclusive);
-  if (vehicle) {
-    parts.push(`for ${vehicle}`);
-  }
-  parts.push(formatTimeRange(regulation.time_from, regulation.time_to));
-  parts.push(formatDays(regulation.days));
-
-  const extras = [];
-  if (regulation.metered) {
-    extras.push("metered");
-  }
-  const limit = formatDuration(regulation.max_duration_min);
-  if (limit) {
-    extras.push(`max ${limit}`);
-  }
-  extras.push(...flagLabels(regulation.flags));
+  const sentence = `${ruleSubject(regulation)}${ruleWhen(regulation)}`;
+  const extras = sentenceFlags(regulation.flags);
   const season = formatSeason(regulation.effective_from, regulation.effective_to);
   if (season) {
     extras.push(season);
   }
+  // Parenthesised, not appended after a "·": this sentence is read inside a
+  // longer one ("… applies for all of it"), and a trailing dot-separated list
+  // left the verb stranded behind a flag — "Mon–Sat 8 AM–7 PM · except Sunday
+  // applies for all of it".
+  return extras.length > 0 ? `${sentence} (${extras.join(", ")})` : sentence;
+}
 
-  const sentence = parts.join(" ");
-  return extras.length > 0 ? `${sentence} · ${extras.join(", ")}` : sentence;
+/**
+ * What `/api/segment`'s `in_effect` means for the window the user asked about.
+ *
+ * `null` is the unreadable sign (D13): its parsed fields are a placeholder, so
+ * answering "not in effect" about it would be a claim about text nobody read.
+ */
+const IN_EFFECT_LABEL = {
+  all: "Applies to your window",
+  part: "Applies to part of your window",
+  none: "Not in effect for your window",
+};
+
+export function inEffectLabel(inEffect) {
+  return IN_EFFECT_LABEL[inEffect] || null;
 }
 
 /** Hourly meter rates as "$4.50 first hour, then $5.50". */
@@ -596,6 +695,41 @@ export function nextQuarterHour(now = new Date()) {
 
 function dayLabel(date) {
   return `${WEEKDAY_FROM_SUNDAY[date.getDay()]} ${MONTHS[date.getMonth()]} ${date.getDate()}`;
+}
+
+/**
+ * The window as a sentence: "Sat Sep 19, 2:00–4:00 PM".
+ *
+ * The verdict is only ever a claim about these two times, and until now the
+ * panel never said them: it printed "your window" four times without once
+ * printing the window. AM/PM is stated once when both ends share it.
+ */
+export function windowSentence(start, end) {
+  if (!start || !end) {
+    return "";
+  }
+  const from = toClockText(start);
+  const to = toClockText(end);
+  const sameDay = toDateInputValue(start) === toDateInputValue(end);
+  if (sameDay && from.suffix === to.suffix) {
+    return `${dayLabel(start)}, ${from.time}–${to.time} ${to.suffix}`;
+  }
+  const tail = sameDay ? `${to.time} ${to.suffix}` : `${dayLabel(end)}, ${to.time} ${to.suffix}`;
+  return `${dayLabel(start)}, ${from.time} ${from.suffix}–${tail}`;
+}
+
+/** How long the window is, as the panel says it: "2 hours", "90 min". */
+export function windowMinutes(start, end) {
+  if (!start || !end) {
+    return null;
+  }
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 60000));
+}
+
+function toClockText(date) {
+  const hours = date.getHours();
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return { time: `${hour12}:${pad(date.getMinutes())}`, suffix: hours < 12 ? "AM" : "PM" };
 }
 
 /**

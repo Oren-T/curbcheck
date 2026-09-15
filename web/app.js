@@ -124,6 +124,14 @@ const state = {
   aboutOpener: null,
   searching: false,
   coverage: null,
+  /**
+   * The window the results on screen answer for: the API strings that were
+   * sent, and the two local `Date`s the panel prints. Held here because every
+   * verdict is a claim about it and the detail sheet has to be able to say so
+   * in words (`whyLine`), which it could not while the window lived only in
+   * the form.
+   */
+  window: null,
 };
 
 /* ---- Search ------------------------------------------------------------ */
@@ -221,6 +229,12 @@ async function runSearch(where, window_) {
       limit: SEARCH_LIMITS.limit,
       map_limit: SEARCH_LIMITS.mapLimit,
     });
+    state.window = {
+      t1: window_.t1,
+      t2: window_.t2,
+      start: window_.start,
+      end: window_.end,
+    };
     showResponse(response, walkMinutes);
   } catch (error) {
     handleSearchError(error);
@@ -292,7 +306,7 @@ function showResponse(response, walkMinutes) {
   const nearest = state.results.find((result) => result.verdict === "legal");
   drawer.setSummary(
     nearest
-      ? `${state.counts ? state.counts.legal : state.results.length} legal · nearest ${walkText(nearest.walk_min)}`
+      ? `${state.counts ? state.counts.legal : state.results.length} can park · nearest ${walkText(nearest.walk_min)}`
       : `${state.results.length} stretches`,
   );
   drawer.open("half");
@@ -385,6 +399,7 @@ function showOutsideCoverage() {
 function clearResults() {
   state.results = [];
   state.counts = null;
+  state.window = null;
   state.resultsById = new Map();
   state.details = new Map();
   state.cardsById = new Map();
@@ -451,7 +466,7 @@ function selectSegment(regSegId, { fly }) {
 
 async function loadDetail(regSegId, result) {
   try {
-    const detail = await api.segment(regSegId);
+    const detail = await api.segment(regSegId, state.window);
     state.details.set(regSegId, detail);
     if (state.selectedId !== regSegId) {
       return;
@@ -481,6 +496,7 @@ function showDetail({ result, detail, error, loading, regSegId, keepFocus = fals
     error,
     loading,
     label: streetLabel(result || { reg_seg_id: regSegId }, detail),
+    window: state.window,
     onClose: () => closeDetail({ restoreFocus: true }),
   });
   updatePadding();

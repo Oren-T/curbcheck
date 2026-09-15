@@ -98,9 +98,21 @@ export function search(body, options = {}) {
   return request("/api/search", { method: "POST", body, ...options });
 }
 
-/** GET /api/segment/{id} — the full rule stack and raw sign text behind one verdict. */
-export function segment(regSegId, options = {}) {
-  return request(`/api/segment/${encodeURIComponent(regSegId)}`, options);
+/**
+ * GET /api/segment/{id} — the full rule stack and raw sign text behind one verdict.
+ *
+ * `window` is the same `{t1, t2}` the search was run with. With it the server
+ * also says, per rule, how much of the window it is in force for and which one
+ * the verdict rests on, which is what lets the panel name the sign on the pole
+ * instead of paraphrasing the verdict (docs/API.md).
+ */
+export function segment(regSegId, window = null, options = {}) {
+  const path = `/api/segment/${encodeURIComponent(regSegId)}`;
+  if (!window) {
+    return request(path, options);
+  }
+  const query = new URLSearchParams({ t1: window.t1, t2: window.t2 });
+  return request(`${path}?${query.toString()}`, options);
 }
 
 /** GET /api/geocode?q= — local geocoder; an empty candidate list is a 200, not an error. */

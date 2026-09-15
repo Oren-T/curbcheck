@@ -345,7 +345,110 @@ The basemap still renders light in both schemes and the map layers still use the
 light verdict fills — there is no dark Protomaps style in the repo, and a CSS
 filter over the canvas would falsify the verdict colours.
 
-## 19. Still open
+## 19. The clarity pass: three lines, three questions
+
+Owner's report on the W 24 ST south-side panel, Sat 2–4 PM: *"I still feel like
+it's not quite clear enough."* What was on the screen said the same thing four
+times and never once said the two things that decide it —
+
+| where | what it said |
+|---|---|
+| chip | `NO RULE IN EFFECT` |
+| headline | "No posted rule covers this window" |
+| basis sentence | "Signs are posted here, but none is in effect during your window…" |
+| first caveat | "Part of this window has no posted rule; read the curb." |
+
+— while the window (`Sat Sep 19, 2:00–4:00 PM`) and the sign's hours
+(`Mon–Fri 8 AM–6 PM`) appeared nowhere in prose, and the same 56-character sign
+was quoted in six identical blocks. A driver's questions are, in order: *can I
+park here, why in terms of the sign on the pole and the time I asked for, and
+what could still go wrong.* The panel answered the first three-and-a-half times
+and the second not at all.
+
+**The block is now four elements, each said once:**
+
+1. **chip** — the verdict word.
+2. **headline** — the practical answer: "You can park here for your window" /
+   "You can't park here for your window" / "CurbCheck can't tell — the signs
+   here don't add up" / "CurbCheck can't tell — there is no sign data here".
+   The two uncertain ones name the app rather than the curb, because the honest
+   answer is that the software cannot say and the driver has to.
+3. **"why" line** — the window in real days and times, then the rule that
+   decided it, in plain English. The five cases, verbatim from
+   `docs/ux/screens/clarity/` (`01` absence W 24 ST Sat, `02` illegal W 24 ST
+   Wed, `03` posted metered E 86 ST Wed, `04` ambiguous meta-sign E 85 ST Wed,
+   `05` no data E 85 ST Wed, `06` the same absence panel at 390 px):
+   - absence: *Your window: Sat Sep 19, 2:00–4:00 PM. The rule here — No
+     parking, Mon–Fri 8 AM–6 PM — is not in effect then. That is not a
+     permission from a sign — read the curb.*
+   - illegal: *Your window: Wed Sep 16, 10:00 AM–12:00 PM. No parking, Mon–Fri
+     8 AM–6 PM applies for all of it.*
+   - posted: *Your window: Wed Sep 16, 10:00 AM–12:00 PM. 2-hour metered
+     parking, Mon–Sat 10 AM–10 PM covers your window; the posted limit (2 hours)
+     covers your 2-hour stay.*
+   - ambiguous: *Your window: Wed Sep 16, 10:00 AM–12:00 PM. The software could
+     not read these signs, or they conflict. Read them yourself, below, and read
+     the curb.*
+   - no data: *Your window: Wed Sep 16, 10:00 AM–12:00 PM. NYC DOT lists no sign
+     on this stretch. Unknown, not free. Sign-free prohibitions (hydrant 15 ft,
+     bus stop, crosswalk, driveway) may still apply. Read the curb.*
+4. **Before you park** — still open, still never a disclosure (UX_AUDIT (f) 5),
+   but carrying only the caveats that add something. Exactly three engine
+   sentences are filtered, and only because the "why" line has just said them:
+   `ABSENCE_CAVEAT` and the two `NO_DATA_CAVEAT` values. Temporary signage,
+   school-day, snow, ASP suspension, meter-not-charged, calendar-missing and the
+   *partial*-absence caveat all survive. The list in `copy.js` is compared
+   byte-for-byte against `resolve.py` by a test, because a silent reword on
+   either side brings the duplicate back.
+
+**One verdict vocabulary.** `VERDICT_INFO` is now "Can park / Can't park /
+Unclear / No data", read by the chip, the cards, the count pills, the group
+headings and the legend — five surfaces that previously held three vocabularies
+plus a fifth word, `No rule in effect`, for legality by absence. Absence keeps
+its distinction where it belongs: the **outlined, unfilled chip** (unchanged),
+no confidence figure (unchanged), the card's `No posted rule —` reason prefix
+(unchanged), and the "why" line, which says *once* that no sign is giving
+permission. The CVD-safe hues, dash patterns and widths are untouched.
+
+**Each quoted sign now reads back.** Under the verbatim text — still first,
+still `textContent`, still never truncated — one line: *Means: no parking,
+Mon–Fri 8 AM–6 PM · Not in effect for your window*. Identical texts are one
+block with *6 posts, 88–819 ft from the corner*; nothing is deleted, which
+(f) 4 forbids. The group the verdict rests on leads. The per-rule field tables
+moved behind an `Every parsed field` disclosure that opens itself whenever a
+sign could not be read, and the confidence percentage moved down to the audit
+block (P2-1 asked for exactly that).
+
+**Two things must never become a sentence**, and both used to. A sign the parser
+failed on (D13) and a **meta** panel — `METERS ARE NOT IN EFFECT ABOVE TIMES` —
+both carry a placeholder `regulation`, and rendering it produced *"Means: no
+parking at any time · Applies to your window"* under a panel that says no such
+thing. `unreadableReason` is the one gate, used by all three renderers.
+
+### The API field the panel needed
+
+`/api/segment/{id}` now takes the optional `t1`/`t2` the search ran with and
+answers, per rule, `in_effect: "all" | "part" | "none" | null` and
+`deciding: bool`. The server re-resolves the stack rather than trusting the
+caller, so the rule the panel names is the rule the card's verdict turned on.
+Engine side, `IntervalOutcome.deciding` records which rule won
+most-restrictive-wins and `SegmentVerdict.deciding` picks the one worth quoting:
+the prohibition that bit first on ILLEGAL, the permission carrying the tightest
+posted limit on a POSTED legal span, and **nothing** on AMBIGUOUS, NO_DATA or
+legality by absence.
+
+**Deliberate departure from the brief**, per `docs/DECISIONS.md` practice: the
+brief asked for `deciding_sign_id`/`deciding_rule` on `SearchResult`. They live
+on `/api/segment` instead. A search returns up to 2,100 results and every one of
+them would then carry a parsed `Regulation` object that is read for exactly one
+span — the open panel — while `/api/segment` is already that panel's source and
+already returns the parsed rules; it was only missing the window. The cost is
+that the "why" line's rule clause arrives with the segment fetch rather than
+with the card. The window sentence renders immediately from client state and the
+engine's own reason fills the clause until then, so the first three lines never
+move and never blank.
+
+## 20. Still open
 
 - The basemap has no dark style. Unchanged from §3's follow-up ticket.
 - A map hover **readout** (P2-9's other half) is still not there; hovering a
@@ -354,3 +457,12 @@ filter over the canvas would falsify the verdict colours.
   so a reload always shows all four verdicts.
 - `Mc Carron Dr` title-cases as two words, which is what the DOT string says.
   Fixing it needs a name list, not a rule.
+- The search card still echoes its window in 24-hour time ("Sat Sep 19, 14:00 →
+  16:00") while the panel says "Sat Sep 19, 2:00–4:00 PM". Both are unambiguous
+  and 24-hour is what P0-7 asked the *form* for; unifying them is a separate
+  call about the form, not about the panel.
+- A posted-legal span is hard to reach from the shortlist: it costs money, so
+  free legality-by-absence outranks it and the first metered result at 3 Ave &
+  E 86 St is #50 of 78. The ranking is doing what D27 says; whether "free but
+  nothing posted" should outrank "a sign says yes, $13.25" for 100 places is a
+  ranking question this pass did not touch.

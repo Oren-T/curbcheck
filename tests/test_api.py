@@ -628,6 +628,71 @@ def test_segment_returns_the_stack_the_signs_and_the_rates(client):
     assert body["meter_rates"][0]["hour_rates"] == ["4.50", "5.50"]
 
 
+def test_segment_without_a_window_answers_nothing_about_the_window(client):
+    """The window is optional: a client that only wants the sign text still gets it."""
+    body = client.get("/api/segment/3681:W:0").json()
+
+    assert body["window"] is None
+    assert [rule["in_effect"] for rule in body["regulations"]] == [None]
+    assert [rule["deciding"] for rule in body["regulations"]] == [False]
+
+
+def test_segment_with_a_window_says_which_rule_decided_and_how_much_it_covers(client):
+    """The panel names the sign on the pole, so the server has to resolve the stack.
+
+    The fixture rule permits parking every day 08:00-19:00 with a 240-minute
+    limit, so a 09:00-11:00 window is covered by it end to end and it is the
+    rule the LEGAL verdict rests on.
+    """
+    body = client.get("/api/segment/3681:W:0", params=WINDOW).json()
+
+    assert body["window"]["t1"].startswith("2026-09-15T09:00:00")
+    [rule] = body["regulations"]
+    assert rule["in_effect"] == "all"
+    assert rule["deciding"] is True
+
+
+def test_segment_reports_a_rule_that_is_off_during_the_window(client):
+    """ "Not in effect for your window" is the line under the quoted sign."""
+    body = client.get(
+        "/api/segment/3681:W:0",
+        params={"t1": "2026-09-15T20:00:00", "t2": "2026-09-15T22:00:00"},
+    ).json()
+
+    [rule] = body["regulations"]
+    assert rule["in_effect"] == "none"
+    # Nothing is in force, so the verdict is legality by absence and there is no
+    # rule to name (UX audit P0-1: absence is not a permission from a sign).
+    assert rule["deciding"] is False
+
+
+def test_segment_reports_a_rule_that_covers_only_part_of_the_window(client):
+    """A window that starts before the rule does gets "part", not "all"."""
+    body = client.get(
+        "/api/segment/3681:W:0",
+        params={"t1": "2026-09-15T07:00:00", "t2": "2026-09-15T09:00:00"},
+    ).json()
+
+    [rule] = body["regulations"]
+    assert rule["in_effect"] == "part"
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"t1": "2026-09-15T09:00:00"},
+        {"t2": "2026-09-15T11:00:00"},
+        {"t1": "2026-09-15T09:00:00", "t2": "2026-09-15T09:01:00"},
+        {"t1": "2026-09-15T09:00:00", "t2": "2026-09-17T09:00:00"},
+    ],
+)
+def test_a_half_or_impossible_window_is_refused(client, params):
+    response = client.get("/api/segment/3681:W:0", params=params)
+
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_request"
+
+
 def test_segment_signs_carry_the_distance_and_the_arrow(client):
     [sign] = client.get("/api/segment/3681:W:0").json()["governing"]
 

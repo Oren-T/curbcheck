@@ -259,8 +259,17 @@ method" requirement.
 `reg_seg_id` must match `^[A-Za-z0-9:_.-]{1,80}$`. Anything else is a 400
 `invalid_request` and never reaches SQL.
 
+**Query parameters (both optional, both or neither).** `t1` and `t2` are the
+same window the search was run with, in the same format `/api/search` takes —
+naive means America/New_York. Given them, every rule also reports how much of
+the window it is in force for and which single rule the verdict rests on, and
+the response echoes the window it read. Giving one without the other, or a
+window outside 5 minutes – 24 hours, is a 400 `invalid_request`. Without them
+`window` is null and every `in_effect` is null; nothing else changes.
+
 ```json
 {
+  "window": { "t1": "2026-09-16T10:00:00-04:00", "t2": "2026-09-16T12:00:00-04:00" },
   "segment": {
     "reg_seg_id": "3681:W:0",
     "segment_id": "3681",
@@ -297,7 +306,9 @@ method" requirement.
         "effective_from": null,
         "effective_to": null,
         "arrow": "none"
-      }
+      },
+      "in_effect": "all",
+      "deciding": true
     }
   ],
   "governing": [
@@ -348,6 +359,28 @@ method" requirement.
 weekday numbers with **Monday = 0** through Sunday = 6. `hour_rates` are money
 strings, first hour then second hour; stays longer than the listed hours bill
 at the last rate.
+
+**`in_effect`** is `"all"`, `"part"` or `"none"` — how much of `[t1, t2)` this
+rule is in force for, resolved against the same ASP and holiday calendar the
+verdict used, so a street-cleaning rule on a suspension day reports `"none"`.
+It is `null` when no window was asked about **and** when the rule's
+`parse_method` is `unparsed`: D13 gives an unreadable sign a placeholder
+`regulation` whose fields mean nothing, and answering "not in effect" about
+text nobody read would be a claim about the curb rather than about our
+ignorance. A rule whose `flags.meta` is set has real `in_effect` but no
+standalone meaning — it modifies the sign above it, and its own parsed hours are
+a placeholder too, which is why `resolve.ambiguity_reason` makes the whole
+stretch `ambiguous`. Do not render either one as a sentence.
+
+**`deciding`** marks the one rule the verdict rests on: the prohibition that bit
+first on `illegal`, the permission carrying the tightest posted limit on a
+`legal` span whose `basis` is `posted`. It is false on every rule when the
+verdict is `ambiguous`, `no_data`, or `legal` by `absence` — there is then no
+rule in force to name. The server evaluates the stack itself rather than
+trusting the caller, so the rule it marks is the one `/api/search` decided on
+for the same window. This is what lets a panel say *"No parking, Mon–Fri
+8 AM–6 PM applies for all of it"* instead of *"a posted sign prohibits parking
+for part or all of your window"*.
 
 A `meter_rate` row's `source` is `parknyc` when it came from the ParkNYC
 blockface join and `rate_zone` when it came from the citywide zone polygon,

@@ -52,21 +52,116 @@ export function noDataExplanation(gapKind) {
 }
 
 /**
- * The sentence under each verdict chip in the detail sheet.
+ * The practical answer, in the driver's words, one line per verdict.
  *
- * `basis` splits the green verdict in two (UX_AUDIT P0-1): a sign that was read
- * and permits parking, versus no sign covering the window at all. The second is
- * absence of evidence and must never be worded, coloured, or scored as a
- * permission.
+ * This is the whole of the second line of the panel. It used to be three
+ * lines — a chip, a restated verdict, and a sentence about what the verdict
+ * rested on — which is why the owner read a screen that said "no rule" four
+ * times and still could not tell whether to park. What the verdict rests on is
+ * now the *third* line, and it names the sign and the window instead of
+ * describing the state of the software.
  */
-export const BASIS_SENTENCE = {
-  posted: "A posted sign permits parking for your whole window.",
-  absence:
-    "Signs are posted here, but none is in effect during your window. " +
-    "That is not a permission from a sign — read the curb.",
+export const HEADLINE = {
+  legal: "You can park here for your window",
+  illegal: "You can't park here for your window",
+  // The two uncertain states name the app, not the curb: the honest practical
+  // answer is that CurbCheck cannot tell you, and the driver has to. They then
+  // differ in *why*, which is the only thing that changes what to do next:
+  // `ambiguous` has signs to go and read, `no_data` has none in the inventory
+  // at all. Echoing the chip ("Unclear — read the signs", "No data for this
+  // stretch") spent the line saying the chip again.
+  ambiguous: "CurbCheck can't tell — the signs here don't add up",
+  no_data: "CurbCheck can't tell — there is no sign data here",
 };
 
-export const ILLEGAL_SENTENCE = "A posted sign prohibits parking for part or all of your window.";
+/* ---- The "why" line: the window, and the rule that decided it ----------- */
+
+/** "Your window: Sat Sep 19, 2:00–4:00 PM." — said once, at the top. */
+export const YOUR_WINDOW = (sentence) => `Your window: ${sentence}.`;
+
+/**
+ * Absence: the rules that are posted here, and the fact that none is on.
+ *
+ * SPEC §11 and UX_AUDIT P0-1: absence of a rule is not a permission from a
+ * sign. That sentence belongs here, once, and nowhere else — the caveat that
+ * used to repeat it below is dropped by `NOT_ADDED_BY_A_CAVEAT`.
+ */
+export const RULES_NOT_IN_EFFECT = (rules) =>
+  rules.length === 1
+    ? `The rule here — ${rules[0]} — is not in effect then.`
+    : `The rules here — ${rules.join("; ")} — are not in effect then.`;
+
+export const ABSENCE_IS_NOT_A_PERMISSION = "That is not a permission from a sign — read the curb.";
+
+/** Absence with nothing parsed to name. Rare: a stack with rules the panel has not loaded. */
+export const NOTHING_IN_EFFECT = "No posted rule is in effect then.";
+
+/** Illegal: the prohibition that bit, and how much of the window it takes. */
+export const RULE_APPLIES = (rule, whole) =>
+  whole ? `${rule} applies for all of it.` : `${rule} applies for part of it.`;
+
+// A curb reserved for another class reads as a *permission* in the data, and
+// "Standing for trucks only, Mon–Sat 8 AM–7 PM applies for all of it" never
+// says the thing that matters: that the permission is not yours.
+export const RESERVED_FOR_OTHERS = "A passenger car is not in that class.";
+
+/** Posted permission, with and without a time limit to check the stay against. */
+export const RULE_COVERS_WINDOW = (rule) => `${rule} covers your window.`;
+export const RULE_COVERS_WINDOW_WITH_LIMIT = (rule, limit, stay) =>
+  `${rule} covers your window; the posted limit (${limit}) covers your ${stay} stay.`;
+
+/** The fallback while `/api/segment` is still in flight: the engine's own reason. */
+export const engineReason = (reason) =>
+  reason === "" ? "" : `${reason.charAt(0).toUpperCase()}${reason.slice(1)}.`;
+
+/**
+ * Caveats that only restate the verdict the panel has already explained.
+ *
+ * Verbatim from `curbcheck/engine/resolve.py` (`ABSENCE_CAVEAT`,
+ * `NO_DATA_CAVEAT`); `tests/test_web_static.py` fails if the two drift apart.
+ * Every other caveat adds something the verdict does not say — temporary
+ * signage, a school-day assumption, snow, a suspension, a meter that is not
+ * charging, a missing calendar — and none of those is ever filtered.
+ */
+export const NOT_ADDED_BY_A_CAVEAT = new Set([
+  "No posted rule is in effect during this window; read the curb.",
+  "NYC DOT lists no signs on this stretch; unknown is not the same as unrestricted.",
+  "DOT publishes signs for this blockface that CurbCheck could not place; read the posted signs.",
+]);
+
+/** The caveats worth a driver's attention: everything the "why" line has not said. */
+export function informativeCaveats(caveats) {
+  const items = Array.isArray(caveats) ? caveats : [];
+  const kept = items.filter((caveat) => !NOT_ADDED_BY_A_CAVEAT.has(caveat));
+  return kept.length > 0 ? kept : [TEMPORARY_SIGNAGE_CAVEAT];
+}
+
+/* ---- The quoted signs --------------------------------------------------- */
+
+/** Under each verbatim sign: what the software read out of it. */
+export const MEANS = (sentence) => `Means: ${sentence}`;
+export const ALSO_MEANS = (sentence) => `and: ${sentence}`;
+export const COULD_NOT_BE_READ = "Could not be read";
+
+/** Where the identical panels on this stretch are posted, in curb order. */
+export function postedAt(distancesFt) {
+  const feet = distancesFt.filter((value) => typeof value === "number").sort((a, b) => a - b);
+  if (feet.length === 0) {
+    return null;
+  }
+  if (feet.length === 1) {
+    return `posted ${Math.round(feet[0])} ft from the corner`;
+  }
+  if (feet.length > 3) {
+    return (
+      `${feet.length} posts, ${Math.round(feet[0])}–${Math.round(feet[feet.length - 1])} ft ` +
+      "from the corner"
+    );
+  }
+  const rounded = feet.map((value) => `${Math.round(value)} ft`);
+  const last = rounded.pop();
+  return `posted at ${rounded.join(", ")} and ${last} from the corner`;
+}
 
 // SPEC §11, and the legend: an empty map is read as "nothing here", which is
 // the hazard SPEC §11 exists to prevent arriving through another door
@@ -123,6 +218,17 @@ export const DISCLAIMER =
 export const UNPARSED_RULE =
   "The software could not read this sign. Only the raw text above is trustworthy.";
 
+// A meta panel ("METERS ARE NOT IN EFFECT ABOVE TIMES") changes the sign above
+// it rather than stating a rule of its own. The parser records it as a rule
+// with the `meta` flag set and placeholder hours, and rendering those hours as
+// a sentence produced "Means: no parking at any time · Applies to your window"
+// under a panel that says no such thing — a false statement about the curb,
+// which is the one thing SPEC §11 exists to prevent. `resolve.ambiguity_reason`
+// makes the whole stretch AMBIGUOUS for the same reason.
+export const META_RULE =
+  "This sign changes another sign on this stretch. The combination is not machine-readable — " +
+  "read both.";
+
 // D10: a panel that states no regulation (bus route, pay-by-cell locator,
 // location plate) never reaches the parser. `/api/segment` lists it for audit.
 export const PANEL_STATES_NO_RULE =
@@ -160,13 +266,13 @@ export const EMPTY_RESULTS = (walkMinutes) =>
  * The question the page exists to answer went unanswered in words.
  */
 export const NO_LEGAL_NEARBY = (walkMinutes) =>
-  `No legal stretch within a ${walkMinutes}-minute walk. Everything nearby is restricted, ` +
+  `Nowhere you can park within a ${walkMinutes}-minute walk. Everything nearby is restricted, ` +
   `unreadable, or unsurveyed — the groups below are what there is.`;
 
-/** The ranked list is the server's best `limit`, not every legal stretch. */
+/** The ranked list is the server's best `limit`, not every parkable stretch. */
 export const LEGAL_SUBSET_NOTE = (shown, total) =>
   `Showing the ${shown.toLocaleString("en-US")} best-ranked of ` +
-  `${total.toLocaleString("en-US")} legal stretches.`;
+  `${total.toLocaleString("en-US")} stretches you can park on.`;
 
 export const OUTSIDE_COVERAGE = "CurbCheck covers Manhattan only.";
 

@@ -23,6 +23,12 @@ from pathlib import Path
 
 import pytest
 
+from curbcheck.engine.resolve import (
+    ABSENCE_CAVEAT,
+    NO_DATA_CAVEAT,
+    PARTIAL_ABSENCE_CAVEAT,
+)
+
 WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 INDEX_HTML = WEB_DIR / "index.html"
 STYLE_JSON = WEB_DIR / "basemap" / "style.json"
@@ -159,10 +165,20 @@ def test_unparsed_warning_is_reserved_for_signs_the_parser_failed_on() -> None:
         assert f"export const {name}" in copy, f"copy.js lost {name}"
         assert name in detail, f"detail.js no longer uses {name}"
 
-    # UNPARSED_RULE survives in exactly one place: `ruleBlock`, which only ever
-    # sees a rule whose own `parse_method` says `unparsed`.
-    assert detail.count("UNPARSED_RULE") == 2, "UNPARSED_RULE is used outside ruleBlock"
-    assert 'entry.parse_method === "unparsed"' in detail
+    # UNPARSED_RULE reaches the page from exactly two branches, `unreadableReason`
+    # and `ruleBlock`, and both of them key on the rule's own `parse_method`.
+    assert detail.count("UNPARSED_RULE") == 3, "UNPARSED_RULE is used outside those two branches"
+    assert detail.count('entry.parse_method === "unparsed"') == 2
+
+    # A meta panel ("METERS ARE NOT IN EFFECT ABOVE TIMES") has placeholder hours
+    # too, and rendering them produced "Means: no parking at any time · Applies to
+    # your window" under a sign that says no such thing.
+    reason = detail.split("function unreadableReason(entry)")[1].split("\n}")[0]
+    assert "flags.meta" in reason and "META_RULE" in reason
+    assert "export const META_RULE" in copy
+    for renderer in ("function signReadings", "function ruleBlock", "function absenceSentence"):
+        body = detail.split(renderer)[1].split("\n}\n")[0]
+        assert "unreadableReason(" in body, f"{renderer} can render an unreadable rule as English"
 
 
 def test_the_status_line_is_built_from_the_server_counts() -> None:
@@ -179,7 +195,7 @@ def test_the_status_line_is_built_from_the_server_counts() -> None:
     # The group headings are the other place a count is stated, and they read
     # `counts` too rather than the length of the rows that arrived.
     results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
-    assert "view.counts[group.key]" in results, "the verdict groups no longer count from counts"
+    assert "view.counts[verdict]" in results, "the verdict groups no longer count from counts"
 
 
 def test_the_grey_state_distinguishes_a_data_gap_from_a_matching_gap() -> None:
@@ -354,9 +370,21 @@ def test_legality_by_absence_is_never_worded_as_a_permission() -> None:
     copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
     rank = (WEB_DIR / "rank.js").read_text(encoding="utf-8")
 
+    # The chip keeps the outlined, unfilled treatment reserved for absence. It no
+    # longer carries a fifth verdict *word*: "No rule in effect" on the chip over
+    # "No posted rule covers this window" as the headline over "none is in effect
+    # during your window" as the sentence was one fact said three times, which is
+    # what the owner read as "still not quite clear enough". The distinction now
+    # lives in the treatment and in the "why" line, which says it once.
     chip = formats.split("export function verdictChip")[1].split("\n}")[0]
-    assert '"No rule in effect"' in chip and 'result.basis === "absence"' in chip
+    assert '"verdict-absence"' in chip and 'result.basis === "absence"' in chip
     assert "That is not a permission" in copy
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    assert "ABSENCE_IS_NOT_A_PERMISSION" in detail, "the absence sentence left the panel"
+    assert detail.count("ABSENCE_IS_NOT_A_PERMISSION") == 2, "it is said more than once again"
+    # And it is said on the absence branch of the "why" line, nowhere else.
+    why = detail.split("function whyLine(result, detail, window)")[1].split("\n}")[0]
+    assert 'result.basis === "absence"' in why
     # And it never wins a ranking by having nothing to charge for.
     assert "basisRank" in rank and 'result.basis === "posted" ? 0 : 1' in rank
 
@@ -427,7 +455,7 @@ def test_the_detail_sheet_is_a_labelled_dialog_that_leads_with_the_governing_sig
 
     body = detail.split("function body(view)")[1].split("\n}")[0]
     order = [
-        body.index("verdictBlock(result)"),
+        body.index("verdictBlock(result, detail, view.window)"),
         body.index("caveatBlock(result.caveats)"),
         body.index("governingSection("),
         body.index("otherSignsSection("),
@@ -519,7 +547,7 @@ def test_a_verdict_filter_cannot_hide_a_count_or_empty_the_map() -> None:
 def test_collapsed_verdict_groups_render_their_cards_on_expand() -> None:
     """IMPLEMENTATION_NOTES §11: ~500 hidden buttons cost DOM on every re-rank."""
     results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
-    group = results.split("function groupSection(group, view, cards)")[1].split("\nfunction ")[0]
+    group = results.split("function groupSection(verdict, view, cards)")[1].split("\nfunction ")[0]
     assert "const fill = () =>" in group, "the group body is not built lazily"
     assert "body.dataset.filled" in group, "expanding twice would duplicate the cards"
     # And the selection ring has to reach cards that did not exist a moment ago.
@@ -770,3 +798,137 @@ def test_the_suggestion_list_announces_how_long_it_is() -> None:
     assert "CANDIDATE_COUNT(rows.length)" not in auto
     close = auto.split("  function close()")[1].split("\n  }")[0]
     assert 'announce("")' in close, "the announcement outlives the list it describes"
+
+
+def test_the_panel_answers_the_window_and_names_the_rule_that_decided_it() -> None:
+    """The owner's complaint: four restatements of the verdict, no window, no sign hours.
+
+    The panel's first block is now chip, headline, "why". The "why" line has to
+    print the window the user asked about and the rule the engine decided on,
+    and it can only get the second from `/api/segment`, which only answers it
+    when the window is passed (docs/API.md).
+    """
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    api = (WEB_DIR / "api.js").read_text(encoding="utf-8")
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+
+    block = detail.split("function verdictBlock(result, detail, window)")[1].split("\n}")[0]
+    order = [
+        block.index("verdictChipNode(result)"),
+        block.index("HEADLINE[key]"),
+        block.index("whyLine(result, detail, window)"),
+    ]
+    assert order == sorted(order), "the verdict block no longer reads chip, answer, why"
+
+    why = detail.split("function whyLine(result, detail, window)")[1].split("\n}")[0]
+    assert "YOUR_WINDOW(windowSentence(window.start, window.end))" in why, (
+        "the why line stopped printing the window it is a claim about"
+    )
+    assert "decidingRule" in detail and "entry.deciding === true" in detail
+
+    # The window has to reach both of them: the panel renders it, the segment
+    # call is what makes the server resolve which rule decided.
+    assert "api.segment(regSegId, state.window)" in app
+    assert "window: state.window" in app
+    assert "t1: window.t1" in api and "t2: window.t2" in api
+
+
+def test_a_caveat_is_dropped_only_when_it_restates_the_verdict() -> None:
+    """UX_AUDIT (f) 5: caveats are never hidden — but a fourth restatement is not a caveat.
+
+    "Before you park" opened with "Part of this window has no posted rule; read
+    the curb" under a chip and a headline that both already said so, which
+    teaches the driver to skip the box and with it the temporary-signage
+    warning. Only the sentences the "why" line has itself said are filtered, and
+    the filter matches `curbcheck/engine/resolve.py` verbatim.
+    """
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+
+    block = copy.split("NOT_ADDED_BY_A_CAVEAT = new Set([")[1].split("]);")[0]
+    dropped = set(re.findall(r'^  "(.+?)",$', block, re.MULTILINE))
+    # Byte-for-byte the engine's own sentences. A rewording on either side that
+    # does not reach the other silently unfilters a duplicate, which is the bug
+    # this whole pass is about.
+    assert dropped == {ABSENCE_CAVEAT, *NO_DATA_CAVEAT.values()}
+
+    # Everything else survives, including the five that carry real news.
+    for keeper in (
+        PARTIAL_ABSENCE_CAVEAT,
+        "School-day rule assumed active.",
+        "A sign here marks itself temporary.",
+        "Street cleaning is suspended on this date.",
+        "Meters are not in effect for part of this window.",
+    ):
+        assert keeper not in copy, f"copy.js filters out {keeper!r}, which adds information"
+
+    assert "informativeCaveats(caveats)" in detail
+    caveats = detail.split("function caveatBlock(caveats)")[1].split("\n}")[0]
+    assert "collapsible" not in caveats, "the caveat block became a disclosure"
+
+
+def test_one_verdict_vocabulary_reaches_the_chip_the_pills_the_groups_and_the_legend() -> None:
+    """UX_AUDIT (f) 2 keeps four verdicts; nothing says one of them in two words.
+
+    The chip read "Legal", the group heading "Legal", the legend "Legal" and the
+    absence chip "No rule in effect" — four labels for a state with one meaning,
+    none of them the driver's question. `verdictInfo` is now the single source,
+    and every surface reads it rather than keeping a table of its own.
+    """
+    formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+    results = (WEB_DIR / "results.js").read_text(encoding="utf-8")
+    legend = (WEB_DIR / "legend.js").read_text(encoding="utf-8")
+
+    table = formats.split("const VERDICT_INFO = {")[1].split("\n};")[0]
+    labels = dict(re.findall(r"(\w+): \{ label: \"(.+?)\" \}", table))
+    assert labels == {
+        "legal": "Can park",
+        "illegal": "Can't park",
+        "ambiguous": "Unclear",
+        "no_data": "No data",
+    }
+
+    assert "verdictInfo(verdict).label" in legend, "the legend keeps its own words"
+    assert "verdictInfo(verdict).label.toLowerCase()" in results, "the pills keep their own words"
+    assert "label: verdictInfo(verdict).label," in results, "the groups keep their own words"
+    assert 'const GROUPS = ["ambiguous", "illegal", "no_data"]' in results
+
+
+def test_identical_sign_texts_are_quoted_once_and_say_where_the_posts_are() -> None:
+    """SPEC §11 keeps the verbatim text; nothing says it has to be printed six times.
+
+    W 24 ST south side carries six posts of `NO PARKING MONDAY-FRIDAY 8AM-6PM`,
+    which the panel quoted in six identical bordered blocks. Grouping is allowed
+    and deleting is not (UX_AUDIT (f) 4), so every post is still accounted for —
+    in the line that says where they are.
+    """
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    copy = (WEB_DIR / "copy.js").read_text(encoding="utf-8")
+
+    groups = detail.split("function signGroups(signs, rules = null)")[1].split("\n}")[0]
+    assert "sign.sign_description" in groups, "signs are no longer grouped on their text"
+
+    card = detail.split("function signCard(group, rules")[1].split("\n}")[0]
+    # The verbatim text still comes first, and still goes through textContent.
+    assert card.index("as-posted-eyebrow") < card.index('className: "as-posted"')
+    assert card.index('className: "as-posted"') < card.index("signReadings(")
+    assert "postedAt(group.map((post) => post.distance_ft))" in card
+    assert "export function postedAt" in copy
+
+
+def test_each_quoted_sign_says_what_it_means_and_whether_it_is_on() -> None:
+    """Question 2 for a driver holding a sign in their eyeline: does this one apply to me?"""
+    detail = (WEB_DIR / "detail.js").read_text(encoding="utf-8")
+    formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+
+    readings = detail.split("function signReadings(entries, governing)")[1].split("\n}\n")[0]
+    assert "describeRegulation(entry.regulation)" in readings
+    assert "inEffectLabel(entry.in_effect)" in readings
+    # Only on the signs that govern this stretch: answering "applies to your
+    # window" about a sign that does not govern the curb is P0-2 again.
+    assert "governing ? inEffectLabel" in readings
+
+    labels = formats.split("const IN_EFFECT_LABEL = {")[1].split("\n};")[0]
+    assert "Applies to your window" in labels and "Not in effect for your window" in labels
+    # `null` is the unreadable sign, and has no label: it must not read as "off".
+    assert "IN_EFFECT_LABEL[inEffect] || null" in formats

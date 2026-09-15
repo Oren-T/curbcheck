@@ -1,38 +1,67 @@
 /**
- * The detail sheet: the verdict, every caveat, the raw sign text, and the rule
- * stack the software read out of it.
+ * The detail sheet: the answer, why, what could still go wrong, and then the
+ * raw sign text with the rule stack the software read out of it.
  *
- * The order is fixed and is the whole point of the rewrite. UX_AUDIT P0-2 found
- * result #1's sheet opening with `NO STANDING ANYTIME` — a sign that does not
- * govern the stretch — and burying the sentence that neutralises it in 12 px
- * grey under a nine-row table. So: verdict, then the caveats, then the signs
- * that *produced* the verdict, then everything else on the block behind a
- * disclosure, then the parsed reading, then the meter and the provenance.
+ * The order is fixed and is the whole point. UX_AUDIT P0-2 found result #1's
+ * sheet opening with `NO STANDING ANYTIME` — a sign that does not govern the
+ * stretch — and burying the sentence that neutralises it in 12 px grey under a
+ * nine-row table. So: verdict, then the caveats, then the signs that *produced*
+ * the verdict, then everything else on the block behind a disclosure, then the
+ * parsed reading, then the meter and the provenance.
+ *
+ * What the clarity pass changed is the first three lines, which now answer the
+ * driver's three questions in order and each exactly once:
+ *
+ *   1. can I park here?      the chip and the headline
+ *   2. why, in terms of the  the "why" line: the window in real days and
+ *      sign on the pole and     times, and the rule that decided it, in plain
+ *      the time I asked for?    English
+ *   3. what could still      "Before you park", carrying only the caveats that
+ *      go wrong?                add something the first two lines did not
+ *
+ * Before it, a `no_rule` stretch said the same thing four times — chip "NO RULE
+ * IN EFFECT", headline "No posted rule covers this window", sentence "none is
+ * in effect during your window", caveat "part of this window has no posted
+ * rule" — and never once printed the window or the hours on the sign.
  *
  * SPEC §10 makes the verbatim `sign_description` mandatory here and UX_AUDIT
  * (f) 4 forbids deleting the non-governing signs — grouping them is allowed.
  */
 
 import {
+  ABSENCE_IS_NOT_A_PERMISSION,
+  ALSO_MEANS,
   ASP_SUSPENSION_CAVEAT,
   CONFIDENCE_EXPLANATION,
   CONFIDENCE_LABEL,
+  COULD_NOT_BE_READ,
   DISCLAIMER,
   GOVERNING_SIGNS_NOTE,
-  ILLEGAL_SENTENCE,
-  BASIS_SENTENCE,
+  HEADLINE,
+  MEANS,
+  META_RULE,
+  NOTHING_IN_EFFECT,
   PANEL_STATES_NO_RULE,
+  RESERVED_FOR_OTHERS,
+  RULES_NOT_IN_EFFECT,
+  RULE_APPLIES,
+  RULE_COVERS_WINDOW,
+  RULE_COVERS_WINDOW_WITH_LIMIT,
   SIGN_NOT_ON_THIS_STRETCH,
-  TEMPORARY_SIGNAGE_CAVEAT,
   UNPARSED_RULE,
   VERDICT_EXPLANATION,
+  YOUR_WINDOW,
+  engineReason,
+  informativeCaveats,
   noDataExplanation,
+  postedAt,
 } from "./copy.js";
 import { clear, collapsible, definition, el, verdictChipNode } from "./dom.js";
 import {
   capacityLabel,
   confidenceShown,
   describeRegulation,
+  durationAdjective,
   flagLabels,
   formatCapacity,
   formatConfidence,
@@ -40,11 +69,14 @@ import {
   formatDuration,
   formatHourRates,
   formatTimeRange,
+  inEffectLabel,
   priceLabel,
   reasonLine,
   streetLabelParts,
   verdictKey,
   walkText,
+  windowMinutes,
+  windowSentence,
 } from "./format.js";
 
 /**
@@ -53,7 +85,7 @@ import {
  * @param {HTMLElement} container the `role="dialog"` element
  * @param {{result: Object|null, detail: Object|null, error: string|null,
  *          loading: boolean, label: {primary: string, secondary: string},
- *          onClose: Function}} view
+ *          window: {start: Date, end: Date}|null, onClose: Function}} view
  * @returns {HTMLElement} the close button, so the caller can move focus to it
  */
 export function renderDetail(container, view) {
@@ -100,17 +132,8 @@ function body(view) {
   const nodes = [];
 
   if (result) {
-    nodes.push(verdictBlock(result));
+    nodes.push(verdictBlock(result, detail, view.window));
     nodes.push(caveatBlock(result.caveats));
-    const explanation = verdictExplanation(result);
-    if (explanation) {
-      nodes.push(
-        el("p", {
-          className: `notice notice-${verdictKey(result.verdict)}`,
-          text: explanation,
-        }),
-      );
-    }
   }
 
   if (view.loading) {
@@ -124,8 +147,9 @@ function body(view) {
 
   if (detail) {
     const signs = splitSigns(detail);
-    nodes.push(...governingSection(signs.governing, result));
-    nodes.push(...otherSignsSection(signs.other, result));
+    const rules = rulesByDescription(detail.regulations);
+    nodes.push(...governingSection(signs.governing, result, rules));
+    nodes.push(...otherSignsSection(signs.other, result, rules));
     nodes.push(...readingSection(detail.regulations, signs));
     nodes.push(...meterSection(detail.meter_rates));
     nodes.push(...segmentSection(detail.segment, result));
@@ -137,8 +161,8 @@ function body(view) {
   return nodes;
 }
 
-/** Verdict chip, the engine's sentence, and what the verdict rests on. */
-function verdictBlock(result) {
+/** The chip, the practical answer, the window and the rule that decided it. */
+function verdictBlock(result, detail, window) {
   const key = verdictKey(result.verdict);
   const price = priceLabel(result);
   const capacity = capacityLabel(result);
@@ -151,53 +175,128 @@ function verdictBlock(result) {
       result.metered ? `${result.charged_minutes} min of the window` : null,
     ),
     ...definition("Meter zone", result.rate_label),
-    ...(confidenceShown(result)
-      ? definition(
-          CONFIDENCE_LABEL,
-          `${formatConfidence(result.confidence)} — ${CONFIDENCE_EXPLANATION}`,
-        )
-      : []),
   ]);
 
   return el("div", { className: `detail-verdict detail-verdict-${key}` }, [
     verdictChipNode(result),
-    el("p", { className: "detail-reason", text: reasonLine(result) }),
-    el("p", { className: "detail-basis", text: basisSentence(result) }),
+    el("p", { className: "detail-headline", text: HEADLINE[key] }),
+    el("p", { className: "detail-why", text: whyLine(result, detail, window) }),
     facts,
   ]);
 }
 
 /**
- * The sentence that says what the verdict rests on.
+ * The "why" line: the window in words, then the rule that decided it.
  *
- * `basis: "absence"` is the case UX_AUDIT P0-1 is about: no rule was found, and
- * the UI used to call that "Legal · 100% confidence". It gets the absence
- * sentence and no confidence figure at all.
+ * This is the sentence the panel was missing. Every verdict is a claim about
+ * two times and (usually) one rule, and the panel used to print neither: it
+ * said "your window" without saying what the window was, and "a posted sign
+ * prohibits parking" without saying which sign or what it says. The rule comes
+ * from `/api/segment`'s `deciding` and `in_effect` (docs/API.md), so the rule
+ * the panel names is the one the engine actually decided on.
+ *
+ * While `/api/segment` is in flight the line still opens with the window and
+ * falls back to the engine's own reason, so the first three lines are never
+ * blank and never move.
  */
-function basisSentence(result) {
+function whyLine(result, detail, window) {
   const key = verdictKey(result.verdict);
-  if (key === "legal") {
-    return BASIS_SENTENCE[result.basis] || BASIS_SENTENCE.absence;
+  const parts = window ? [YOUR_WINDOW(windowSentence(window.start, window.end))] : [];
+
+  if (key === "no_data") {
+    parts.push(noDataExplanation(result.gap_kind));
+    return parts.join(" ");
+  }
+  if (key === "ambiguous") {
+    parts.push(VERDICT_EXPLANATION.ambiguous);
+    return parts.join(" ");
+  }
+
+  const rules = readRules(detail);
+  if (rules.length === 0) {
+    parts.push(engineReason(reasonLine(result)));
+    return parts.join(" ").trim();
   }
   if (key === "illegal") {
-    return ILLEGAL_SENTENCE;
+    parts.push(prohibitionSentence(rules, result));
+    return parts.join(" ");
   }
-  return "";
+  if (result.basis === "absence") {
+    parts.push(absenceSentence(rules), ABSENCE_IS_NOT_A_PERMISSION);
+    return parts.join(" ");
+  }
+  parts.push(permissionSentence(rules, result, window));
+  return parts.join(" ");
 }
 
-/** The §11 explanation for a verdict: for `no_data`, the one its gap kind earns. */
-function verdictExplanation(result) {
-  const key = verdictKey(result.verdict);
-  return key === "no_data" ? noDataExplanation(result.gap_kind) : VERDICT_EXPLANATION[key];
+/** The rules `/api/segment` parsed for this stretch, or [] before it has answered. */
+function readRules(detail) {
+  return detail && Array.isArray(detail.regulations) ? detail.regulations : [];
+}
+
+/** The one rule the engine's verdict rests on, or null when it named none. */
+function decidingRule(rules) {
+  return rules.find((entry) => entry.deciding === true) || null;
+}
+
+function prohibitionSentence(rules, result) {
+  const rule = decidingRule(rules);
+  if (!rule || !rule.regulation) {
+    return engineReason(reasonLine(result));
+  }
+  const applies = RULE_APPLIES(describeRegulation(rule.regulation), rule.in_effect === "all");
+  return rule.regulation.permitted ? `${applies} ${RESERVED_FOR_OTHERS}` : applies;
 }
 
 /**
- * Every caveat, always, directly under the verdict. A "legal" verdict with the
- * caveats behind a disclosure triangle is the false confidence CLAUDE.md bans
- * and UX_AUDIT (f) 5 forbids.
+ * Absence: name the rules that *are* posted, and say none of them is on.
+ *
+ * Naming them is the point. "No posted rule covers this window" left the driver
+ * looking at a pole that says NO PARKING MONDAY-FRIDAY 8AM-6PM with no way to
+ * connect the two; "the rule here — No parking, Mon–Fri 8 AM–6 PM — is not in
+ * effect then" is the same fact tied to the thing in front of them.
+ */
+function absenceSentence(rules) {
+  const sentences = [];
+  for (const entry of rules) {
+    if (unreadableReason(entry) !== null) {
+      continue;
+    }
+    const text = describeRegulation(entry.regulation);
+    if (text !== "" && !sentences.includes(text)) {
+      sentences.push(text);
+    }
+  }
+  return sentences.length === 0 ? NOTHING_IN_EFFECT : RULES_NOT_IN_EFFECT(sentences);
+}
+
+function permissionSentence(rules, result, window) {
+  const rule = decidingRule(rules);
+  if (!rule || !rule.regulation) {
+    return engineReason(reasonLine(result));
+  }
+  const sentence = describeRegulation(rule.regulation);
+  const limit = formatDuration(rule.regulation.max_duration_min);
+  const stay = window ? durationAdjective(windowMinutes(window.start, window.end)) : "";
+  if (limit === null || stay === "") {
+    return RULE_COVERS_WINDOW(sentence);
+  }
+  return RULE_COVERS_WINDOW_WITH_LIMIT(sentence, limit, stay);
+}
+
+/**
+ * Every caveat that adds something, always, directly under the verdict.
+ *
+ * A "legal" verdict with the caveats behind a disclosure triangle is the false
+ * confidence CLAUDE.md bans and UX_AUDIT (f) 5 forbids, so this block is never
+ * collapsed. What `informativeCaveats` drops is only the caveat that repeats
+ * the verdict the "why" line has just explained — the box used to open with
+ * "Part of this window has no posted rule; read the curb" under a chip and a
+ * headline that both already said so, which taught the driver to skip the box
+ * and with it the temporary-signage warning underneath.
  */
 function caveatBlock(caveats) {
-  const items = Array.isArray(caveats) && caveats.length > 0 ? caveats : [TEMPORARY_SIGNAGE_CAVEAT];
+  const items = informativeCaveats(caveats);
   return el("section", { className: "caveat-block" }, [
     el("h3", { text: "Before you park" }),
     el(
@@ -232,7 +331,57 @@ function splitSigns(detail) {
   };
 }
 
-function governingSection(governing, result) {
+/**
+ * The parsed rules for this stretch, keyed by the sign text they came from.
+ *
+ * The description is what a `regulation` row and a `sign` row have in common
+ * (docs/API.md), and it is also what makes six identical posts one quoted
+ * block rather than six.
+ */
+function rulesByDescription(regulations) {
+  const rules = new Map();
+  for (const entry of Array.isArray(regulations) ? regulations : []) {
+    const key = entry.raw_sign_description || "";
+    if (!rules.has(key)) {
+      rules.set(key, []);
+    }
+    rules.get(key).push(entry);
+  }
+  return rules;
+}
+
+/**
+ * One block per distinct sign text, in curb order.
+ *
+ * Six posts of `NO PARKING MONDAY-FRIDAY 8AM-6PM` are one regulation and one
+ * thing to read, and the panel used to quote each of them in its own bordered
+ * block — the same 56 characters, six times, under a verdict that said the rule
+ * was not in effect. Grouping is allowed; deleting is not (UX_AUDIT (f) 4), so
+ * every post is still accounted for, in the line that says where they are.
+ */
+function signGroups(signs, rules = null) {
+  const groups = new Map();
+  for (const sign of signs) {
+    const key = sign.sign_description || "";
+    if (!groups.has(key)) {
+      groups.set(key, []);
+    }
+    groups.get(key).push(sign);
+  }
+  const ordered = [...groups.values()];
+  if (rules === null) {
+    return ordered;
+  }
+  // The sign the verdict rests on leads. The rest keep curb order, which is how
+  // you meet them walking the block. Reading "3 HMP COMMERCIAL VEHICLES ONLY —
+  // not in effect for your window" first, under a verdict that turns on the
+  // second sign down, is the P0-2 failure in miniature.
+  const decides = (group) =>
+    (rules.get(group[0].sign_description || "") || []).some((entry) => entry.deciding === true);
+  return [...ordered.filter(decides), ...ordered.filter((group) => !decides(group))];
+}
+
+function governingSection(governing, result, rules) {
   const heading = el("h3", { text: "Signs governing this stretch" });
   if (governing.length === 0) {
     // UX_AUDIT P2-8: the §11 explanation is printed once, at the top, and this
@@ -254,7 +403,7 @@ function governingSection(governing, result) {
     el("section", {}, [
       heading,
       el("p", { className: "group-note", text: GOVERNING_SIGNS_NOTE }),
-      ...governing.map((sign) => signCard(sign)),
+      ...signGroups(governing, rules).map((group) => signCard(group, rules)),
     ]),
   ];
 }
@@ -264,7 +413,7 @@ function governingSection(governing, result) {
  * #1 did not govern the stretch, and two of them read `NO STANDING ANYTIME`
  * directly under a green verdict.
  */
-function otherSignsSection(other, result) {
+function otherSignsSection(other, result, rules) {
   if (other.length === 0) {
     return [];
   }
@@ -279,32 +428,43 @@ function otherSignsSection(other, result) {
   });
   inner.append(
     el("p", { className: "group-note", text: SIGN_NOT_ON_THIS_STRETCH }),
-    ...other.map((sign) => signCard(sign)),
+    // No "applies to your window" line down here: these signs do not govern
+    // this stretch, so the question the line answers is not being asked of
+    // them, and answering it anyway is how a NO STANDING ANYTIME panel ends up
+    // reading like a verdict on curb it has nothing to do with (P0-2).
+    ...signGroups(other).map((group) => signCard(group, rules, { governing: false })),
   );
   return [el("section", {}, [el("h3", { text: "Elsewhere on this block" }), root])];
 }
 
 /**
- * One sign, quoted verbatim.
+ * One sign text, quoted verbatim, with what it means underneath.
  *
- * The text is untrusted (docs/API.md) and is assigned with textContent into a
- * monospace block that wraps and is never truncated, so the user sees exactly
- * the bytes DOT published, arrows and all.
+ * The verbatim text comes first and is untouched: it is untrusted (docs/API.md)
+ * and is assigned with textContent into a monospace block that wraps and is
+ * never truncated, so the user sees exactly the bytes DOT published, arrows and
+ * all (SPEC §11). Everything below it is the software's reading of those bytes,
+ * and is labelled as such — "Means:", never a second quotation.
+ *
+ * `group` is every post carrying this same text on this stretch.
  */
-function signCard(sign) {
+function signCard(group, rules, { governing = true } = {}) {
+  const sign = group[0];
+  const description = sign.sign_description || "";
+  const codes = [...new Set(group.map((post) => post.sign_code).filter(Boolean))];
+  const orders = [...new Set(group.map((post) => post.order_number).filter(Boolean))];
   const meta = [
-    sign.sign_code ? `Code ${sign.sign_code}` : null,
-    sign.order_number ? `Order ${sign.order_number}` : null,
-    typeof sign.distance_ft === "number"
-      ? `${Math.round(sign.distance_ft)} ft from the corner`
-      : null,
+    codes.length === 0 ? null : `${codes.length === 1 ? "Code" : "Codes"} ${codes.join(", ")}`,
+    orders.length === 0 ? null : `${orders.length === 1 ? "Order" : "Orders"} ${orders.join(", ")}`,
+    postedAt(group.map((post) => post.distance_ft)),
     sign.arrow && sign.arrow !== "none" ? `Arrow ${sign.arrow}` : null,
     sign.parse_method ? `Read by ${sign.parse_method}` : null,
   ].filter((entry) => entry !== null);
 
   return el("div", { className: "sign-card" }, [
     el("span", { className: "as-posted-eyebrow", text: "As posted" }),
-    el("pre", { className: "as-posted", text: sign.sign_description || "" }),
+    el("pre", { className: "as-posted", text: description }),
+    ...signReadings(rules.get(description) || [], governing),
     meta.length === 0
       ? null
       : el(
@@ -316,7 +476,58 @@ function signCard(sign) {
 }
 
 /**
- * What the parser made of each sign, grouped under the sign it came from.
+ * The one-line plain-English reading under a quoted sign, and whether it is on.
+ *
+ * "Means: no parking, Mon–Fri 8 AM–6 PM · Not in effect for your window" is the
+ * whole of what a driver needs from a sign they have already read on the pole:
+ * a check that the software read the same thing, and the connection between it
+ * and the time they asked about. The field tables stay in the audit section.
+ */
+function signReadings(entries, governing) {
+  return entries.map((entry, index) => {
+    const unreadable = unreadableReason(entry);
+    if (unreadable !== null) {
+      return el("p", { className: "sign-reading sign-reading-unread", text: unreadable });
+    }
+    const sentence = describeRegulation(entry.regulation);
+    const applies = governing ? inEffectLabel(entry.in_effect) : null;
+    const reading = index === 0 ? MEANS(lowerFirst(sentence)) : ALSO_MEANS(lowerFirst(sentence));
+    return el("p", {
+      className: `sign-reading${applies === null ? "" : ` sign-reading-${entry.in_effect}`}`,
+      text: applies === null ? reading : `${reading} · ${applies}`,
+    });
+  });
+}
+
+/** "No parking, Mon–Fri 8 AM–6 PM" reads as a quotation after "Means:" unless lowered. */
+function lowerFirst(sentence) {
+  return sentence.charAt(0).toLowerCase() + sentence.slice(1);
+}
+
+/**
+ * Why this rule cannot be stated in English, or null when it can.
+ *
+ * Two cases, and neither may be rendered as a sentence about the curb: a sign
+ * the parser failed on (D13), whose `regulation` is a placeholder, and a meta
+ * panel, whose `regulation` is a placeholder *and* whose meaning depends on the
+ * sign it modifies.
+ */
+function unreadableReason(entry) {
+  if (entry.parse_method === "unparsed" || !entry.regulation) {
+    return `${COULD_NOT_BE_READ} — ${UNPARSED_RULE}`;
+  }
+  return entry.regulation.flags && entry.regulation.flags.meta ? META_RULE : null;
+}
+
+/**
+ * The audit trail: every parsed field of every rule, behind a disclosure.
+ *
+ * The plain sentence each rule reduces to is now printed under the sign it came
+ * from, where the driver needs it; what is left here is the machine reading —
+ * days masks, arrows, parse confidence — which is what DESIGN_DIRECTION §3
+ * lists as progressive disclosure. It opens itself whenever a sign on this
+ * stretch could not be read, because "the software could not read this sign" is
+ * never allowed to be a thing you have to click for (UX_AUDIT (f) 5).
  *
  * `regulations[].sign_id` is what makes the grouping honest: matching on the
  * description text alone merged two different posts that happen to carry the
@@ -365,7 +576,15 @@ function readingSection(regulations, signs) {
     blocks.push(el("p", { className: "notice", text: PANEL_STATES_NO_RULE }));
   }
 
-  return [el("section", {}, [el("h3", { text: "What the software read" }), ...blocks])];
+  const unreadable = rules.some((rule) => rule.parse_method === "unparsed");
+  const { root, body: inner } = collapsible({
+    label: "Every parsed field",
+    count: rules.length,
+    expanded: unreadable,
+    className: "group",
+  });
+  inner.append(...blocks);
+  return [el("section", {}, [el("h3", { text: "What the software read" }), root])];
 }
 
 function signHeading(sign, ruleCount) {
@@ -381,8 +600,11 @@ function ruleBlock(entry) {
       el("p", { className: "notice notice-ambiguous", text: UNPARSED_RULE }),
     ]);
   }
+  const unreadable = unreadableReason(entry);
   return el("div", { className: "rule" }, [
-    el("p", { className: "rule-summary", text: describeRegulation(regulation) }),
+    unreadable === null
+      ? el("p", { className: "rule-summary", text: describeRegulation(regulation) })
+      : el("p", { className: "notice notice-ambiguous", text: unreadable }),
     el("dl", { className: "facts" }, [
       ...definition("Days", formatDays(regulation.days)),
       ...definition("Times", formatTimeRange(regulation.time_from, regulation.time_to)),
@@ -454,6 +676,16 @@ function segmentSection(segment, result) {
           "Snap confidence",
           segment.confidence ? formatConfidence(segment.confidence) : null,
         ),
+        // UX_AUDIT P2-1: a percentage is audit material and belongs with the
+        // other audit numbers, not in the block a driver reads to decide. Next
+        // to the "why" line it read as confidence that you can park, which is
+        // the one thing it does not measure.
+        ...(confidenceShown(result)
+          ? definition(
+              CONFIDENCE_LABEL,
+              `${formatConfidence(result.confidence)} — ${CONFIDENCE_EXPLANATION}`,
+            )
+          : []),
         ...definition("Segment id", result ? result.reg_seg_id : segment.reg_seg_id),
       ]),
       el("p", { className: "group-note", text: ASP_SUSPENSION_CAVEAT }),
