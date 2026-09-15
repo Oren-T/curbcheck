@@ -36,7 +36,17 @@ from curbcheck.engine.resolve import (
 from curbcheck.engine.window import CalendarContext
 from curbcheck.model import ParseMethod
 
-DEFAULT_LIMIT = 300
+# The ranked list the user reads is short; the map layer is not. Ranking and
+# drawing were one capped list until docs/VALIDATION.md U1 measured what that
+# costs: on the Upper East Side a 10-minute walk holds more than 500 legal
+# spans, so `limit` cut every illegal and ambiguous one and the map drew nothing
+# but green. The two caps are now separate.
+DEFAULT_LIMIT = 100
+DEFAULT_MAP_LIMIT = 2000
+# 5,000 line features is about where MapLibre's first paint starts to lag on a
+# laptop, and the whole of Manhattan holds 36,518 spans, so the map cap needs a
+# ceiling a request cannot raise.
+MAX_MAP_LIMIT = 5000
 
 # SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 32766 in modern builds, but
 # older builds use 999. 400 ids per query is comfortably under both.
@@ -97,6 +107,38 @@ class SearchResult:
     rate_label: str | None = None
 
 
+@dataclass(frozen=True)
+class SearchCounts:
+    """How much curb of each kind was in radius, counted before any cap."""
+
+    legal: int = 0
+    illegal: int = 0
+    ambiguous: int = 0
+    no_data: int = 0
+    total: int = 0
+
+
+@dataclass(frozen=True)
+class SearchResults:
+    """The ranked legal list, everything else for the map, and the true counts.
+
+    `legal` is what the user reads, capped at `limit`. `others` is every other
+    verdict in radius, capped separately at `map_limit`, so a legal-rich
+    neighbourhood cannot push the red curb off the map (docs/VALIDATION.md U1).
+    `counts` is measured before either cap, which is what makes the status line
+    an honest statement about the query rather than about the response.
+    """
+
+    legal: list[SearchResult]
+    others: list[SearchResult]
+    counts: SearchCounts
+
+    @property
+    def all(self) -> list[SearchResult]:
+        """Ranked legal first, then the rest — the order the API returns."""
+        return [*self.legal, *self.others]
+
+
 @dataclass
 class _Candidate:
     reg_seg_id: str
@@ -119,16 +161,23 @@ def search(
     walk_minutes_max: float,
     weights: Weights | None = None,
     limit: int = DEFAULT_LIMIT,
+    map_limit: int = DEFAULT_MAP_LIMIT,
     calendar: CalendarContext | None = None,
-) -> list[SearchResult]:
+) -> SearchResults:
     """Rank the curb spans within `walk_minutes_max` of (lon, lat) for the window [t1, t2).
 
-    Every segment in range is returned, whatever its verdict, because the map
-    colours illegal and ambiguous curb too (SPEC §11). Order is legal first by
-    cost, then ambiguous, then illegal, then no-data.
+    Returns the ranked legal spans capped at `limit`, every other verdict in
+    radius capped separately at `map_limit` (nearest first, so the cap drops
+    the farthest curb rather than a whole verdict), and the counts of all four
+    verdicts taken before either cap. The map colours illegal, ambiguous and
+    no-data curb too (SPEC §11), and ranking them alongside the legal ones is
+    what made them disappear (docs/VALIDATION.md U1).
     """
     if limit < 1:
         raise ValueError("limit must be at least 1")
+    if map_limit < 1:
+        raise ValueError("map_limit must be at least 1")
+    map_limit = min(map_limit, MAX_MAP_LIMIT)
     resolved_weights = weights or Weights()
     resolved_calendar = calendar or load_calendar(conn)
 
@@ -136,7 +185,7 @@ def search(
         conn, lon=lon, lat=lat, radius_m=walk_radius_meters(walk_minutes_max)
     )
     if not candidates:
-        return []
+        return SearchResults(legal=[], others=[], counts=SearchCounts())
 
     stacks = _load_stacks(conn, [candidate.reg_seg_id for candidate in candidates])
     signs = _load_signs(conn, candidates, stacks)
@@ -155,10 +204,33 @@ def search(
             )
         )
 
-    results.sort(
-        key=lambda result: (_VERDICT_ORDER[result.verdict], result.score, result.reg_seg_id)
+    return _split_and_cap(results, limit=limit, map_limit=map_limit)
+
+
+def _split_and_cap(results: list[SearchResult], *, limit: int, map_limit: int) -> SearchResults:
+    legal = sorted(
+        (result for result in results if result.verdict is Verdict.LEGAL),
+        key=lambda result: (result.score, result.reg_seg_id),
     )
-    return results[:limit]
+    others = [result for result in results if result.verdict is not Verdict.LEGAL]
+    # Choose *which* others survive the cap by distance, so a dense band of one
+    # verdict cannot crowd out another, then order the survivors for display.
+    kept = sorted(others, key=lambda result: (result.walk_min, result.reg_seg_id))[:map_limit]
+    kept.sort(key=lambda result: (_VERDICT_ORDER[result.verdict], result.score, result.reg_seg_id))
+    return SearchResults(legal=legal[:limit], others=kept, counts=_count_verdicts(results))
+
+
+def _count_verdicts(results: Sequence[SearchResult]) -> SearchCounts:
+    tally = dict.fromkeys(Verdict, 0)
+    for result in results:
+        tally[result.verdict] += 1
+    return SearchCounts(
+        legal=tally[Verdict.LEGAL],
+        illegal=tally[Verdict.ILLEGAL],
+        ambiguous=tally[Verdict.AMBIGUOUS],
+        no_data=tally[Verdict.NO_DATA],
+        total=len(results),
+    )
 
 
 def load_calendar(

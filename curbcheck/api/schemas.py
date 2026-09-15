@@ -15,6 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from curbcheck.config import NYC_TZ
 from curbcheck.engine.cost import Weights
+from curbcheck.engine.search import DEFAULT_LIMIT, DEFAULT_MAP_LIMIT, MAX_MAP_LIMIT
 
 # A Manhattan-ish bounding box, generous at every edge: Battery Park to Inwood,
 # the Hudson to the East River. An input sanity check, not a service area --
@@ -60,7 +61,11 @@ class SearchRequest(BaseModel):
     t2: datetime
     walk_minutes: float = Field(default=10.0, ge=1.0, le=30.0, allow_inf_nan=False)
     weights: WeightsRequest = Field(default_factory=WeightsRequest)
-    limit: int = Field(default=100, ge=1, le=500)
+    # `limit` caps the ranked legal list the user reads; `map_limit` caps
+    # everything else the map draws. They are separate because ranking both
+    # together is what hid the illegal curb (docs/VALIDATION.md U1).
+    limit: int = Field(default=DEFAULT_LIMIT, ge=1, le=500)
+    map_limit: int = Field(default=DEFAULT_MAP_LIMIT, ge=1, le=MAX_MAP_LIMIT)
 
     @field_validator("t1", "t2")
     @classmethod

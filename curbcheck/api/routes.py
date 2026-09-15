@@ -104,7 +104,7 @@ def post_search(request: Request, body: SearchRequest) -> dict[str, Any]:
     """Rank the curb spans near a destination for a window. See docs/API.md."""
     with open_database(request) as conn:
         destination = _destination(conn, body)
-        results = search(
+        found = search(
             conn,
             lon=destination["lon"],
             lat=destination["lat"],
@@ -113,10 +113,15 @@ def post_search(request: Request, body: SearchRequest) -> dict[str, Any]:
             walk_minutes_max=body.walk_minutes,
             weights=body.weights.to_engine(),
             limit=body.limit,
+            map_limit=body.map_limit,
         )
         return {
             "destination": destination,
-            "results": [_result_payload(result) for result in results],
+            # Ranked legal first, then every other verdict in radius. One array
+            # rather than two: the map draws all of it and the list renders all
+            # of it, so splitting it would only make the frontend rejoin it.
+            "results": [_result_payload(result) for result in found.all],
+            "counts": asdict(found.counts),
             "disclaimer": DISCLAIMER,
             "caveats": list(UNIVERSAL_CAVEATS),
             "sync": _sync_summary(conn),

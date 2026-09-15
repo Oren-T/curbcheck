@@ -100,6 +100,14 @@ rejected (`extra="forbid"`).
 | `walk_minutes` | number | no (default 10) | 1 – 30 |
 | `weights` | object | no | `{walk, money, risk}`, each 0 – 10, defaults 1.0 / 1.0 / 0.5 |
 | `limit` | integer | no (default 100) | 1 – 500 |
+| `map_limit` | integer | no (default 2000) | 1 – 5000 |
+
+`limit` caps the **ranked legal list**; `map_limit` caps **everything else**.
+They are separate caps on separate things: ranking all four verdicts together
+and then cutting at `limit` is what made a legal-rich neighbourhood return a
+hundred green spans and no red ones (`docs/VALIDATION.md` U1). `map_limit` is
+applied to the non-legal spans nearest the destination first, so a cap drops
+the farthest curb rather than a whole verdict.
 
 The lat/lon bounds are a Manhattan-ish bounding box. They are an input sanity
 check, not a service area promise: the database only holds Manhattan, so a
@@ -113,7 +121,8 @@ point in the Bronx corner of the box simply returns no results.
   "t2": "2026-09-15T11:00:00",
   "walk_minutes": 8,
   "weights": { "walk": 1.0, "money": 1.0, "risk": 0.5 },
-  "limit": 100
+  "limit": 100,
+  "map_limit": 2000
 }
 ```
 
@@ -152,6 +161,7 @@ point in the Bronx corner of the box simply returns no results.
       "rate_label": "Area 1"
     }
   ],
+  "counts": { "legal": 150, "illegal": 50, "ambiguous": 0, "no_data": 3, "total": 203 },
   "disclaimer": "CurbCheck is advisory only. …",
   "caveats": [
     "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation.",
@@ -161,9 +171,24 @@ point in the Bronx corner of the box simply returns no results.
 }
 ```
 
-`results` is every span in radius, whatever its verdict, because the map colours
-illegal and ambiguous curb too (SPEC §11). Order is `legal` first by ascending
-`score`, then `ambiguous`, then `illegal`, then `no_data`.
+`results` is **one array in two parts**: the ranked legal spans, at most
+`limit` of them, ordered by ascending `score`; then every other verdict within
+the radius, at most `map_limit` of them, ordered `ambiguous`, `illegal`,
+`no_data` and by `score` within each. One array rather than two because the map
+draws all of it and the result list renders all of it, so two arrays would only
+make the frontend concatenate them again.
+
+`counts` counts **everything in the radius, before either cap**:
+
+```json
+"counts": { "legal": 150, "illegal": 50, "ambiguous": 0, "no_data": 3, "total": 203 }
+```
+
+The status line must be built from `counts`, never from `results.length`:
+`results` can be a subset, and saying "100 stretches … 100 legal" about a
+capped response states as fact something the query never established (SPEC §11,
+`docs/VALIDATION.md` U1). When `results` is shorter than `counts.total`, the
+rows you did not get are the farthest ones.
 
 #### `SearchResult` fields
 

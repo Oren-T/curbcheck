@@ -215,6 +215,78 @@ def test_search_result_mirrors_the_search_result_fields(client):
     }
 
 
+def test_search_reports_counts_taken_before_the_caps(client):
+    """docs/VALIDATION.md U1: the status line must describe the query, not the response."""
+    body = client.post("/api/search", json={**DESTINATION, **WINDOW, "limit": 1}).json()
+
+    assert body["counts"] == {
+        "legal": 1,
+        "illegal": 0,
+        "ambiguous": 0,
+        "no_data": 0,
+        "total": 1,
+    }
+
+
+def test_a_small_limit_keeps_the_other_verdicts_in_the_response(client, tmp_path):
+    """`limit` caps the ranked legal list; every other verdict still reaches the map."""
+    conn = sqlite3.connect(tmp_path / "curbcheck.sqlite")
+    conn.execute(
+        "INSERT INTO regulation_segment (reg_seg_id, segment_id, side, start_ft, end_ft, geom,"
+        " min_lon, min_lat, max_lon, max_lat, length_ft, capacity_cars, confidence, derived_from)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "3681:E:0",
+            "3681",
+            "E",
+            0.0,
+            284.8,
+            _geojson(NODE_85, NODE_86),
+            min(NODE_85[0], NODE_86[0]),
+            min(NODE_85[1], NODE_86[1]),
+            max(NODE_85[0], NODE_86[0]),
+            max(NODE_85[1], NODE_86[1]),
+            284.8,
+            12,
+            0.94,
+            json.dumps(["sign-2"]),
+        ),
+    )
+    conn.execute(
+        "INSERT INTO regulation (reg_id, reg_seg_id, action, permitted, vehicle_class, exclusive,"
+        " days_mask, metered, flags, arrow, raw_sign_description, parse_method, parse_confidence)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (
+            "3681:E:0:1",
+            "3681:E:0",
+            "stand",
+            0,
+            "all",
+            0,
+            days_to_mask(ALL_DAYS),
+            0,
+            "{}",
+            "none",
+            "NO STANDING ANYTIME",
+            "grammar",
+            0.98,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    body = client.post("/api/search", json={**DESTINATION, **WINDOW, "limit": 1}).json()
+
+    assert [result["verdict"] for result in body["results"]] == ["legal", "illegal"]
+    assert body["counts"] == {
+        "legal": 1,
+        "illegal": 1,
+        "ambiguous": 0,
+        "no_data": 0,
+        "total": 2,
+    }
+
+
 def test_money_is_a_string_not_a_float(client):
     [result] = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()["results"]
     assert isinstance(result["money"], str)

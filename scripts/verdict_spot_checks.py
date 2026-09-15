@@ -139,7 +139,8 @@ def run(conn: sqlite3.Connection, case: Case) -> tuple[bool, str]:
         t2=case.t2,
         walk_minutes_max=WALK_MINUTES,
         limit=ALL_RESULTS,
-    )
+        map_limit=ALL_RESULTS,
+    ).all
     found = next((r for r in results if r.reg_seg_id == case.reg_seg_id), None)
     if found is None:
         return False, f"segment {case.reg_seg_id} is not in this database"

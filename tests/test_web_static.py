@@ -131,3 +131,16 @@ def test_unparsed_warning_is_reserved_for_signs_the_parser_failed_on() -> None:
     # sees a rule whose own `parse_method` says `unparsed`.
     assert detail.count("UNPARSED_RULE") == 2, "UNPARSED_RULE is used outside ruleBlock"
     assert 'entry.parse_method === "unparsed"' in detail
+
+
+def test_the_status_line_is_built_from_the_server_counts() -> None:
+    """docs/VALIDATION.md U1: `results` can be a capped subset of what is in radius.
+
+    Counting the rows the server sent would restate the cap as a fact about the
+    neighbourhood, which is the false confidence SPEC §11 exists to prevent.
+    """
+    app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
+    formats = (WEB_DIR / "format.js").read_text(encoding="utf-8")
+
+    assert "statusLine(response.counts" in app, "app.js no longer uses the server counts"
+    assert "export function statusLine" in formats

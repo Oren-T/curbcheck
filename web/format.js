@@ -248,6 +248,33 @@ export function formatHourRates(hourRates) {
   return `$${first} first hour, then ${rest.map((rate) => `$${rate}`).join(", ")}`;
 }
 
+/**
+ * The status line under the form, built from the server's `counts`.
+ *
+ * `counts` is measured over everything in radius, before either cap, and the
+ * response can hold fewer rows than that (docs/API.md). Counting the rows we
+ * were sent would state as fact something the query never established, which
+ * is the failure docs/VALIDATION.md U1 recorded — so the numbers come from the
+ * server and the line says plainly when it is showing a subset.
+ */
+export function statusLine(counts, shown, walkMinutes) {
+  const total = counts && typeof counts.total === "number" ? counts.total : shown;
+  if (total === 0) {
+    return "Nothing within that walk radius. Try a longer walk or a different time.";
+  }
+  const parts = [`${total} stretches within a ${walkMinutes} min walk`];
+  if (counts) {
+    parts.push(
+      `${counts.legal ?? 0} legal for the whole window, ${counts.illegal ?? 0} illegal, ` +
+        `${counts.ambiguous ?? 0} ambiguous, ${counts.no_data ?? 0} with no data`,
+    );
+  }
+  if (shown < total) {
+    parts.push(`showing the nearest ${shown}`);
+  }
+  return `${parts.join(" · ")}.`;
+}
+
 /** "2026-09-15T09:00" for a datetime-local input, in the browser's local time. */
 export function toLocalInputValue(date) {
   const pad = (value) => String(value).padStart(2, "0");

@@ -86,8 +86,15 @@ def hand_checks() -> tuple[HandCheck, ...]:
 
 def rank(conn: sqlite3.Connection, t1: datetime, t2: datetime) -> list[SearchResult]:
     return search(
-        conn, lon=LON, lat=LAT, t1=t1, t2=t2, walk_minutes_max=WALK_MINUTES_MAX, limit=ALL_RESULTS
-    )
+        conn,
+        lon=LON,
+        lat=LAT,
+        t1=t1,
+        t2=t2,
+        walk_minutes_max=WALK_MINUTES_MAX,
+        limit=ALL_RESULTS,
+        map_limit=ALL_RESULTS,
+    ).all
 
 
 def describe(result: SearchResult, index: int) -> str:

@@ -11,7 +11,7 @@ import * as api from "./api.js";
 import { TEMPORARY_SIGNAGE_CAVEAT } from "./copy.js";
 import { hideDetail, renderDetail, streetLabel } from "./detail.js";
 import { clear, el, replaceChildren } from "./dom.js";
-import { nextTopOfHour, toLocalInputValue } from "./format.js";
+import { nextTopOfHour, statusLine, toLocalInputValue } from "./format.js";
 import { CurbMap, loadStyle } from "./map.js";
 import { markSelected, renderResults } from "./results.js";
 
@@ -221,12 +221,7 @@ function showResponse(response, walkMinutes) {
   });
   hydrateLabels(results);
 
-  const legal = results.filter((result) => result.verdict === "legal").length;
-  setStatus(
-    results.length === 0
-      ? "Nothing within that walk radius. Try a longer walk or a different time."
-      : `${results.length} stretches within a ${walkMinutes} min walk · ${legal} legal for the whole window.`,
-  );
+  setStatus(statusLine(response.counts, results.length, walkMinutes));
 }
 
 function handleSearchError(error, where) {

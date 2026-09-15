@@ -18,7 +18,9 @@ from curbcheck.config import NYC_TZ
 from curbcheck.engine.cost import Weights
 from curbcheck.engine.resolve import Verdict
 from curbcheck.engine.search import (
+    MAX_MAP_LIMIT,
     SearchResult,
+    SearchResults,
     _decimal_list,
     _json_string_list,
     search,
@@ -184,7 +186,7 @@ def conn() -> sqlite3.Connection:
     return connection
 
 
-def run_search(conn: sqlite3.Connection, **overrides: object) -> list[SearchResult]:
+def run(conn: sqlite3.Connection, **overrides: object) -> SearchResults:
     t1, t2 = SATURDAY_MORNING
     kwargs: dict[str, object] = {
         "lon": ORIGIN_LON,
@@ -195,6 +197,11 @@ def run_search(conn: sqlite3.Connection, **overrides: object) -> list[SearchResu
     }
     kwargs.update(overrides)
     return search(conn, **kwargs)  # type: ignore[arg-type]
+
+
+def run_search(conn: sqlite3.Connection, **overrides: object) -> list[SearchResult]:
+    """Every result the search returned, ranked legal first — the API's own order."""
+    return run(conn, **overrides).all
 
 
 def test_search_returns_every_segment_within_the_walk_radius(conn: sqlite3.Connection) -> None:
@@ -309,16 +316,88 @@ def test_walk_minutes_grow_with_distance(conn: sqlite3.Connection) -> None:
     assert results["seg-meter"] == pytest.approx(1.8, abs=0.3)
 
 
-def test_the_limit_caps_the_result_list(conn: sqlite3.Connection) -> None:
-    results = run_search(conn, limit=2)
+def test_the_limit_caps_the_ranked_legal_list_only(conn: sqlite3.Connection) -> None:
+    """docs/VALIDATION.md U1: `limit` must never cost the map its illegal curb."""
+    found = run(conn, limit=1)
 
-    assert len(results) == 2
-    assert results[0].verdict is Verdict.LEGAL
+    assert [result.verdict for result in found.legal] == [Verdict.LEGAL]
+    assert {result.verdict for result in found.others} == {
+        Verdict.AMBIGUOUS,
+        Verdict.ILLEGAL,
+        Verdict.NO_DATA,
+    }
+
+
+def test_counts_are_measured_before_either_cap(conn: sqlite3.Connection) -> None:
+    found = run(conn, limit=1, map_limit=1)
+
+    assert len(found.legal) == 1
+    assert len(found.others) == 1
+    assert found.counts.legal == 1
+    assert found.counts.ambiguous == 1
+    assert found.counts.illegal == 1
+    assert found.counts.no_data == 1
+    assert found.counts.total == 4
+
+
+def test_the_map_cap_keeps_the_nearest_of_the_other_verdicts(conn: sqlite3.Connection) -> None:
+    """seg-blank at 166 m is nearer than seg-odd at 222 m and seg-free at 333 m."""
+    found = run(conn, map_limit=1)
+
+    assert [result.reg_seg_id for result in found.others] == ["seg-blank"]
+
+
+def test_a_dense_band_of_legal_curb_cannot_push_the_illegal_off_the_map(
+    conn: sqlite3.Connection,
+) -> None:
+    """The U1 measurement, in miniature: 150 legal and 50 illegal spans, limit 100."""
+    for index in range(150):
+        add_sign(conn, f"sign-ok-{index}", "PARKING PERMITTED")
+        add_segment(
+            conn,
+            f"seg-ok-{index}",
+            lat=ORIGIN_LAT + 0.0001 + index * 0.000001,
+            sign_ids=[f"sign-ok-{index}"],
+        )
+        add_regulation(
+            conn,
+            f"reg-ok-{index}",
+            f"seg-ok-{index}",
+            Regulation(action=Action.PARK, permitted=True),
+            raw="PARKING PERMITTED",
+        )
+    for index in range(50):
+        add_sign(conn, f"sign-no-{index}", "NO PARKING ANYTIME")
+        add_segment(
+            conn,
+            f"seg-no-{index}",
+            lat=ORIGIN_LAT + 0.0002 + index * 0.000001,
+            sign_ids=[f"sign-no-{index}"],
+        )
+        add_regulation(
+            conn, f"reg-no-{index}", f"seg-no-{index}", NO_PARKING, raw="NO PARKING ANYTIME"
+        )
+
+    found = run(conn, limit=100)
+
+    assert len(found.legal) == 100
+    assert all(result.verdict is Verdict.LEGAL for result in found.legal)
+    assert sum(1 for result in found.others if result.verdict is Verdict.ILLEGAL) == 51
+    assert found.counts.legal == 151
+    assert found.counts.illegal == 51
+    assert found.counts.total == 204
+
+
+def test_the_map_limit_is_clamped_to_its_hard_maximum(conn: sqlite3.Connection) -> None:
+    """A request cannot ask the map for more features than MAX_MAP_LIMIT."""
+    assert run(conn, map_limit=MAX_MAP_LIMIT * 10).others == run(conn).others
 
 
 def test_a_limit_below_one_is_rejected(conn: sqlite3.Connection) -> None:
     with pytest.raises(ValueError, match="at least 1"):
         run_search(conn, limit=0)
+    with pytest.raises(ValueError, match="at least 1"):
+        run_search(conn, map_limit=0)
 
 
 def test_weights_change_the_ranking(conn: sqlite3.Connection) -> None:
@@ -398,7 +477,10 @@ def test_an_empty_database_returns_nothing(conn: sqlite3.Connection) -> None:
     conn.execute("DELETE FROM regulation")
     conn.execute("DELETE FROM regulation_segment")
 
-    assert run_search(conn) == []
+    found = run(conn)
+
+    assert found.all == []
+    assert found.counts.total == 0
 
 
 def test_an_unreadable_json_column_reads_as_empty_rather_than_raising():
