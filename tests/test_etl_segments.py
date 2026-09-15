@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from itertools import pairwise
+
 import pytest
 from test_etl_fixtures import (
     AVENUE_LON,
@@ -156,7 +158,9 @@ def test_signs_on_one_post_with_the_same_span_merge_into_one_segment():
     assert segments[0].derived_from == ("a", "b")
 
 
-def test_different_spans_on_one_post_stay_separate():
+def test_different_spans_on_one_post_split_the_curb_between_them():
+    # The whole-side sign governs everything; the arrowed one only the curb
+    # ahead of the post, so the two stretches carry different stacks.
     segments, _ = resolve(
         staged_sign("a", description=NO_PARKING, distance_ft=100.0),
         staged_sign(
@@ -168,8 +172,8 @@ def test_different_spans_on_one_post_stay_separate():
         ),
     )
 
-    assert len(segments) == 2
-    assert {segment.derived_from for segment in segments} == {("a",), ("b",)}
+    assert spans(segments) == [(0, 100), (100, WHOLE_SIDE_FT)]
+    assert [segment.derived_from for segment in segments] == [("a",), ("a", "b")]
 
 
 def test_the_two_sides_of_a_block_resolve_independently():
@@ -272,8 +276,9 @@ def test_a_double_arrow_stops_where_another_familys_post_starts():
 
     metered = [segment for segment in segments if "meter" in segment.derived_from]
     assert spans(metered) == [(209, FIRST_BLOCK_FT)]
-    # The bus stop no longer swallows the curb the meter governs.
-    assert spans(segments) == [(0, 209), (99, 209), (209, FIRST_BLOCK_FT)]
+    # The bus stop no longer swallows the curb the meter governs, and the two
+    # bus-stop posts tile their stretch instead of nesting one inside the other.
+    assert spans(segments) == [(0, 99), (99, 209), (209, FIRST_BLOCK_FT)]
 
 
 def test_a_double_arrow_reaches_the_corner_only_where_no_post_lies_beyond():
@@ -290,7 +295,7 @@ def test_a_double_arrow_reaches_the_corner_only_where_no_post_lies_beyond():
         ),
     )
 
-    assert spans(segments) == [(0, 209), (99, 209), (209, 300), (232, FIRST_BLOCK_FT)]
+    assert spans(segments) == [(0, 99), (99, 209), (209, 232), (232, 300), (300, FIRST_BLOCK_FT)]
 
 
 def test_posts_repeating_one_rule_merge_into_a_single_span():
@@ -307,13 +312,17 @@ def test_posts_repeating_one_rule_merge_into_a_single_span():
     assert report.merged_repeat_spans == 2
 
 
-def test_a_different_rule_keeps_its_own_span_however_much_it_overlaps():
+def test_a_different_rule_is_split_out_rather_than_merged_away():
+    # Only an identical rule merges (SPEC §B.2). Two different ones that
+    # overlap are cut at the overlap instead, so the shared stretch carries
+    # both and neither loses the curb it alone governs.
     segments, report = resolve(
         staged_sign("np", description=f"{NO_PARKING} <->", distance_ft=100.0),
         staged_sign("ns", description=f"{NO_STANDING} <->", sign_code="PS-2G", distance_ft=700.0),
     )
 
-    assert spans(segments) == [(0, 700), (100, WHOLE_SIDE_FT)]
+    assert spans(segments) == [(0, 100), (100, 700), (700, WHOLE_SIDE_FT)]
+    assert [segment.derived_from for segment in segments] == [("np",), ("np", "ns"), ("ns",)]
     assert report.merged_repeat_spans == 0
 
 
@@ -390,6 +399,38 @@ def test_a_side_whose_own_signs_never_snapped_is_a_matching_gap_not_a_data_gap()
     assert report.unmatched_sides == 2
 
 
+def test_a_side_with_a_gap_between_its_spans_still_gets_no_placeholder():
+    # Two identical posts arrowed away from each other leave the middle of the
+    # side ungoverned. D23's placeholder is per side, not per unpainted foot, so
+    # a side that has any real span gets none — the gap stays unpainted and the
+    # legend's "a blank curb means no data" carries it (docs/DECISIONS.md D25).
+    segments, report = resolve_with_placeholders(
+        staged_sign(
+            "south",
+            description=f"{NO_PARKING} -->",
+            arrow_direction="South",
+            distance_ft=100.0,
+            side="W",
+        ),
+        staged_sign(
+            "north",
+            description=f"{NO_PARKING} -->",
+            arrow_direction="North",
+            distance_ft=900.0,
+            side="W",
+        ),
+    )
+
+    real = [segment for segment in segments if segment.gap_kind is None]
+    assert spans(real) == [(0, 100), (900, WHOLE_SIDE_FT)]
+    assert not [
+        segment
+        for segment in segments
+        if segment.gap_kind is not None and segment.side == "W" and segment.segment_id == "avenue-0"
+    ]
+    assert report.no_signs_sides == len(placeholder_sides(segments))
+
+
 def test_a_whole_chain_span_leaves_no_placeholder_on_the_segments_it_crosses():
     # The span is filed under the segment covering its midpoint, but it covers
     # all three, and a placeholder on the other two would double-draw the curb.
@@ -457,13 +498,14 @@ def test_a_placeholder_uses_the_side_letters_the_blocks_own_signs_use():
     assert ("avenue-0", "W") not in sides
 
 
-def test_two_double_arrow_posts_of_different_families_each_claim_the_gap():
-    """D20's cost: the curb between two `<->` posts is claimed twice.
+def test_a_ban_and_a_permission_that_overlap_become_three_stacked_segments():
+    """The flatten's reason for existing (docs/DECISIONS.md D25).
 
     NO STANDING ANYTIME at 50 ft runs to the metered post at 150; the metered
-    post runs back to the ban at 50. Neither span holds the other's rule, so
-    `engine.search._demote_contested_spans` is what stops the metered span
-    reading LEGAL over the 100 ft the ban also covers (SPEC §8.6).
+    post runs back to the ban at 50 (D20). The two spans used to be two rows,
+    and the metered one read LEGAL over the 100 ft the ban also covers. Cut at
+    the boundaries there are three stretches: the ban alone, both rules in one
+    stack, and the meter alone.
     """
     segments, _ = resolve(
         staged_sign(
@@ -482,6 +524,78 @@ def test_two_double_arrow_posts_of_different_families_each_claim_the_gap():
         ),
     )
 
-    assert spans(segments) == [(0, 150), (50, FIRST_BLOCK_FT)]
-    banned = [segment for segment in segments if "ns" in segment.derived_from]
-    assert spans(banned) == [(0, 150)]
+    assert spans(segments) == [(0, 50), (50, 150), (150, FIRST_BLOCK_FT)]
+    assert [segment.derived_from for segment in segments] == [
+        ("ns",),
+        ("hmp", "ns"),
+        ("hmp",),
+    ]
+
+
+def test_a_flattened_side_never_holds_two_spans_over_one_foot_of_curb():
+    # The invariant the whole flatten exists to hold, over a side carrying
+    # every shape of span: whole-side, single-arrow, double-arrow and repeated.
+    segments, _ = resolve(
+        staged_sign("whole", to_street="E 2 STREET", description=NO_PARKING),
+        staged_sign(
+            "ns",
+            to_street="E 2 STREET",
+            distance_ft=50.0,
+            description=f"{NO_STANDING} <->",
+            sign_code="PS-2G",
+        ),
+        staged_sign(
+            "hmp",
+            to_street="E 2 STREET",
+            distance_ft=150.0,
+            description=TWO_HOUR_METER,
+            sign_code="PS-65C",
+        ),
+        staged_sign(
+            "one-way",
+            to_street="E 2 STREET",
+            distance_ft=220.0,
+            arrow_direction="North",
+            description=f"{NO_PARKING} -->",
+            sign_code="PS-40A",
+        ),
+        staged_sign(
+            "repeat",
+            to_street="E 2 STREET",
+            distance_ft=300.0,
+            description=f"{NO_STANDING} <->",
+            sign_code="PS-2G",
+        ),
+    )
+
+    bounds = sorted((segment.start_ft, segment.end_ft) for segment in segments)
+    assert all(earlier[1] <= later[0] for earlier, later in pairwise(bounds)), bounds
+    assert all(segment.end_ft > segment.start_ft for segment in segments)
+
+
+def test_the_flatten_keeps_every_sign_on_the_curb_its_own_span_covered():
+    # Cutting must not lose a rule: each sign still appears somewhere, and the
+    # union of the stretches carrying it is the span its post governs.
+    segments, _ = resolve(
+        staged_sign(
+            "ns",
+            to_street="E 2 STREET",
+            distance_ft=50.0,
+            description=f"{NO_STANDING} <->",
+            sign_code="PS-2G",
+        ),
+        staged_sign(
+            "hmp",
+            to_street="E 2 STREET",
+            distance_ft=150.0,
+            description=TWO_HOUR_METER,
+            sign_code="PS-65C",
+        ),
+    )
+
+    def extent(sign_id):
+        covering = [s for s in segments if sign_id in s.derived_from]
+        return (min(s.start_ft for s in covering), max(s.end_ft for s in covering))
+
+    assert extent("ns") == (0.0, 150.0)
+    assert extent("hmp") == (50.0, pytest.approx(FIRST_BLOCK_FT, abs=1.0))

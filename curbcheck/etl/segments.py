@@ -8,10 +8,12 @@ is what 34 RCNY 4-08 says about a single authorized sign. The arrow's *arity*
 comes from the grammar's reading of the sign and its *bearing* from
 `arrow_direction` (docs/DECISIONS.md D3 refined).
 
-Two passes follow the extrapolation: posts that repeat one rule over a stretch
-have their spans unioned (D5 in docs/VALIDATION.md §4), and every street side
-left with no span at all gets a placeholder so the map can say "no data" rather
-than draw nothing (docs/DECISIONS.md D23).
+Three passes follow the extrapolation: posts that repeat one rule over a stretch
+have their spans unioned (D5 in docs/VALIDATION.md §4), the spans left on a side
+are cut at every boundary so no two of them cover the same foot of curb
+(docs/DECISIONS.md D25), and every street side left with no span at all gets a
+placeholder so the map can say "no data" rather than draw nothing
+(docs/DECISIONS.md D23).
 """
 
 from __future__ import annotations
@@ -23,6 +25,7 @@ import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from itertools import pairwise
 from typing import Any
 
 from shapely.geometry import LineString, mapping
@@ -62,6 +65,11 @@ _LEADING_SYMBOL = re.compile(r"^\([^)]*\)\s*|^[A-Z /&]+\(SYMBOLS?\)\s*")
 # A span shorter than this is a sign pointing off the end of its own block,
 # which means the distance or the bearing is wrong; fall back to the whole side.
 MIN_SPAN_FT = 1.0
+
+# Half the 0.01 ft quantum the span bounds are rounded to. A span that reaches a
+# boundary exactly covers up to it and no further, so a span merely touching an
+# atomic interval's end does not join that interval's stack.
+_BOUNDARY_EPS_FT = 0.005
 
 # `gap_kind` values on a placeholder span: the source carries no active sign
 # rows for that blockface-side at all, or it carries them and none could be
@@ -171,6 +179,8 @@ class SegmentReport:
     arrow_extended_spans: int
     merged_repeat_spans: int
     """Spans absorbed into a neighbour because they state the same rule (SPEC §B.2)."""
+    pre_flatten_spans: int
+    """Per-post spans that went into the flatten, before they were cut at their boundaries."""
     degenerate_spans: int
     offset_curve_fallbacks: int
     signs_used: int
@@ -231,11 +241,12 @@ def resolve_segments(
     readings: Mapping[str, SignReading] | None = None,
     graph: StreetGraph | None = None,
 ) -> tuple[list[RegulationSegment], SegmentReport]:
-    """Group snapped regulation signs into curb spans, one per distinct span.
+    """Group snapped regulation signs into curb spans, one per stretch of curb.
 
-    Only matched regulation panels take part (docs/DECISIONS.md D10). Signs
-    whose spans come out identical — the usual case being several panels on one
-    post — collapse into a single segment carrying all their sign ids.
+    Only matched regulation panels take part (docs/DECISIONS.md D10). Each
+    blockface-side comes back as a non-overlapping tiling: a span is cut at
+    every other span's boundary and each piece carries every sign governing it,
+    so the rules a foot of curb is under are one stack (docs/DECISIONS.md D25).
 
     With `graph`, every street side that ends up with no span also gets a
     placeholder so the map can draw SPEC §11's grey "no sign data" state there
@@ -250,7 +261,15 @@ def resolve_segments(
         faces.setdefault((_chain_key(snap), snap.side), []).append(snap)
 
     segments: list[RegulationSegment] = []
-    counts = {"whole": 0, "arrow": 0, "merged": 0, "degenerate": 0, "fallback": 0, "signs": 0}
+    counts = {
+        "whole": 0,
+        "arrow": 0,
+        "merged": 0,
+        "pre_flatten": 0,
+        "degenerate": 0,
+        "fallback": 0,
+        "signs": 0,
+    }
     covered: set[tuple[str, str]] = set()
     for (chain_key, side), members in sorted(faces.items()):
         segments.extend(_resolve_face(chain_key, side, members, readings or {}, counts, covered))
@@ -262,6 +281,7 @@ def resolve_segments(
         whole_side_spans=counts["whole"],
         arrow_extended_spans=counts["arrow"],
         merged_repeat_spans=counts["merged"],
+        pre_flatten_spans=counts["pre_flatten"],
         degenerate_spans=counts["degenerate"],
         offset_curve_fallbacks=counts["fallback"],
         signs_used=counts["signs"],
@@ -270,12 +290,14 @@ def resolve_segments(
         unmatched_sides=sum(1 for span in placeholders if span.gap_kind == UNMATCHED_SIGNS),
     )
     LOGGER.info(
-        "segments.resolve faces=%d segments=%d whole_side=%d arrow=%d merged=%d degenerate=%d",
+        "segments.resolve faces=%d segments=%d whole_side=%d arrow=%d merged=%d"
+        " pre_flatten=%d degenerate=%d",
         report.blockface_sides,
         report.segments,
         report.whole_side_spans,
         report.arrow_extended_spans,
         report.merged_repeat_spans,
+        report.pre_flatten_spans,
         report.degenerate_spans,
     )
     return segments, report
@@ -461,17 +483,18 @@ def _resolve_face(
         spans.setdefault((round(span[0], 2), round(span[1], 2)), []).append(post)
         counts["signs"] += 1
     spans = _merge_repeated_spans(spans, counts)
+    counts["pre_flatten"] += len(spans)
 
     offset_sign, _ = side_offset_sign(line_ft, side)
     chain = _canonical_chain(block)
     resolved = []
-    for (start_ft, end_ft), group in sorted(spans.items()):
+    for (start_ft, end_ft), group in flatten_spans(spans):
         geometry, fell_back = _curb_geometry(
             line_ft, start_ft, end_ft, block.width_ft / 2.0, offset_sign
         )
         if fell_back:
             counts["fallback"] += 1
-        sign_ids = tuple(sorted(post.snap.sign.sign_id for post in group))
+        sign_ids = _sign_ids(group)
         span_length = end_ft - start_ft
         # A span that runs over a chain covers every segment it crosses, not
         # only the one it is filed under, or the rest would look uncovered.
@@ -538,6 +561,58 @@ def _union_touching(
             continue
         runs.append(((start_ft, end_ft), list(group)))
     return runs
+
+
+def flatten_spans(
+    spans: Mapping[tuple[float, float], Sequence[_Post]],
+) -> list[tuple[tuple[float, float], list[_Post]]]:
+    """Cut the spans on one blockface-side into a non-overlapping tiling of it.
+
+    D20 has a `<->` post extend to the next post of *any* family, so a
+    permission and a prohibition each claim the curb between them and their
+    spans overlap by design. Each span used to be its own `regulation_segment`
+    row with its own rule stack, which is exactly what `resolve.evaluate_segment`
+    cannot see across: a `2 HMP <->` reaching back over a `NO STANDING ANYTIME`
+    read LEGAL over curb that is not (docs/DECISIONS.md D24, then D25).
+
+    Splitting at every span boundary and giving each piece the union of the
+    posts covering it puts both rules in one stack, where most-restrictive-wins
+    decides them per foot of curb and the uncontested remainder stays legal.
+    Pieces no span covers are dropped: they are curb no post governs, and the
+    only grey this module draws is the side-level placeholder of D23.
+    """
+    if not spans:
+        return []
+    items = sorted(spans.items())
+    bounds = sorted({value for span in spans for value in span})
+    pieces: list[tuple[tuple[float, float], list[_Post]]] = []
+    for start_ft, end_ft in pairwise(bounds):
+        covering = [
+            post
+            for (span_start, span_end), group in items
+            if span_start - _BOUNDARY_EPS_FT <= start_ft and end_ft <= span_end + _BOUNDARY_EPS_FT
+            for post in group
+        ]
+        if not covering:
+            continue
+        if pieces and _continues(pieces[-1], start_ft, covering):
+            (run_start, _), members = pieces[-1]
+            pieces[-1] = ((run_start, end_ft), members)
+            continue
+        pieces.append(((start_ft, end_ft), covering))
+    return pieces
+
+
+def _continues(
+    piece: tuple[tuple[float, float], list[_Post]], start_ft: float, covering: Sequence[_Post]
+) -> bool:
+    """Whether an atomic interval abuts the last piece under exactly the same posts."""
+    (_, run_end), members = piece
+    return run_end == start_ft and _sign_ids(members) == _sign_ids(covering)
+
+
+def _sign_ids(posts: Sequence[_Post]) -> tuple[str, ...]:
+    return tuple(sorted(post.snap.sign.sign_id for post in posts))
 
 
 def _post_for(
