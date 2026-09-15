@@ -59,12 +59,14 @@ classic script and a module script do not share an execution order otherwise:
 ```html
 <link rel="stylesheet" href="./vendor/maplibre-gl/maplibre-gl.css" />
 <script src="./vendor/pmtiles/pmtiles.js"></script>
-<script type="module" src="./map.js"></script>
+<script type="module" src="./app.js"></script>
 ```
 
 ```js
-// map.js
-import maplibregl from "./vendor/maplibre-gl/maplibre-gl.mjs";
+// map.js — a namespace import, not a default one. The v6 build exports named
+// bindings only, and `import maplibregl from …` fails the module load with
+// "does not provide an export named 'default'" (docs/DECISIONS.md D16(a)).
+import * as maplibregl from "./vendor/maplibre-gl/maplibre-gl.mjs";
 
 const protocol = new pmtiles.Protocol();
 maplibregl.addProtocol("pmtiles", protocol.tile);

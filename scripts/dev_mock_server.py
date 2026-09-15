@@ -1,11 +1,20 @@
 """Serve `web/` plus canned API answers, so the frontend can be exercised alone.
 
-This exists because the real API (`curbcheck serve`) needs a built database and
-the frontend has to be testable before one exists. It answers the five routes in
-docs/API.md from `scripts/dev_mock_data.json`, serves the vendored static files,
-and range-serves the PMTiles archive, which pmtiles.js requires. It also sets
-the same CSP the real server sets, so a violation shows up here rather than in
-production. Bound to 127.0.0.1; never a production server.
+**This script and `dev_mock_data.json` exist for frontend work without a
+database.** The real API (`curbcheck serve`) needs a synced
+`data/curbcheck.sqlite`, which takes minutes to build and cannot be edited into
+a particular shape; these two files let a page be developed against any response
+the contract allows.
+
+It answers the five routes in docs/API.md from `scripts/dev_mock_data.json`,
+serves the vendored static files, and range-serves the PMTiles archive, which
+pmtiles.js requires. It also sets the same CSP the real server sets, so a
+violation shows up here rather than in production. Bound to 127.0.0.1; never a
+production server.
+
+Keep `dev_mock_data.json` in step with docs/API.md: it is the frontend's only
+other statement of the response shape, and a stale one teaches the page to
+expect fields the server no longer sends.
 
 Run: `python scripts/dev_mock_server.py [--port 8765]`.
 """

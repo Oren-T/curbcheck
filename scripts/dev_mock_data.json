@@ -44,7 +44,9 @@
         "charged_minutes": 120,
         "metered": true,
         "score": 10.4,
-        "rate_label": "Area 1"
+        "rate_label": "Area 1",
+        "street_name": "3 AVENUE, west side, E 85 ST → E 86 ST",
+        "gap_kind": null
       },
       {
         "reg_seg_id": "3681:E:0",
@@ -93,7 +95,9 @@
         "charged_minutes": 0,
         "metered": false,
         "score": 34.4,
-        "rate_label": null
+        "rate_label": null,
+        "street_name": "3 AVENUE, east side, E 85 ST → E 86 ST",
+        "gap_kind": null
       },
       {
         "reg_seg_id": "3712:N:0",
@@ -133,7 +137,9 @@
         "charged_minutes": 0,
         "metered": false,
         "score": 5.9,
-        "rate_label": null
+        "rate_label": null,
+        "street_name": "E 86 ST, north side, 3 AVENUE → LEXINGTON AVENUE",
+        "gap_kind": null
       },
       {
         "reg_seg_id": "3712:S:0",
@@ -164,9 +170,18 @@
         "charged_minutes": 0,
         "metered": false,
         "score": 60.0,
-        "rate_label": null
+        "rate_label": null,
+        "street_name": "E 86 ST, south side, 3 AVENUE → LEXINGTON AVENUE",
+        "gap_kind": "unmatched_signs"
       }
     ],
+    "counts": {
+      "legal": 149,
+      "illegal": 50,
+      "ambiguous": 1,
+      "no_data": 1,
+      "total": 201
+    },
     "disclaimer": "CurbCheck is advisory only. This tool derives parking legality and price from NYC Open Data (NYC DOT Sign Information Management System) and may be incomplete, out of date, or misread by the software. Parking regulations change and temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation. Always read the posted sign before parking. Sign-free prohibitions — within 15 feet of a fire hydrant (34 RCNY §4-08(e)(2)), crosswalks, bus stops, and driveways — apply even where no sign is shown. CurbCheck does not predict whether a space is physically available. Data © NYC Open Data; basemap © OpenStreetMap contributors.",
     "caveats": [
       "Temporary or construction signage may override what is shown here. The posted sign at the curb is the only authoritative regulation.",
@@ -568,7 +583,8 @@
     "status": "ok",
     "db_present": true,
     "db_readonly": true,
-    "sign_count": 74590
+    "sign_count": 74590,
+    "calendar_missing": false
   },
   "sync_status": {
     "last_sync": "2026-09-14T22:05:11-04:00",

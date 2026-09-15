@@ -215,7 +215,8 @@ database.
 namespace (`import * as maplibregl`), not as a default: the vendored v6 build
 exports named bindings only, and a default import fails the module load with
 "does not provide an export named 'default'". The wiring snippet in
-`web/vendor/MANIFEST.md` still shows the default form and is wrong. (b) The
+`web/vendor/MANIFEST.md` showed the default form and was wrong; it was
+corrected on 2026-09-15 and now shows the namespace import. (b) The
 style file keeps the host-free `sprite: "/basemap/sprites/v4/light"`, and
 `loadStyle()` prefixes the origin at load time, because MapLibre 6 parses the
 sprite URL with `new URL(value)` and throws "Invalid sprite URL …, must be

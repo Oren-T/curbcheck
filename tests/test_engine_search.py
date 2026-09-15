@@ -590,9 +590,7 @@ def test_an_unreadable_geometry_skips_its_row_and_logs_one_warning(
     assert warnings == ["skipped 2 regulation_segment row(s) with unreadable geometry"]
 
 
-def test_a_readable_database_logs_no_geometry_warning(
-    conn: sqlite3.Connection, caplog
-) -> None:
+def test_a_readable_database_logs_no_geometry_warning(conn: sqlite3.Connection, caplog) -> None:
     with caplog.at_level(logging.WARNING, logger="curbcheck.engine.search"):
         run_search(conn)
 

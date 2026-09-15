@@ -15,8 +15,9 @@ Two passes, because the two kinds of evidence are not equally strong:
   occurs as a rider on real regulations, so it is only trustworthy once we know
   the string states no rule.
 
-`etl/stage.py` carries a coarser three-way version of the first pass for its own
-staging counts; this module is the one the parser uses.
+`etl/stage.py` calls `panel_class` here and stores its label verbatim, so
+staging and the parser cannot disagree about what a panel is
+(docs/DECISIONS.md D19). There is no second, coarser classifier.
 """
 
 from __future__ import annotations

@@ -298,6 +298,26 @@ def test_a_small_limit_keeps_the_other_verdicts_in_the_response(client, tmp_path
     }
 
 
+def test_the_dev_mock_data_answers_the_same_shape_as_the_server(client):
+    """`scripts/dev_mock_data.json` is the frontend's other statement of the contract.
+
+    A stale one teaches the page to expect fields the server no longer sends,
+    which is invisible until someone opens the mock server.
+    """
+    mock = json.loads(
+        (Path(__file__).resolve().parents[1] / "scripts" / "dev_mock_data.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    live = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()
+
+    assert set(mock["search"]) == set(live)
+    assert set(mock["search"]["counts"]) == set(live["counts"])
+    for result in mock["search"]["results"]:
+        assert set(result) == set(live["results"][0])
+    assert set(mock["health"]) == set(client.get("/api/health").json())
+
+
 def test_money_is_a_string_not_a_float(client):
     [result] = client.post("/api/search", json={**DESTINATION, **WINDOW}).json()["results"]
     assert isinstance(result["money"], str)
