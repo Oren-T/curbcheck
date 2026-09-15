@@ -45,11 +45,12 @@ make serve          # http://127.0.0.1:8765
 
 ### `make sync` — the one step that needs the network
 
-It pulls five Socrata datasets plus the DOT calendar ICS into `data/raw/`
-(about 96 MB), records each download's URL, row count and SHA-256 in
-`data/raw/manifest.jsonl`, and builds a 70 MB SQLite file. On the 2026-09-15
-snapshot the build spent 55 s resolving geometry and 20 s parsing sign text
-after the downloads; budget a few minutes end to end on a home connection.
+It pulls seven Socrata datasets plus the DOT calendar ICS into `data/raw/`
+(about 132 MB), records each download's URL, row count and SHA-256 in
+`data/raw/manifest.jsonl`, and builds a 94 MB SQLite file. On the 2026-09-15
+snapshot the build spent 42 s resolving geometry, 20 s parsing sign text and
+54 s building the address index after the downloads; budget a few minutes end
+to end on a home connection.
 Re-running reuses snapshots younger than `--max-age-days`; `curbcheck sync
 --offline` rebuilds from `data/raw/` with no network at all.
 
@@ -142,10 +143,12 @@ each with its evidence, are in **[docs/DECISIONS.md](docs/DECISIONS.md)**.
 | Parking Meters – ParkNYC Block Faces (NYC DOT) | `e7yp-wx55` | meter rates |
 | Parking Meters – Citywide Rate Zones (NYC DOT) | `f72k-2u3b` | rate fallback |
 | Parking Meters Locations and Status (NYC DOT) | `693u-uax6` | metered-segment cross-check |
+| AddressPoint (NYC OTI) | `uf93-f8nk` | 63,245 surveyed doors: the address suggester and the geocoder |
+| CommonPlace (NYC OTI) | `t95h-5fsr` | place names in the suggester (`Bryant Park`) |
 | Alternate Side Parking suspension calendar (nyc.gov ICS) | — | suspension days, major legal holidays |
 
-The five Socrata datasets are published on NYC Open Data under its Terms of
-Use; attribute them as **Data © NYC Open Data (NYC DOT, DCP)**. The basemap is a
+The seven Socrata datasets are published on NYC Open Data under its Terms of
+Use; attribute them as **Data © NYC Open Data (NYC DOT, DCP, OTI)**. The basemap is a
 Manhattan extract of the [Protomaps](https://protomaps.com) daily build of
 OpenStreetMap, a Produced Work under the **ODbL** — the visible **©
 OpenStreetMap contributors** credit in the map corner is required, not

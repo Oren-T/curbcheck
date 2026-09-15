@@ -28,8 +28,8 @@ Update it when the state changes; delete anything no longer true.
 curbcheck/        Python package
   config.py net.py model.py db.py geocode.py cli.py
   etl/            fetch, stage, streets, snap, parse/, segments, meters,
-                  calendar, build
-  engine/         window, resolve, cost, search
+                  calendar, addresses, build
+  engine/         window, resolve, cost, search, coverage, geo, labels, ranges, signs
   api/            app, routes, schemas, errors
 web/              Static frontend (plain ES modules), vendor/ and basemap/ assets
 tests/            pytest suite; tests/gold/ is the 520-line sign-text gold set
@@ -58,7 +58,11 @@ false-permitted on the 520-description gold set, 0 of 6,558 metered segments
 unpriced, 26 of 30 sampled sides agreeing with DOT's viewer — which renders the
 same SIMS export we read, so that is a check against our source, not a survey.
 Real spans on one centerline segment-side tile it and never overlap (D25, D26),
-whichever of DOT's blockface tuples they came from.
+whichever of DOT's blockface tuples they came from. Address search is served
+from a local index of 63,245 surveyed doors, 5,645 corners, 5,817 place names
+and 2,814 street spellings (D29): median 0 m error over a 400-door sample,
+0.3 ms a keystroke on local disk and 10.9 ms on this container's data mount,
+nothing leaving the machine.
 
 ## Non-negotiables
 

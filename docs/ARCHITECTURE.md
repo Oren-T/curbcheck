@@ -181,15 +181,16 @@ collapses these into two colors. A span with no rules at all — every
 placeholder, and the 56 real spans whose only signs state no curb rule — is
 `no_data`; nothing reaches `legal` on an empty stack.
 
-**Geocoding is local and degrades in steps.** `geocode.py` reads only
-`street_segment` and `street_node`, so a destination address never leaves the
-machine (T6). `"3 Ave & E 85 St"` resolves as an intersection at confidence
-0.95; a house number interpolates along the segment's address range at 0.9
-(0.7 when several segments tie); and because CSCL carries address ranges on
-only 54% of Manhattan segments, the rest fall back to the nearest
-hundred-block corner at 0.5 and then to the street's midpoint at 0.3. A low
-confidence is returned and shown, never rounded up, and the user can always
-drop a pin instead.
+**Geocoding is local and degrades in steps.** `geocode.py` reads the
+vocabulary index `etl/addresses.py` builds — 63,245 surveyed doors, 5,645
+corners, 5,817 places, 2,814 street spellings — so a destination address never
+leaves the machine, and neither does the typing that led to it (T6, D29). The
+ladder is a surveyed door at confidence 0.98, a corner at 0.95, a place at
+0.85, a number placed between two surveyed neighbours at 0.75, the street
+itself at 0.70, `near <closest door>` at 0.60, CSCL's own address range at 0.50
+for a street with no door at all, and a ZIP centre at 0.25. A low confidence is
+returned and shown, never rounded up, and the user can always drop a pin
+instead.
 
 **The basemap is served, not proxied.** `data/basemap/manhattan.pmtiles` is a
 gitignored 23 MB archive that `api/app.py` serves at

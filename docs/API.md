@@ -418,59 +418,100 @@ fields mean nothing — read only `raw_sign_description`, `parse_method`, and
 
 ## `GET /api/geocode?q=`
 
-Local geocoder over the centerline address ranges. No network, no third-party
-geocoder, so no address ever leaves the machine (threat T6).
+Address suggestions from the local index. No network, no third-party geocoder,
+so no address ever leaves the machine — and because a suggestion list fires on
+every keystroke, that matters more here than anywhere else in the API (threat
+T6). `docs/ux/AUTOCOMPLETE_RESEARCH.md` §3 is the survey of the online options
+and why none of them is offered, not even opt-in.
 
-`q` is 1–200 characters. Returns at most **8** candidates, best first. An
+`q` is 1–120 characters. Returns at most **8** candidates, best first. An
 unparseable or unmatched query returns `{"query": …, "candidates": []}` with
 status 200 — an empty result is an answer, not an error. A candidate outside
 coverage is never returned, so anything in this list can be searched
 (`docs/DECISIONS.md` D28).
 
+There is **no session token and no cookie**. Session tokens exist so a vendor
+can bill a keystroke sequence as one geocode; there is no vendor, so the
+endpoint is a pure function of `q` with nothing tying two requests together.
+Every response carries `Cache-Control: no-store`.
+
 ```json
 {
-  "query": "123 E 85 St",
+  "query": "350 5th",
   "candidates": [
     {
-      "label": "123 E 85 ST",
-      "secondary": "LEXINGTON AVE → PARK AVE",
-      "lat": 40.778455,
-      "lon": -73.956201,
+      "label": "350 5 AVE",
+      "secondary": "Manhattan 10118",
+      "lat": 40.748377,
+      "lon": -73.984854,
       "kind": "address",
-      "confidence": 0.9
+      "confidence": 0.98
     },
     {
-      "label": "E 85 ST & LEXINGTON AVE",
+      "label": "350A 5 AVE",
+      "secondary": "Manhattan 10118",
+      "lat": 40.74817,
+      "lon": -73.985005,
+      "kind": "address",
+      "confidence": 0.98
+    },
+    {
+      "label": "near 347 E 5 ST",
       "secondary": "Manhattan",
-      "lat": 40.778901,
-      "lon": -73.956998,
-      "kind": "intersection",
-      "confidence": 0.5
+      "lat": 40.725992,
+      "lon": -73.986816,
+      "kind": "address",
+      "confidence": 0.6
     }
   ]
 }
 ```
 
-Accepted forms: `123 E 85 St`, `123 East 85th Street`, `1500 3rd Ave`,
-`Lexington Ave & 86th St`, `E 86 St and 3 Ave`, and a bare street name.
+A building with several surveyed doors is several candidates rather than one,
+because AddressPoint files them separately and they are up to 100 m apart.
+
+Accepted forms, all measured (`docs/ux/AUTOCOMPLETE_RESEARCH.md` §2.3):
+
+| typed | answers |
+|---|---|
+| `1519 3rd ave`, `1519 third avenue`, `1519 3rd av` | `1519 3 AVE` |
+| `e 86th st and 3rd`, `86 & 3`, `lex & 86`, `fdr dr & 96` | the corner |
+| `86th st` | `E 86 ST` and `W 86 ST`, because the side is not stated |
+| `10021` | the centre of that ZIP |
+| `bryant park`, `one world trade`, `1 police plaza` | the place |
+| `broadwa` | every street that spelling is a prefix of |
+| `w 4 st and bleeker` | the typo is corrected; the two streets are offered, because CSCL has no node where they meet |
 
 `kind` is one of `address`, `intersection`, `street`, `zip`, `place`, `pin`.
-Only the first three are produced today — `address` is interpolated within a
-house-number range, `intersection` is a centerline node or a nearest-corner
-fallback, `street` is the midpoint of a street whose house number could not be
-placed. The other three are part of the closed set now so a client that
-switches on `kind` is written against the whole of it; treat an unknown value
-as `place`.
+This endpoint produces the first five; `pin` is what the frontend calls a
+crosshair the user has not dropped yet. Treat an unknown value as `place`.
 
-`secondary` is the muted second line: the block's cross streets when the
-segment names them, otherwise `"Manhattan"`. It is `string | null` in the
-contract, and no route emits `null` today; there is no ZIP in any dataset we
-load, which is the field a `"Manhattan, 10028"` would go in.
+`confidence` is 0–1 and says **how** the point was found, which is the only
+honest thing to rank on:
 
-`confidence` is 0–1; see the coverage limits in `curbcheck/geocode.py`'s module
-docstring — only 54% of Manhattan centerline segments publish address ranges,
-so many house numbers resolve only to the nearest hundred-block corner at
-confidence ≈ 0.5.
+| confidence | `kind` | what it is |
+|---|---|---|
+| 0.98 | `address` | a surveyed door from OTI AddressPoint |
+| 0.95 | `intersection` | a centerline node both streets meet at |
+| ≤ 0.85 | `place` | a CommonPlace name, scaled by how much of it the query accounted for |
+| 0.75 | `address` | placed between two surveyed same-parity neighbours; `secondary` names them |
+| 0.70 | `street` | the query is exactly this street's name |
+| 0.60 | `address` | `near <the closest surveyed number>` |
+| 0.50 | `address` | interpolated along CSCL's own published range, for one of the 233 streets with no surveyed door |
+| 0.45 / 0.30 | `street` | reached by prefix, or offered as half of a corner that does not exist |
+| 0.25 | `zip` | the mean of a ZIP's doors |
+
+A fuzzy street match — an edit-distance-1 correction of a typo — multiplies the
+row's confidence by 0.8. It only runs when the exact and prefix passes found
+nothing, and never on a street fragment shorter than four characters, where
+almost every spelling is within one edit of almost every other.
+
+`secondary` is the muted second line and is `string | null` in the contract,
+though no route emits `null` today: `"Manhattan 10028"` for a surveyed door,
+`"Manhattan · between 1517 and 1529"` for an interpolated one,
+`"Manhattan · ZIP centre of 1732 addresses"` for a ZIP, the block's cross
+streets for the centerline-range rung, and `"Manhattan"` when there is nothing
+narrower to say.
 
 ---
 
@@ -484,8 +525,8 @@ is 422 `validation_error`. A point outside coverage is 422 `outside_coverage`.
 
 ```json
 {
-  "label": "1519 3 AVE",
-  "secondary": "E 85 ST → E 86 ST",
+  "label": "near 1519 3 AVE",
+  "secondary": "Manhattan",
   "kind": "address",
   "lat": 40.778402,
   "lon": -73.955249,
@@ -494,13 +535,13 @@ is 422 `validation_error`. A point outside coverage is 422 `outside_coverage`.
 ```
 
 `label`, `secondary` and `kind` mean what they do on a geocode candidate. The
-answer is a house number interpolated on the nearest block that publishes a
-range, when that block is within 60 m of the pin; otherwise the nearest
-centerline node (`kind: "intersection"`); otherwise the street the pin is on
-(`kind: "street"`). `lat`/`lon` are the returned place, not the pin, and
-`distance_m` is how far the pin is from it, to one decimal. The house number is
-interpolated along the block and keeps the parity of the side the pin fell on,
-which makes it approximate: it names the block, not the door.
+answer is the nearest surveyed door when one is within **60 m** of the pin,
+otherwise the nearest centerline node (`kind: "intersection"`), otherwise the
+street the pin is on (`kind: "street"`). A pin with nothing within 250 m — the
+middle of the Hudson — is 404 `not_found`. `lat`/`lon` are the returned place,
+not the pin, and `distance_m` is how far the pin is from it, to one decimal.
+The label says "near" because it names the closest door, not the building the
+pin is on.
 
 ---
 

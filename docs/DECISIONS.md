@@ -611,3 +611,50 @@ spans, because DOT letters no Manhattan curb there.
 Open Data would let the test be point-in-polygon, which would put the reservoir
 back in and DUMBO out. That is a new dataset with its own sync and licence
 entry, and the distance test needs none.
+
+## D29. Address autocomplete is served from a local index, with no online option
+
+**Decided:** 2026-09-15. Add OTI's `AddressPoint` (`uf93-f8nk`, 63,245 Manhattan
+doors) and `CommonPlace` (`t95h-5fsr`, 5,827 names) to the ETL, fold them into a
+vocabulary index in SQLite, and serve `/api/geocode` from it per keystroke. Take
+no online geocoder, not even opt-in and off by default.
+
+**Why:** three reasons, in the order they matter.
+
+*Privacy.* Autocomplete sends a prefix of the destination on every keypress,
+which is threat T6 — it leaks the typing, not just the answer — and SPEC §3.2
+makes the egress allowlist a config constant precisely so "it probably works"
+is not a reason to add a host. Ten services were read in full
+(`docs/ux/AUTOCOMPLETE_RESEARCH.md` §3). Nominatim forbids autocomplete in
+writing; Mapbox's free tier forbids storing the result, and we must store the
+destination to search it; Google requires results not be shown beside a
+non-Google map, and ours is MapLibre. The closest call is NYC Planning Labs
+GeoSearch — same data lineage, free, no key, run by the city that publishes our
+inputs — and it publishes no terms of service, no acceptable-use policy and no
+rate limit at all. Self-hosted Pelias is the only option with no privacy cost
+and it needs Elasticsearch, Node and ~4 GB of libpostal data to replace 13 MB
+of SQLite.
+
+*Accuracy.* Address points are surveyed, and they are what made the local
+option better rather than merely cheaper. Over 800 random Manhattan doors the
+old centerline interpolation landed a median 95 ft from the real door (p95
+1,634 ft, worst 45,832 ft); over a 400-door sample the index-backed ladder is at
+a median of 0 m, p95 0 m, worst 29 m, with nothing unmatched. The old rung
+survives as the last one, for the 233 centerline streets AddressPoint files no
+door on.
+
+*Speed.* 0.32 ms median per suggestion on local disk, 10.9 ms on this
+container's 9p mount, against a 20 ms target. FTS5 was measured and rejected: it matches
+literal text, so every spelling (`THIRD AVENUE`, `86`, `LEX`) would have to be
+pre-expanded into the indexed string anyway, it cannot express "these two
+streets meet at a node", and `MATCH` is a query language the user types into,
+where a stray `"` is an error and a stray `*` is a wildcard scan. A covering
+index has no syntax to escape (T3).
+
+**Cost:** +13.2 MB on a 79.0 MB database (+16.7%) and 54 s of a 143 s sync.
+The centerline and unsnapped-sign indexes it needed alongside cost a further
+1.6 MB and pay for themselves several times over in the rest of the app.
+
+**Would reverse it:** a need to geocode outside Manhattan, where AddressPoint's
+other 904,626 rows would still serve but the centerline, the signs and the
+meters would not — so it would not be this decision that changed.

@@ -18,7 +18,7 @@ actually lives, how to check it yourself, and what is knowingly left open.
 | **T3** | Hostile strings ride in on the data | Explicit Pydantic schemas at the boundary, stdlib `json` only, no `eval`/`exec`/`pickle`/`yaml`/`subprocess` anywhere near a downloaded value, every SQL statement parameterized, spreadsheet-formula leads neutralized, and a frontend with no markup-building code path at all. |
 | **T4** | The local server is reached or abused | Binds `127.0.0.1` with no flag or environment variable that can widen it, one worker, no `--reload`, no `/docs`, a strict CSP on every response, no CORS, and a read-only SQLite connection. |
 | **T5** | Prompt injection through sign text | Not applicable: there is no LLM. `docs/DECISIONS.md` D2 removed the fallback parser, which removed the threat. |
-| **T6** | The user's destinations leak | No analytics, no telemetry, no crash reporting, no cookies, no `localStorage`, no remote asset of any kind. The geocoder is local; the basemap is a file on disk. After a sync the app never opens a socket. |
+| **T6** | The user's destinations leak | No analytics, no telemetry, no crash reporting, no cookies, no `localStorage`, no remote asset of any kind. The geocoder and its autocomplete are local (D29), so not even the typing leaks; the basemap is a file on disk. After a sync the app never opens a socket. |
 
 ## Where each control lives
 
@@ -72,7 +72,7 @@ actually lives, how to check it yourself, and what is knowingly left open.
 - `curbcheck/api/app.py:create_app` — `docs_url=None`, `redoc_url=None`,
   `openapi_url=None`; no CORS middleware anywhere.
 - `curbcheck/api/schemas.py` — `extra="forbid"`, bounded lat/lon, a 5-minute to
-  24-hour window, `walk_minutes` 1–30, `limit` 1–500, `address` and `q` 1–200
+  24-hour window, `walk_minutes` 1–30, `limit` 1–500, `address` and `q` 1–120
   characters.
 - `curbcheck/api/routes.py:get_segment` — `REG_SEG_ID_PATTERN` rejects a bad id
   with a 400 before any query is built.

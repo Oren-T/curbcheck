@@ -16,6 +16,8 @@ sidecar with the URL, fetch time, row count and SHA-256.
 | Parking Meters – ParkNYC Block Faces | `e7yp-wx55` | none (citywide) | 11,185 | `parknyc_blockfaces.json` |
 | Parking Meters – Citywide Rate Zones | `f72k-2u3b` | none | 52 | `meter_rate_zones.json` |
 | Parking Meters Locations and Status | `693u-uax6` | `borough='Manhattan'` | 5,082 | `meters_manhattan.json` |
+| AddressPoint | `uf93-f8nk` | `boroughcode='1'` | 63,245 | `address_points_manhattan.json` |
+| CommonPlace | `t95h-5fsr` | `boroughcode='1'` | 5,827 | `common_places_manhattan.json` |
 | ASP 2026 suspension calendar (ICS + PDF) | — (nyc.gov) | — | 39 VEVENTs | `calendar/` |
 
 Socrata omits null fields from resource JSON, so a missing key means null.
@@ -301,8 +303,12 @@ Population of the other columns the snap and the geocoder want:
 `l_blockfaceid`/`r_blockfaceid` **79.0%**, address ranges
 (`l_low_hn`/`l_high_hn`/`r_low_hn`/`r_high_hn`) **54.0%**, `bike_lane` 30.6%.
 
-The 54% address-range coverage is the number to watch for the local geocoder —
-nearly half the segments cannot be reverse-geocoded from house number alone.
+The 54% is a per-segment figure, not a coverage number: the geocoder matches
+a house number against *every* segment of the street, so 98.6% of real
+Manhattan addresses already fall inside some published range. It is an accuracy
+problem rather than a coverage one, and §5's address points are what fix it —
+the ranges are now only the last rung, for the 233 streets with no surveyed
+door.
 
 ### 2.3 Intersections rebuild from shared endpoints
 
@@ -487,7 +493,79 @@ as expected; it stays an opt-in extra.
 
 ---
 
-## 5. Basemap
+## 5. Address points and place names
+
+The two OTI datasets behind the address suggester. Both are marked `official`,
+both publish `Update Frequency: Weekly`, and both carry a WGS-84 GeoJSON
+`Point` in `the_geom`, so neither needs the EPSG:2263 conversion the sign
+coordinates do. Measured by `scripts/explore_addresses.py profile`;
+`docs/ux/AUTOCOMPLETE_RESEARCH.md` holds the option survey these two were
+chosen out of.
+
+### 5.1 AddressPoint (`uf93-f8nk`)
+
+967,871 rows citywide, **63,245 with `boroughcode='1'`**, 32.8 MB of JSON in
+two 50k pages. One row per surveyed door, which is the point of it: these are
+measured locations, not interpolations.
+
+| Field | Population | Note |
+|---|---|---|
+| `the_geom` | 100% | GeoJSON `Point`, WGS-84. Zero rows outside the Manhattan bounding box. |
+| `house_number` | 100% | Text. 40 rows are hyphenated (`159-48`, Queens style); the integer key is the digits before the hyphen. |
+| `house_number_suffix` | 3.8% (2,402) | The letter in `7A JANE ST`. Kept in the label, not in the key. |
+| `full_street_name` | 100% | CSCL's own double-spaced abbreviations (`W  48 ST`). |
+| `zipcode` | 100.0% | 91 ZIPs, 2 null rows. |
+| `house_number_range` | 4.9% | `557–559 BROADWAY`. Not read. |
+| `b7sc_vanity` | 431 rows | A street code, **not** a readable alias — no place names live here. |
+
+Junk: none material. Zero missing geometry. 1,635 `(house_number,
+full_street_name)` keys repeat over 2,257 extra rows; those are several doors
+of one building and are offered as separate candidates rather than
+deduplicated.
+
+**The normalizers already unify the names.** 871 distinct
+`normalize_street_name` forms, of which **784 (90.0%) match a
+`street_segment.street_norm` exactly, covering 99.3% of rows**. The 87 that do
+not cover 444 rows and are almost all places the centerline has no segment for:
+`GOVERNORS ISLAND` (167), `STUYVESANT OVAL`, `POMANDER WALK`, `PENN PLZ`,
+`HUDSON YARDS`, `UNION SQ`, `ROCKEFELLER PLZ`, `TIMES SQ`. Only one was a real
+alias, `DR M L KING JR BLVD` (43 rows) for CSCL's `W 125 ST`, and it is now in
+`streets.NAME_ALIASES`. The suggester indexes the rest under their own names
+anyway, so a door on Pomander Walk is still findable.
+
+**What the points add, and what they do not.** Of 60,965 distinct (house
+number, street) pairs, 98.6% already fall inside a published centerline range
+— so this is not a coverage fix, it is an accuracy fix. Over 800 random points,
+centerline interpolation lands a median 95 ft from the surveyed door (p90
+295 ft, p95 1,634 ft); the address-point ladder lands at 0 ft for a point it
+has. What it does not fix is completeness: of the 250,096 same-parity house
+numbers the centerline ranges imply, only 61,070 (24.4%) have an address
+point. `1519 3 AVE` is absent while 1517 and 1529 are present, which is why
+`geocode` keeps an interpolation rung between two surveyed neighbours.
+
+### 5.2 CommonPlace (`t95h-5fsr`)
+
+5,827 Manhattan rows, 2.8 MB, every one with a `feature_name` and a point:
+`BRYANT PARK`, `1 WORLD TRADE CENTER`, `ONE POLICE PLAZA HELIPORT`. 10 names
+only repeat a street the centerline already carries (a bare `BROADWAY`, a
+`BLEECKER ST`) and are dropped at build time, because the street entry has real
+geometry behind it and the place point does not.
+
+### 5.3 What the index costs
+
+`etl/addresses.py` writes 63,245 `address_point` rows, 5,645 `intersection`
+pairs (stored both ways round) over the multi-name `street_node` rows, 1,017
+`street` rows, 2,814 `street_variant` spellings, 5,817 `place` names with
+23,659 tokens, and 91 `zip_centroid` rows. With its three covering indexes that
+is **+13.2 MB** on a 79.0 MB database, and 54 s of a 143 s sync on an idle
+machine (169 s of 490 s when another process was competing for the same mount).
+The database is 93.9 MB in total, the other 1.6 MB being the centerline and
+unsnapped-sign indexes the suggestion path needs to stay inside its latency
+budget.
+
+---
+
+## 6. Basemap
 
 The spec's build URL (`build.protomaps.com/builds.json`) 404s. The working path,
 verified 2026-09-15:
@@ -533,7 +611,7 @@ rather than fetching `npm-style.protomaps.dev` at runtime.
 
 ---
 
-## 6. Scripts
+## 7. Scripts
 
 The `explore_*` profilers that produced every number above:
 
@@ -546,14 +624,15 @@ The `explore_*` profilers that produced every number above:
 | `explore_snap_feasibility.py` | `snap_feasibility.txt` |
 | `explore_meters.py` | `meters_parknyc.txt`, `meters_points.txt`, `meter_rate_zones.txt`, `meters_join.txt` |
 | `explore_calendar.py` | `data/raw/calendar/*`, `asp_calendar_2026.txt` |
+| `explore_addresses.py` | `data/raw/address_points_manhattan.json`, `common_places_manhattan.json`, and the §5 profile |
 
 They are stdlib-only (shapely and pyproj are pinned for the package but were
 not importable while this profile was made) and read-only against `data/raw/`.
 
 `scripts/` also holds five scripts that are not profilers and do write:
 `fetch_basemap_tiles.py` extracts `data/basemap/manhattan.pmtiles` from the
-daily planet build (§5), `fetch_basemap_assets.py` vendors the style, glyphs and
-sprites into `web/basemap/` (§5, `--check` verifies instead of writing), `parse_report.py`
+daily planet build (§6), `fetch_basemap_assets.py` vendors the style, glyphs and
+sprites into `web/basemap/` (§6, `--check` verifies instead of writing), `parse_report.py`
 and `eval_gold.py` score the grammar against the corpus and the gold set, and
 `smoke_search.py` runs a query against the built database. `dev_mock_server.py`
 serves canned API responses for working on the frontend alone.
