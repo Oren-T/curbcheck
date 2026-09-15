@@ -26,12 +26,12 @@ from curbcheck.geocode import (
     IntersectionQuery,
     StreetQuery,
     ZipQuery,
-    _in_coverage,
     geocode,
     parse_query,
     reverse_geocode,
     suggest,
 )
+from curbcheck.geocode.suggest import _in_coverage
 
 # A synthetic Upper East Side block, modelled on the worked example in
 # docs/DATA.md §2.3: 3 AVE runs south to north between E 85 ST and E 86 ST,
