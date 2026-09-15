@@ -563,8 +563,12 @@ function setSearching(searching) {
 
 /** Dim the answer on screen — in the rail and on the map — but keep it. */
 function setStale(stale) {
-  dom.results.classList.toggle("is-stale", stale);
-  dom.stats.classList.toggle("is-stale", stale);
+  // The count sentence and the caveats describe the answer being replaced, so
+  // they dim with it. Left bright they were the most authoritative-looking line
+  // in the rail while being the one most certainly about the previous search.
+  for (const node of [dom.results, dom.stats, dom.status, dom.caveats]) {
+    node.classList.toggle("is-stale", stale);
+  }
   curbMap.setStale(stale);
 }
 

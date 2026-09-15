@@ -505,7 +505,9 @@ h4 {
    never removed: a screen that empties and a screen that is being replaced look
    identical, and only one of them is what happened. */
 .results-region.is-stale,
-.stats.is-stale {
+.stats.is-stale,
+.status.is-stale,
+.caveat-summary.is-stale {
   opacity: 0.4;
   pointer-events: none;
   transition: opacity var(--m-base) var(--ease-out);
