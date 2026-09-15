@@ -638,3 +638,16 @@ def test_every_door_on_a_street_geocodes_to_within_ten_metres(straight_avenue):
 
     assert statistics.median(errors) <= ACCURACY_MEDIAN_MAX_M
     assert errors[int(len(errors) * 0.95)] <= ACCURACY_P95_MAX_M
+
+
+def test_driver_rows_come_back_in_one_order_whatever_the_hash_seed(conn):
+    """`search_names` keeps the first spelling it meets at equal rank, so the
+    rows it walks have to arrive in an order that does not depend on the
+    process; a set here made a suggestion list differ between two runs."""
+    from curbcheck.geocode.names import _driver_rows
+    from curbcheck.geocode.street import _STREET_TOKEN_SQL
+
+    rows = _driver_rows(conn, _STREET_TOKEN_SQL, ["a"])
+    assert isinstance(rows, list)
+    assert rows == sorted(rows)
+    assert len(rows) == len(set(rows))
