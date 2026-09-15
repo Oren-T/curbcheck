@@ -7,6 +7,7 @@
  */
 
 import { verdictChip } from "./format.js";
+import { swatchBackground } from "./verdicts.js";
 
 /**
  * Build an element. `text` is always assigned with textContent, never parsed.
@@ -67,21 +68,28 @@ export function definition(term, value) {
 }
 
 /**
- * The verdict chip: colour, symbol, written word, and the map's dash pattern.
+ * The verdict chip: the map's own line pattern, then the written word.
  *
- * SPEC §11 requires the four states to stay visually distinct and UX_AUDIT (e) 1
- * requires four channels, so the pattern bar repeats the `line-dasharray` the
- * same verdict is drawn with on the map.
+ * SPEC §11 requires the four states to stay distinct without relying on colour,
+ * and UX_AUDIT (e) 1 wants more than one channel. The swatch is drawn from the
+ * same table the map paints from (`verdicts.js`), so the chip beside a card is
+ * literally the line on the map; the word carries the verdict on its own where
+ * forced colours or a colour-vision deficiency flattens the hue.
+ *
+ * It replaces a chip that stacked a dash bar, a tick glyph and the word — three
+ * marks for one fact, which read as `- - ✓ Nothing posted`.
  */
+const CHIP_SWATCH_HEIGHT = 6;
+
 export function verdictChipNode(result) {
   const chip = verdictChip(result);
+  const swatch = el("span", {
+    className: "verdict-pattern",
+    attrs: { "aria-hidden": "true" },
+  });
+  swatch.style.background = swatchBackground(chip.key, CHIP_SWATCH_HEIGHT);
   return el("span", { className: `verdict-chip ${chip.className}` }, [
-    el("span", { className: "verdict-pattern", attrs: { "aria-hidden": "true" } }),
-    el("span", {
-      className: "verdict-symbol",
-      text: chip.symbol,
-      attrs: { "aria-hidden": "true" },
-    }),
+    swatch,
     el("span", { text: chip.label }),
   ]);
 }

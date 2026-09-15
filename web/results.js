@@ -19,7 +19,7 @@ import {
   capacityLabel,
   confidenceText,
   priceLabel,
-  streetLabelText,
+  streetLabelParts,
   verdictKey,
   walkText,
 } from "./format.js";
@@ -139,6 +139,7 @@ function resultCard(result, rank, view) {
   const price = priceLabel(result);
   const capacity = capacityLabel(result);
   const confidence = confidenceText(result);
+  const street = streetLabelParts(result.street_name);
 
   const card = el(
     "button",
@@ -148,17 +149,20 @@ function resultCard(result, rank, view) {
     },
     [
       el("span", { className: "card-head" }, [
-        rank === null ? null : el("span", { className: "card-rank", text: `#${rank}` }),
+        rank === null ? null : el("span", { className: "card-rank", text: rank }),
         verdictChipNode(result),
-        el("span", { className: "card-walk", text: walkText(result.walk_min) }, [
-          el("span", { text: " walk" }),
-        ]),
       ]),
-      el("span", { className: "card-street", text: streetLabelText(result.street_name) }),
-      el("span", { className: "card-facts" }, [
+      el("span", { className: "card-street", text: street.primary }),
+      street.secondary === ""
+        ? null
+        : el("span", { className: "card-cross", text: street.secondary }),
+      el("span", { className: "card-metrics" }, [
+        el("span", { className: "card-walk", text: walkText(result.walk_min) }, [
+          el("span", { className: "card-unit", text: " walk" }),
+        ]),
         price === null ? null : el("span", { className: "card-price", text: price }),
-        capacity === null ? null : el("span", { text: capacity }),
-        confidence === null ? null : el("span", { text: confidence }),
+        capacity === null ? null : el("span", { className: "card-capacity", text: capacity }),
+        confidence === null ? null : el("span", { className: "card-capacity", text: confidence }),
       ]),
       el("span", {
         className: `card-reason${absence ? " card-reason-absence" : ""}`,

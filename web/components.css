@@ -426,37 +426,32 @@ input[type="range"] {
 
 /* ---- Verdict chips ----------------------------------------------------- */
 
+/* One swatch, one word. The swatch's gradient is set from web/verdicts.js, the
+   same table the map paints from, so a chip is the line it points at. */
 .verdict-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--s-3);
-  padding: var(--s-1) var(--s-5) var(--s-1) var(--s-4);
+  gap: var(--s-4);
+  padding: 3px var(--s-5) 3px var(--s-4);
   border-radius: var(--r-pill);
   border: 1px solid transparent;
-  font-size: var(--t-caption);
+  font-size: var(--t-micro);
   font-weight: var(--w-semibold);
-  letter-spacing: var(--track-tight);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
 .verdict-pattern {
-  width: 16px;
-  height: 0;
+  width: 14px;
+  height: 6px;
   flex: 0 0 auto;
-}
-
-.verdict-symbol {
-  font-size: var(--t-caption);
+  border-radius: var(--r-pill);
 }
 
 .verdict-legal {
   background: var(--v-legal-soft);
   color: var(--v-legal-ink);
-  border-color: color-mix(in srgb, var(--v-legal) 35%, transparent);
-}
-
-.verdict-legal .verdict-pattern {
-  border-top: 3px solid var(--v-legal);
 }
 
 /* Legality by absence. Same colour family, deliberately unfilled: a dashed
@@ -465,41 +460,22 @@ input[type="range"] {
 .verdict-absence {
   background: transparent;
   color: var(--v-legal-ink);
-  border: 1.5px dashed var(--v-legal);
-}
-
-.verdict-absence .verdict-pattern {
-  border-top: 3px dashed var(--v-legal);
+  border: 1px dashed color-mix(in srgb, var(--v-legal) 55%, transparent);
 }
 
 .verdict-ambiguous {
   background: var(--v-ambiguous-soft);
   color: var(--v-ambiguous-ink);
-  border-color: color-mix(in srgb, var(--v-ambiguous) 45%, transparent);
-}
-
-.verdict-ambiguous .verdict-pattern {
-  border-top: 3px dashed var(--v-ambiguous);
 }
 
 .verdict-illegal {
   background: var(--v-illegal-soft);
   color: var(--v-illegal-ink);
-  border-color: color-mix(in srgb, var(--v-illegal) 35%, transparent);
-}
-
-.verdict-illegal .verdict-pattern {
-  border-top: 3px dotted var(--v-illegal);
 }
 
 .verdict-no_data {
   background: var(--v-nodata-soft);
   color: var(--v-nodata-ink);
-  border-color: color-mix(in srgb, var(--v-nodata) 40%, transparent);
-}
-
-.verdict-no_data .verdict-pattern {
-  border-top: 3px dotted var(--v-nodata);
 }
 
 /* ---- Result list ------------------------------------------------------- */
@@ -537,66 +513,37 @@ input[type="range"] {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--s-1);
   width: 100%;
-  padding: var(--s-5) var(--s-6);
+  padding: var(--s-5) var(--s-6) var(--s-4);
   text-align: left;
   border: 0;
   border-radius: var(--r-lg);
   background: var(--c-surface);
-  box-shadow: var(--e-1);
+  box-shadow:
+    inset 0 0 0 1px var(--c-border),
+    var(--e-1);
   transition:
     transform var(--m-fast) var(--ease-out),
-    box-shadow var(--m-fast) var(--ease-out),
-    background var(--m-fast) var(--ease-out);
+    box-shadow var(--m-fast) var(--ease-out);
 }
 
-/* The 4 px verdict edge repeats the map's dash pattern, so a card and its line
-   are recognisably the same thing without reading either label. */
-.card::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: var(--s-4);
-  bottom: var(--s-4);
-  width: 4px;
-  border-radius: var(--r-pill);
+/* No left colour bar: the chip is the verdict, and 12 cards each wearing a
+   4 px stripe read as a striped column rather than as twelve answers. */
+.card:hover,
+.card.is-hovered {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 0 1px var(--c-border),
+    var(--e-lift);
 }
 
-.card-legal::before {
-  background: var(--v-legal);
-}
-
-.card-legal.card-absence::before {
-  background: repeating-linear-gradient(
-    var(--v-legal) 0 6px,
-    color-mix(in srgb, var(--v-legal) 25%, transparent) 6px 10px
-  );
-}
-
-.card-ambiguous::before {
-  background: repeating-linear-gradient(var(--v-ambiguous) 0 7px, transparent 7px 11px);
-}
-
-.card-illegal::before {
-  background: repeating-linear-gradient(var(--v-illegal) 0 4px, transparent 4px 7px);
-}
-
-.card-no_data::before {
-  background: repeating-linear-gradient(var(--v-nodata) 0 3px, transparent 3px 8px);
-}
-
-.card:hover {
-  transform: translateY(-1px);
-  background: var(--c-accent-soft);
-  box-shadow: var(--e-lift);
-}
-
+/* Selection is a ring, not a fill: a tinted card competes with the verdict
+   chip for the same job, and the ring survives dark mode unchanged. */
 .card[aria-pressed="true"] {
-  background: var(--c-accent-soft);
   box-shadow:
     0 0 0 2px var(--c-accent),
-    0 0 0 6px var(--c-select-glow),
+    0 0 0 5px var(--c-select-glow),
     var(--e-lift);
 }
 
@@ -604,54 +551,73 @@ input[type="range"] {
   display: flex;
   align-items: center;
   gap: var(--s-4);
+  margin-bottom: var(--s-2);
 }
 
 .card-rank {
+  min-width: 1.4em;
   font-size: var(--t-caption);
-  font-variant-numeric: tabular-nums;
+  font-weight: var(--w-medium);
   color: var(--c-text-muted);
 }
 
-.card-walk {
-  margin-left: auto;
-  white-space: nowrap;
-  font-size: var(--t-lead);
-  font-weight: var(--w-semibold);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: var(--track-tight);
-}
-
-.card-walk span {
-  font-size: var(--t-caption);
-  font-weight: var(--w-regular);
-  color: var(--c-text-secondary);
+.card-rank::before {
+  content: "#";
+  opacity: 0.6;
 }
 
 .card-street {
   font-size: var(--t-body);
-  font-weight: var(--w-semibold);
+  font-weight: var(--w-medium);
   letter-spacing: var(--track-tight);
   line-height: var(--lh-tight);
 }
 
-.card-facts {
+.card-cross {
+  font-size: var(--t-caption);
+  line-height: var(--lh-normal);
+  color: var(--c-text-muted);
+}
+
+/* One bold number — the walk — then a second for the price when there is one.
+   Everything else on this row is muted small text. */
+.card-metrics {
   display: flex;
+  align-items: baseline;
   flex-wrap: wrap;
   gap: var(--s-2) var(--s-5);
+  margin-top: var(--s-4);
+}
+
+.card-walk {
+  font-size: var(--t-lead);
+  font-weight: var(--w-semibold);
+  letter-spacing: var(--track-tight);
+  white-space: nowrap;
+}
+
+.card-unit {
   font-size: var(--t-caption);
-  font-variant-numeric: tabular-nums;
-  color: var(--c-text-secondary);
+  font-weight: var(--w-regular);
+  color: var(--c-text-muted);
 }
 
 .card-price {
-  color: var(--c-text);
+  font-size: var(--t-body);
   font-weight: var(--w-semibold);
+  white-space: nowrap;
+}
+
+.card-capacity {
+  font-size: var(--t-caption);
+  color: var(--c-text-muted);
 }
 
 .card-reason {
-  font-size: var(--t-small);
+  margin-top: var(--s-3);
+  font-size: var(--t-caption);
   line-height: var(--lh-normal);
-  color: var(--c-text);
+  color: var(--c-text-secondary);
 }
 
 .card-reason-absence {
@@ -788,6 +754,10 @@ input[type="range"] {
   gap: var(--s-5);
   padding: var(--s-6) var(--s-7) var(--s-5);
   border-bottom: 1px solid var(--c-glass-border);
+}
+
+.detail-heading {
+  min-width: 0;
 }
 
 .detail-title {

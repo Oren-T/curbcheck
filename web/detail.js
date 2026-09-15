@@ -41,7 +41,7 @@ import {
   formatHourRates,
   formatTimeRange,
   priceLabel,
-  streetLabelText,
+  streetLabelParts,
   verdictKey,
   walkText,
 } from "./format.js";
@@ -51,7 +51,8 @@ import {
  *
  * @param {HTMLElement} container the `role="dialog"` element
  * @param {{result: Object|null, detail: Object|null, error: string|null,
- *          loading: boolean, label: string, onClose: Function}} view
+ *          loading: boolean, label: {primary: string, secondary: string},
+ *          onClose: Function}} view
  * @returns {HTMLElement} the close button, so the caller can move focus to it
  */
 export function renderDetail(container, view) {
@@ -65,13 +66,19 @@ export function renderDetail(container, view) {
   close.addEventListener("click", () => view.onClose());
 
   const scroll = el("div", { className: "detail-scroll" }, body(view));
+  const label = view.label;
   container.append(
     el("div", { className: "detail-header" }, [
-      el("div", {}, [
-        el("h2", { className: "detail-title", text: view.label, attrs: { id: "detail-title" } }),
-        view.result && view.result.street_name
-          ? null
-          : el("p", { className: "detail-sub", text: "Stretch of curb" }),
+      el("div", { className: "detail-heading" }, [
+        el("h2", {
+          className: "detail-title",
+          text: label.primary,
+          attrs: { id: "detail-title" },
+        }),
+        el("p", {
+          className: "detail-sub",
+          text: label.secondary === "" ? "Stretch of curb" : label.secondary,
+        }),
       ]),
       close,
     ]),
@@ -454,18 +461,19 @@ function segmentSection(segment, result) {
 }
 
 /**
- * The street label for a segment, best source first: the label the search
+ * The street label for a segment as its two display lines, best source first: the label the search
  * result already carries, then the segment's own street name, then the streets
  * the signs name, then the opaque id (SPEC §10 wants a human label, but never
  * one that is invented).
  */
 export function streetLabel(result, detail) {
   if (result && result.street_name) {
-    return streetLabelText(result.street_name);
+    return streetLabelParts(result.street_name);
   }
   const segment = detail && detail.segment ? detail.segment : null;
   if (segment && segment.street_name) {
-    return segment.side ? `${segment.street_name} (${segment.side} side)` : segment.street_name;
+    const side = segment.side ? `, ${segment.side} side` : "";
+    return streetLabelParts(`${segment.street_name}${side}`);
   }
-  return result ? result.reg_seg_id : "Segment";
+  return { primary: result ? result.reg_seg_id : "Segment", secondary: "" };
 }

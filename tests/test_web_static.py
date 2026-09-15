@@ -44,6 +44,7 @@ EXPECTED_MODULES = {
     "results.js",
     "searchcard.js",
     "states.js",
+    "verdicts.js",
 }
 EXPECTED_STYLESHEETS = ("tokens.css", "styles.css", "components.css")
 FONTS_DIR = WEB_DIR / "fonts"
@@ -373,9 +374,10 @@ def test_the_map_draws_every_verdict_with_its_own_pattern_and_the_list_does_not_
     patterns and the grey floor below are all still the audited values.
     """
     map_js = (WEB_DIR / "map.js").read_text(encoding="utf-8")
+    verdicts = (WEB_DIR / "verdicts.js").read_text(encoding="utf-8")
     app = (WEB_DIR / "app.js").read_text(encoding="utf-8")
 
-    style = map_js.split("const VERDICT_STYLE = {")[1].split("\n};")[0]
+    style = verdicts.split("const VERDICT_STYLE = {")[1].split("\n};")[0]
     blocks = {
         verdict: style.split(f"{verdict}: {{")[1].split("},\n")[0]
         for verdict in ("legal", "ambiguous", "illegal", "no_data")

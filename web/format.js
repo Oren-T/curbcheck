@@ -12,14 +12,15 @@ const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKDAY_FROM_SUNDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /**
- * The four verdicts, each with the word and the symbol that carry it without
- * colour (SPEC §11). `legal` splits on `basis`: see `verdictChip`.
+ * The four verdicts and the word that carries each one without colour
+ * (SPEC §11). The second, non-colour channel is the line pattern the chip and
+ * the map share (`verdicts.js`). `legal` splits on `basis`: see `verdictChip`.
  */
 const VERDICT_INFO = {
-  legal: { label: "Legal", symbol: "✓" },
-  illegal: { label: "Illegal", symbol: "✕" },
-  ambiguous: { label: "Ambiguous", symbol: "?" },
-  no_data: { label: "No data", symbol: "–" },
+  legal: { label: "Legal" },
+  illegal: { label: "Illegal" },
+  ambiguous: { label: "Ambiguous" },
+  no_data: { label: "No data" },
 };
 
 const ACTION_NOUN = { park: "Parking", stand: "Standing", stop: "Stopping" };
@@ -48,9 +49,11 @@ const FLAG_LABEL = {
   meta: "modifies another sign on this stretch",
 };
 
+const UNNAMED_STRETCH = "Unnamed stretch";
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-/** Verdict label and symbol. An unknown verdict reads as no_data (docs/API.md). */
+/** The verdict's written word. An unknown verdict reads as no_data (docs/API.md). */
 export function verdictInfo(verdict) {
   return VERDICT_INFO[verdict] || VERDICT_INFO.no_data;
 }
@@ -70,10 +73,10 @@ export function verdictKey(verdict) {
 export function verdictChip(result) {
   const key = verdictKey(result && result.verdict);
   if (key === "legal" && result && result.basis === "absence") {
-    return { key, label: "Nothing posted", symbol: "✓", className: "verdict-absence" };
+    return { key, label: "Nothing posted", className: "verdict-absence" };
   }
   const info = VERDICT_INFO[key];
-  return { key, label: info.label, symbol: info.symbol, className: `verdict-${key}` };
+  return { key, label: info.label, className: `verdict-${key}` };
 }
 
 /** True when this result may print a confidence figure at all. */
@@ -145,9 +148,9 @@ export function priceLabel(result) {
  * side, PARK AVE → PARK AVE" (UX_AUDIT P2-7). Saying it once is true; saying
  * it twice reads like a bug and tells the driver nothing.
  */
-export function streetLabelText(streetName) {
+function streetLabelText(streetName) {
   if (typeof streetName !== "string" || streetName === "") {
-    return "Unnamed stretch";
+    return UNNAMED_STRETCH;
   }
   const parts = streetName.split(", ");
   const last = parts[parts.length - 1];
@@ -156,6 +159,118 @@ export function streetLabelText(streetName) {
     return `${parts.slice(0, -1).join(", ")}, at ${arrow[0]}`;
   }
   return streetName;
+}
+
+/**
+ * Abbreviations that are not words and must survive title-casing.
+ *
+ * DOT writes every name in capitals, so the only way to tell "FDR" from "Fdr"
+ * is a list. Single letters are here because `E 85 ST` and `7 AVE S` are
+ * compass directions, not initials.
+ */
+const STREET_ACRONYMS = new Set([
+  "E",
+  "W",
+  "N",
+  "S",
+  "NB",
+  "SB",
+  "EB",
+  "WB",
+  "NE",
+  "NW",
+  "SE",
+  "SW",
+  "FDR",
+  "RFK",
+  "JFK",
+  "MLK",
+  "NYU",
+  "II",
+  "III",
+]);
+
+/** Lowercased inside a name: "Ave of the Americas", "Ped and Bike Path". */
+const STREET_SMALL_WORDS = new Set([
+  "of",
+  "the",
+  "and",
+  "at",
+  "on",
+  "to",
+  "for",
+  "by",
+  "in",
+  "over",
+]);
+
+const SIDE_CLAUSE = /^(north|south|east|west|northeast|northwest|southeast|southwest) side$/i;
+
+/**
+ * One DOT street name in sentence case.
+ *
+ * `capitalizeFirst` is false for the cross-street line, where the leading word
+ * is often "at" and "At Park Ave" reads like a typo.
+ */
+export function titleCaseStreet(text, { capitalizeFirst = true } = {}) {
+  if (typeof text !== "string") {
+    return "";
+  }
+  const words = text.split(/\s+/).filter((word) => word !== "");
+  return words
+    .map((word, index) => {
+      const upper = word.toUpperCase();
+      if (STREET_ACRONYMS.has(upper)) {
+        return upper;
+      }
+      // A number keeps whatever the data had: "3", "145", "I-95".
+      if (/^[\d\W]+$/.test(word)) {
+        return word;
+      }
+      const lower = word.toLowerCase();
+      if (STREET_SMALL_WORDS.has(lower) && !(index === 0 && capitalizeFirst)) {
+        return lower;
+      }
+      // Hyphenated and slashed names capitalise on both sides of the mark.
+      return lower.replace(
+        /(^|[-/'])([a-z])/g,
+        (_match, prefix, letter) => prefix + letter.toUpperCase(),
+      );
+    })
+    .join(" ");
+}
+
+/**
+ * A result's street label split into the two lines a card prints.
+ *
+ * `street_name` arrives as `E 85 ST, north side, LEXINGTON AVE → 3 AVE`: the
+ * stretch, which side of it, and the two corners it runs between. Shouted in
+ * capitals on one line it is the loudest thing on a card and the hardest to
+ * scan. The stretch and its side are what identify the curb, so they lead; the
+ * corners are how you find it once you are on the block, so they follow in
+ * muted type.
+ *
+ * This is display only. The raw value still reaches the "as posted" blocks and
+ * the segment facts verbatim (SPEC §10).
+ */
+export function streetLabelParts(streetName) {
+  const cleaned = streetLabelText(streetName);
+  if (cleaned === UNNAMED_STRETCH) {
+    return { primary: cleaned, secondary: "" };
+  }
+  const parts = cleaned.split(", ");
+  const primary = [];
+  const secondary = [];
+  for (const [index, part] of parts.entries()) {
+    if (index === 0) {
+      primary.push(titleCaseStreet(part));
+    } else if (SIDE_CLAUSE.test(part)) {
+      primary.push(part.toLowerCase());
+    } else {
+      secondary.push(titleCaseStreet(part, { capitalizeFirst: false }));
+    }
+  }
+  return { primary: primary.join(" · "), secondary: secondary.join(", ") };
 }
 
 /**
