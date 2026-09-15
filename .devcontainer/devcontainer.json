@@ -1,0 +1,149 @@
+// Project devcontainer.json — generated from .devcontainer-template/devcontainer.json.
+//
+// "context"/"dockerfile" are relative to THIS file's folder; "PROJECT_DIR" is
+// relative to the context dir. This project is 2 levels below the workspace
+// root, so the context climbs 3 and PROJECT_DIR spells out the full path.
+//
+// PROJECT_DIR is matched case-sensitively inside the container even though
+// Windows isn't — "My-Analysis" will not find "my-analysis".
+//
+// Shared infrastructure lives in <workspace-root>/.devcontainer-template/ —
+// this project used to carry its own copy, which was promoted to the root and
+// is now shared by every project in the workspace. Do not copy anything else
+// out of it. R/RStudio versions are pinned in the Dockerfile, not here — see
+// .devcontainer-template/scripts/pin-r-version.sh.
+{
+  "name": "CurbCheck",
+  "build": {
+    "context": "../../..",
+    "dockerfile": "../../../.devcontainer-template/Dockerfile",
+    "args": {
+      // ---- Required. Path from the "context" dir above to this project.
+      "PROJECT_DIR": "personal/nyc_parking",
+
+      // ---- Toggles: set the STRING "true", not the boolean true
+      "INSTALL_PYTHON": "true",
+      "INSTALL_RSTUDIO": "false",
+      "INSTALL_PLAYWRIGHT": "true",
+      "ENABLE_FIREWALL": "false",
+      "INSTALL_GCLOUD": "false",
+      "INSTALL_PNPM": "false",
+
+      // ---- Shared CEL skills, installed as Claude Code plugins on create.
+      // "none", "all", or a comma- or space-separated subset of:
+      //   grill-me, minimal-diff, cel-skill-creator
+      // Needs SSH access to urbangitlab. See QUICKSTART "Using shared CEL skills".
+      "CEL_SKILLS": "none",
+      // Seconds per claude CLI call during setup. Raise if create logs say the
+      // marketplace step timed out while `git ls-remote` worked.
+      "CEL_SKILLS_TIMEOUT": "15",
+
+      // ---- Rarely changed
+      "TZ": "${localEnv:TZ:America/New_York}",
+      "CLAUDE_CODE_VERSION": "latest",
+      "CLAUDE_CODE_SUBAGENT_MODEL": "opus",
+      "GIT_DELTA_VERSION": "0.18.2",
+      "ZSH_IN_DOCKER_VERSION": "1.2.0",
+      "PLAYWRIGHT_MCP_VERSION": "latest"
+
+      // ---- Optional: only if your conda file isn't <PROJECT_DIR>/environment.yml.
+      // Path is relative to the context root. r-packages.txt has no equivalent —
+      // it is always read from <PROJECT_DIR>/r-packages.txt.
+      // ,"ENV_YML": "myproj/env.yaml"
+    }
+  },
+
+  // NET_ADMIN/NET_RAW needed for firewall — harmless when firewall is off.
+  // Do NOT add --network=host: it would point the firewall's host-network rule
+  // at your real LAN. init-firewall.sh refuses to run if it detects this.
+  "runArgs": ["--cap-add=NET_ADMIN", "--cap-add=NET_RAW"],
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "anthropic.claude-code",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "eamodio.gitlens",
+        "bierner.markdown-mermaid",
+        "ms-python.python",
+        "ms-toolsai.jupyter@2025.7.0"
+      ],
+      "settings": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+        // Saving CRLF from inside the container would break the next build the
+        // same way a CRLF checkout does.
+        "files.eol": "\n",
+        "python.defaultInterpreterPath": "/opt/conda/envs/current/bin/python",
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "terminal.integrated.profiles.linux": {
+          "bash": { "path": "bash", "icon": "terminal-bash" },
+          "zsh": { "path": "zsh" }
+        }
+      }
+    }
+  },
+
+  "remoteUser": "node",
+
+  // Persistent volumes for Claude Code config + shell history. Volumes not host
+  // binds: they live in the WSL2 ext4 disk, so they are fast and keep Linux
+  // ownership. Docker Desktop's "Clean / Purge data" wipes them.
+  "mounts": [
+    "source=claude-code-bashhistory-${devcontainerId},target=/commandhistory,type=volume",
+    "source=claude-code-config-${devcontainerId},target=/home/node/.claude,type=volume",
+    "source=D:/otirschwell/curbcheck-data,target=/workspace/data,type=bind"
+  ],
+
+  "containerEnv": {
+    "NODE_OPTIONS": "--max-old-space-size=4096",
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
+    // Load-bearing on Windows: gitstatusd over a Windows bind mount is
+    // pathologically slow and stalls the prompt.
+    "POWERLEVEL9K_DISABLE_GITSTATUS": "true"
+  },
+
+  // No initializeCommand: the macOS one re-runs `ssh-add` at every start, and a
+  // host-shell command that exits non-zero aborts container creation. The
+  // Windows agent persists keys across reboots — see QUICKSTART.
+
+  "remoteEnv": {
+    "GITHUB_TOKEN": "${localEnv:GITHUB_TOKEN}"
+  },
+
+  // Hivemind: always installed via GitHub Packages. MCP setup runs FIRST so it
+  // can't be skipped by a token failure, and so the hivemind chain still sets
+  // the exit status and surfaces its own errors in VS Code.
+  // The empty-token guard is for Windows: ${localEnv:} reads VS Code's own
+  // environment, so a token set after VS Code started resolves to empty.
+  "postCreateCommand": "/usr/local/bin/setup-mcp-servers.sh; /usr/local/bin/setup-cel-skills.sh; [ -n \"$GITHUB_TOKEN\" ] || echo 'WARNING: GITHUB_TOKEN is empty on the host. Set it, then FULLY quit VS Code and reopen — see QUICKSTART.' >&2; echo '//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}' >> ~/.npmrc && echo '@uchicago-urbanlabs-staff:registry=https://npm.pkg.github.com' >> ~/.npmrc && npm install -g @uchicago-urbanlabs-staff/hivemind",
+
+  // Firewall no-ops unless ENABLE_FIREWALL=true
+  // RStudio: type "rstudio" in the terminal to start (like "hivemind" for HiveMind)
+  "postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+
+  // No "waitFor": "postStartCommand". It would also gate postCreateCommand,
+  // whose hivemind step legitimately fails on a bad GITHUB_TOKEN — you would
+  // lose the terminal you need to diagnose it.
+
+  // HiveMind 4200-4203 (concurrent sessions) + RStudio 8787 (no-ops if not
+  // installed). VS Code forwards these to 127.0.0.1 on Windows, and silently
+  // picks a different local port if one is taken — check the PORTS panel.
+  "forwardPorts": [8787, 4200, 4201, 4202, 4203],
+  "portsAttributes": {
+    "8787": { "label": "RStudio Server", "onAutoForward": "openBrowserOnce" },
+    "4200": { "label": "HiveMind", "onAutoForward": "notify" },
+    "4201": { "label": "HiveMind 2", "onAutoForward": "notify" },
+    "4202": { "label": "HiveMind 3", "onAutoForward": "notify" },
+    "4203": { "label": "HiveMind 4", "onAutoForward": "notify" }
+  },
+
+  // No consistency= flag: macOS-only tuning, ignored by Docker Desktop on
+  // Windows and rejected outright by some other runtimes.
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "workspaceFolder": "/workspace"
+}
