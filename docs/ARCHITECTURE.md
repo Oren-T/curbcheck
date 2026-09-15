@@ -87,10 +87,10 @@ with shapely in Python. At Manhattan scale (under 10k street segments, under
 
 | Table | One row per | Key columns |
 |---|---|---|
-| `sign` | source sign row (active Manhattan) | `sign_id` (hash of row), `order_number`, streets, side, `distance_from_intersection`, `sign_code`, `sign_description`, published x/y, `derived_lon/lat`, `segment_id`, `snap_confidence`, `snap_notes` |
+| `sign` | source sign row (active Manhattan) | `sign_id` (hash of row), `order_number`, streets, side, `distance_from_intersection`, `sign_code`, `sign_description`, published x/y, `derived_lon/lat`, `segment_id`, `snap_confidence`, `snap_notes`, `is_regulation`, `panel_class` |
 | `street_segment` | centerline segment | `segment_id`, `street_name`, `street_norm`, `from_node`, `to_node`, `width_ft`, `length_ft`, geom, address ranges |
 | `street_node` | intersection | `node_id`, lon/lat, street names meeting there |
-| `regulation_segment` | resolved curb span | `reg_seg_id`, `segment_id`, `side`, `start_ft`, `end_ft`, geom, bbox, `length_ft`, `capacity_cars`, `confidence`, `derived_from` (JSON list of sign_ids) |
+| `regulation_segment` | resolved curb span | `reg_seg_id`, `segment_id`, `side`, `start_ft`, `end_ft`, geom, bbox, `length_ft`, `capacity_cars`, `capacity_approximate`, `confidence`, `derived_from` (JSON list of sign_ids) |
 | `regulation` | one parsed rule on one span | `reg_id`, `reg_seg_id`, all `Regulation` fields, `raw_sign_description`, `parse_method`, `parse_confidence` |
 | `meter_rate` | ParkNYC blockface | `blockface_id`, `segment_id`, `side`, `rate_label`, `hour_rates` (JSON), geom |
 | `asp_suspension` | calendar date | `date`, `is_major_legal_holiday`, `meters_suspended`, `label` |
