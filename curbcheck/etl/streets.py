@@ -110,7 +110,9 @@ NAME_ALIASES: dict[str, str] = {
 }
 
 # Values DOT writes into from_street/to_street where no cross street exists.
-NON_STREET_ENDPOINTS = frozenset({"DEAD END", "END", "CUL DE SAC"})
+# `DEAD END STREET` normalizes to `DEAD END ST` and is written on 8 rows
+# (docs/DATA.md §1.9); `DEADEND` is defensive, it is not in today's snapshot.
+NON_STREET_ENDPOINTS = frozenset({"DEAD END", "DEAD END ST", "DEADEND", "END", "CUL DE SAC"})
 
 # Signs sit on highways and bridges too (FDR Drive is rw_type 2 and 3), so the
 # candidate pool is wider than the plain street network (docs/DATA.md §2.1).
@@ -147,6 +149,8 @@ class NameMatch(StrEnum):
     EXACT = "exact"
     ALIAS = "alias"
     FUZZY = "fuzzy"
+    DEAD_END = "dead_end"
+    """`DEAD END` resolved to the street's own terminal node by walking the chain."""
     NOT_A_STREET = "not_a_street"
     MISSING = "missing"
 
@@ -281,7 +285,12 @@ class StreetNameLookup:
 
     @property
     def found(self) -> bool:
-        return self.match in (NameMatch.EXACT, NameMatch.ALIAS, NameMatch.FUZZY)
+        return self.match in (
+            NameMatch.EXACT,
+            NameMatch.ALIAS,
+            NameMatch.FUZZY,
+            NameMatch.DEAD_END,
+        )
 
 
 @dataclass(frozen=True)
@@ -406,8 +415,12 @@ class StreetGraph:
         to_name = self.resolve_street(to)
         if not on_name.found:
             return BlockLookup(None, "on_street_not_in_centerline", on_name, from_name, to_name)
-        if from_name.match is NameMatch.NOT_A_STREET or to_name.match is NameMatch.NOT_A_STREET:
+        from_dead = from_name.match is NameMatch.NOT_A_STREET
+        to_dead = to_name.match is NameMatch.NOT_A_STREET
+        if from_dead and to_dead:
             return BlockLookup(None, "cross_street_is_dead_end", on_name, from_name, to_name)
+        if from_dead or to_dead:
+            return self._dead_end_block(on_name, from_name, to_name, from_is_dead=from_dead)
         if not from_name.found or not to_name.found:
             return BlockLookup(None, "cross_street_not_in_centerline", on_name, from_name, to_name)
 
@@ -423,6 +436,101 @@ class StreetGraph:
         segment_ids, start_node, end_node, chain_count = chain
         match = self._build_block(on_name.norm, segment_ids, start_node, end_node, chain_count)
         return BlockLookup(match, "matched", on_name, from_name, to_name)
+
+    def _dead_end_block(
+        self,
+        on_name: StreetNameLookup,
+        from_name: StreetNameLookup,
+        to_name: StreetNameLookup,
+        *,
+        from_is_dead: bool,
+    ) -> BlockLookup:
+        """Resolve a blockface whose one named cross street ends at the street's own end.
+
+        DOT writes `DEAD END` where no cross street exists (604 sign rows over
+        147 blockface-sides, docs/VALIDATION.md §4 D2). The end it means is the
+        end of the named street's own run, so the chain is walked away from the
+        named corner until the street stops: a dangling endpoint, a fork, or the
+        point where the name changes. A fork is refused, because which branch
+        dead-ends is not knowable from the names alone.
+        """
+        named = to_name if from_is_dead else from_name
+        if not named.found:
+            return BlockLookup(None, "cross_street_not_in_centerline", on_name, from_name, to_name)
+        named_nodes = self._nodes_where(on_name.norm, named.norm)
+        if not named_nodes:
+            return BlockLookup(
+                None, "cross_street_does_not_meet_on_street", on_name, from_name, to_name
+            )
+        run = self._best_terminal_run(on_name.norm, named_nodes)
+        if run is None:
+            return BlockLookup(None, "cross_street_is_dead_end", on_name, from_name, to_name)
+        segment_ids, named_node, terminal_node = run
+        # `distance_from_intersection` is measured from the from_street end, so
+        # the chain has to start there whichever end the dead end is.
+        if from_is_dead:
+            segment_ids = list(reversed(segment_ids))
+            start_node, end_node = terminal_node, named_node
+        else:
+            start_node, end_node = named_node, terminal_node
+        match = self._build_block(on_name.norm, segment_ids, start_node, end_node, 1)
+        resolved = StreetNameLookup(norm=named.norm, match=NameMatch.DEAD_END)
+        return BlockLookup(
+            match,
+            "matched",
+            on_name,
+            resolved if from_is_dead else from_name,
+            to_name if from_is_dead else resolved,
+        )
+
+    def _best_terminal_run(
+        self, street_norm: str, named_nodes: Sequence[str]
+    ) -> tuple[list[str], str, str] | None:
+        """The shortest walk from a named corner to where the street ends.
+
+        A run ending at a dangling endpoint (degree 1) beats one that merely ran
+        into a name change, and a shorter run beats a longer one: a dead-end
+        stub is the block next to the corner, not the far end of the street.
+        """
+        runs = []
+        for node_id in sorted(named_nodes):
+            for segment_id in sorted(self._incident.get((street_norm, node_id), ())):
+                walked = self._walk_to_end(street_norm, node_id, segment_id)
+                if walked is None:
+                    continue
+                segment_ids, terminal_node = walked
+                dangling = len(self.nodes[terminal_node].segment_ids) == 1
+                length_ft = sum(self.segments[s].length_ft for s in segment_ids)
+                runs.append((0 if dangling else 1, length_ft, segment_ids, node_id, terminal_node))
+        if not runs:
+            return None
+        best = min(runs, key=lambda run: (run[0], run[1], run[2]))
+        return (best[2], best[3], best[4])
+
+    def _walk_to_end(
+        self, street_norm: str, start_node: str, first_segment: str
+    ) -> tuple[list[str], str] | None:
+        """Follow one street away from a node until it runs out, or refuse at a fork."""
+        segment_ids = [first_segment]
+        node_id = self.segments[first_segment].other_end(start_node)
+        seen = {start_node, node_id}
+        while len(segment_ids) < MAX_CHAIN_SEGMENTS:
+            onward = [
+                segment_id
+                for segment_id in self._incident.get((street_norm, node_id), ())
+                if segment_id not in segment_ids
+            ]
+            if not onward:
+                return (segment_ids, node_id)
+            if len(onward) > 1:
+                return None
+            neighbour = self.segments[onward[0]].other_end(node_id)
+            if neighbour in seen:
+                return None
+            segment_ids.append(onward[0])
+            node_id = neighbour
+            seen.add(node_id)
+        return None
 
     def _nodes_where(self, street_norm: str, cross_norm: str) -> list[str]:
         """Nodes on `street_norm` that a segment of `cross_norm` also terminates at."""

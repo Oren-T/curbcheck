@@ -88,6 +88,31 @@ def grid_rows() -> list[dict[str, Any]]:
     return rows
 
 
+# A three-segment stub running east from the BROAD AVE / E 3 ST corner to a
+# dangling endpoint: DOT writes `DEAD END` for the far end of a street like
+# this one (docs/VALIDATION.md §4 D2).
+STUB_LONS = (AVENUE_LON, AVENUE_LON + 0.0005, AVENUE_LON + 0.0010, AVENUE_LON + 0.0015)
+STUB_LAT = CROSS_LATS[2]
+
+
+def dead_end_rows() -> list[dict[str, Any]]:
+    """The grid plus STUB ST, which leaves E 3 ST and simply stops."""
+    rows = grid_rows()
+    rows.extend(
+        centerline_row(
+            f"stub-{index}",
+            "STUB ST",
+            [[STUB_LONS[index], STUB_LAT], [STUB_LONS[index + 1], STUB_LAT]],
+        )
+        for index in range(3)
+    )
+    return rows
+
+
+def dead_end_graph() -> StreetGraph:
+    return build_graph(stage_centerline(dead_end_rows()))
+
+
 def grid_graph() -> StreetGraph:
     return build_graph(stage_centerline(grid_rows()))
 

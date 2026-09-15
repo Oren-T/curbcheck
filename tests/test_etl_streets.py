@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 import pytest
-from test_etl_fixtures import AVENUE_LENGTH_FT, AVENUE_LENGTHS_FT, grid_graph, grid_rows
+from test_etl_fixtures import (
+    AVENUE_LENGTH_FT,
+    AVENUE_LENGTHS_FT,
+    STUB_LAT,
+    STUB_LONS,
+    centerline_row,
+    dead_end_graph,
+    dead_end_rows,
+    grid_graph,
+    grid_rows,
+)
 
 from curbcheck.etl.stage import stage_centerline
 from curbcheck.etl.streets import (
@@ -149,7 +159,7 @@ def test_segment_at_locates_the_segment_a_distance_falls_on():
     ("on", "from_", "to", "reason"),
     [
         ("NOWHERE AVENUE", "E 1 STREET", "E 2 STREET", "on_street_not_in_centerline"),
-        ("BROAD AVENUE", "E 1 STREET", "DEAD END", "cross_street_is_dead_end"),
+        ("BROAD AVENUE", "DEAD END", "DEAD END", "cross_street_is_dead_end"),
         ("BROAD AVENUE", "E 1 STREET", "NOWHERE STREET", "cross_street_not_in_centerline"),
         ("BROAD AVENUE", "E 1 STREET", "MAIN STREET", "cross_street_does_not_meet_on_street"),
     ],
@@ -161,6 +171,57 @@ def test_find_block_reports_why_a_lookup_missed(on, from_, to, reason):
 
     assert lookup.match is None
     assert lookup.reason == reason
+
+
+def test_a_dead_end_resolves_to_the_streets_own_terminal_node():
+    # docs/VALIDATION.md §4 D2: 604 sign rows name `DEAD END` as one end of the
+    # block. The end DOT means is where the named street itself stops.
+    graph = dead_end_graph()
+
+    lookup = graph.find_block_detail("STUB STREET", "E 3 STREET", "DEAD END")
+
+    assert lookup.match is not None
+    assert [segment.segment_id for segment in lookup.match.segments] == [
+        "stub-0",
+        "stub-1",
+        "stub-2",
+    ]
+    assert lookup.to.match is NameMatch.DEAD_END
+    # The far node is the dangling one, so nothing else meets the chain there.
+    assert len(graph.nodes[lookup.match.to_node].segment_ids) == 1
+
+
+def test_a_dead_end_named_first_still_measures_from_the_dead_end():
+    # `distance_from_intersection` is measured from the from_street end, so the
+    # chain has to start at the dead end when DOT names it first.
+    graph = dead_end_graph()
+
+    from_dead = graph.find_block_detail("STUB STREET", "DEAD END", "E 3 STREET")
+    from_named = graph.find_block_detail("STUB STREET", "E 3 STREET", "DEAD END")
+
+    assert from_dead.match is not None and from_named.match is not None
+    assert from_dead.match.from_node == from_named.match.to_node
+    assert from_dead.match.to_node == from_named.match.from_node
+    assert from_dead.match.length_ft == pytest.approx(from_named.match.length_ft)
+
+
+def test_a_dead_end_walk_refuses_a_fork():
+    # Which branch of a fork dead-ends is not knowable from the names, so the
+    # sign stays unmatched rather than landing on a guess.
+    rows = dead_end_rows()
+    rows.append(
+        centerline_row(
+            "stub-branch",
+            "STUB ST",
+            [[STUB_LONS[1], STUB_LAT], [STUB_LONS[1], STUB_LAT + 0.0010]],
+        )
+    )
+    graph = build_graph(stage_centerline(rows))
+
+    lookup = graph.find_block_detail("STUB STREET", "E 3 STREET", "DEAD END")
+
+    assert lookup.match is None
+    assert lookup.reason == "cross_street_is_dead_end"
 
 
 def test_resolve_street_distinguishes_exact_alias_and_fuzzy_matches():

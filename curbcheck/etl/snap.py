@@ -57,6 +57,10 @@ _COORD_UNKNOWN_QUALITY = 0.7
 _NAME_QUALITY: dict[NameMatch, float] = {
     NameMatch.EXACT: 1.0,
     NameMatch.ALIAS: 0.95,
+    # A `DEAD END` resolved by walking the street's own chain is a geometric
+    # inference, not a name match: the block is right whenever the street really
+    # does stop there, so the penalty is modest (docs/VALIDATION.md §4 D2).
+    NameMatch.DEAD_END: 0.85,
     NameMatch.FUZZY: 0.75,
     NameMatch.NOT_A_STREET: 0.0,
     NameMatch.MISSING: 0.0,
@@ -224,6 +228,10 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
             notes.append(f"{label}_street matched by spelling similarity to {name.norm}")
         elif name.match is NameMatch.ALIAS:
             notes.append(f"{label}_street matched through the alias table as {name.norm}")
+        elif name.match is NameMatch.DEAD_END:
+            notes.append(
+                f"{label}_street is a dead end; used the terminal node of {name.norm}'s own chain"
+            )
 
     chain_quality = 1.0
     if not block.is_unique:

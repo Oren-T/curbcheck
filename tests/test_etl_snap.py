@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 from shapely.geometry import LineString
-from test_etl_fixtures import AVENUE_LENGTHS_FT, AVENUE_LON, CROSS_LATS, grid_graph, staged_sign
+from test_etl_fixtures import (
+    AVENUE_LENGTHS_FT,
+    AVENUE_LON,
+    CROSS_LATS,
+    dead_end_graph,
+    grid_graph,
+    staged_sign,
+)
 
 from curbcheck.etl.snap import (
     _COORD_UNKNOWN_QUALITY,
@@ -186,6 +193,33 @@ def test_an_unmatched_sign_keeps_its_row_with_zero_confidence_and_a_reason():
     assert result.derived_lon is None
     assert result.reason == "on_street_not_in_centerline"
     assert result.reason_class == "no_name_match"
+
+
+def test_a_dead_end_blockface_snaps_at_a_modest_confidence_cost():
+    graph = dead_end_graph()
+
+    named = snap_one(
+        staged_sign(
+            "n",
+            on_street="STUB STREET",
+            from_street="E 3 STREET",
+            to_street="DEAD END",
+            side="N",
+        ),
+        graph,
+    )
+
+    assert named.matched is True
+    assert named.segment_id == "stub-0"
+    # Name quality 0.85 instead of 1.0 on a 0.45 weight, and nothing else lost.
+    assert named.snap_confidence == pytest.approx(
+        _WEIGHT_NAME * 0.85
+        + _WEIGHT_CHAIN * 0.9
+        + _WEIGHT_DISTANCE
+        + _WEIGHT_COORD * _COORD_UNKNOWN_QUALITY,
+        abs=1e-4,
+    )
+    assert any("dead end" in note for note in named.snap_notes)
 
 
 def test_coverage_report_separates_a_matching_gap_from_a_data_gap():
