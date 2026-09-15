@@ -546,3 +546,35 @@ def test_a_new_search_dims_the_previous_answer_instead_of_clearing_it() -> None:
     stale = map_js.split("  setStale(stale) {")[1].split("\n  }")[0]
     assert "STALE_FADE" in stale and "clearResults" not in stale
     assert "const STALE_FADE = 0.35" in map_js, "the fade went to zero"
+
+
+def test_nothing_paints_white_text_on_the_dark_scheme_accent() -> None:
+    """--c-accent is a deep blue in light mode and a pale blue in dark mode.
+
+    A hard-coded `#fff` label therefore measures 7:1 in one scheme and 2:1 in
+    the other. The inverse token flips with the scheme, so it is the only thing
+    allowed on an accent fill.
+    """
+    for name in ("components.css", "styles.css"):
+        css = (WEB_DIR / name).read_text(encoding="utf-8")
+        for rule in css.split("}"):
+            if "var(--c-accent)" not in rule or "background" not in rule:
+                continue
+            assert "color: #fff" not in rule and "color: white" not in rule, (
+                f"{name} puts fixed white on an accent fill:\n{rule}"
+            )
+
+
+def test_a_panel_swatch_follows_the_colour_scheme_and_the_map_does_not() -> None:
+    """DESIGN_DIRECTION §6: the panels go dark, the basemap stays light.
+
+    So a chip or legend swatch has to take the *token* — which flips — while the
+    map layer takes the literal light hue, or the two schemes would swap the
+    contrast guarantees each one was measured for.
+    """
+    verdicts = (WEB_DIR / "verdicts.js").read_text(encoding="utf-8")
+    swatch = verdicts.split("export function swatchBackground")[1]
+    assert "var(${style.token})" in swatch, "panel swatches no longer follow the scheme"
+    assert "style.color" not in swatch, "a panel swatch is using the map's fixed hue"
+    for token in ("--v-legal", "--v-ambiguous", "--v-illegal", "--v-nodata"):
+        assert f'token: "{token}"' in verdicts, f"VERDICT_STYLE lost {token}"

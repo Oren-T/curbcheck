@@ -28,11 +28,15 @@
  *    (UX_AUDIT (f) 3 — the fix for P0-6 makes grey *more* visible, not less).
  *    It is softened by opacity and by being dotted, never by width.
  *
- * `dash` and `halo.extra` are in line-width units. `glow` and `halo` widths are
- * absolute pixel ramps over the map's zoom stops.
+ * `color` is what the map paints with; `token` is the tokens.css custom
+ * property a panel swatch uses, which is the same value in light mode and the
+ * dark-scheme fill in dark mode. `dash` and `halo.extra` are in line-width
+ * units; `glow` and `halo` widths are absolute pixel ramps over the map's
+ * zoom stops.
  */
 export const VERDICT_STYLE = {
   legal: {
+    token: "--v-legal",
     color: "#15855a",
     dash: null,
     cap: "round",
@@ -42,6 +46,7 @@ export const VERDICT_STYLE = {
     glow: { widths: [9, 11, 13, 15], blur: 6, opacity: 0.2 },
   },
   ambiguous: {
+    token: "--v-ambiguous",
     color: "#c78700",
     dash: [2, 1.25],
     cap: "butt",
@@ -51,6 +56,7 @@ export const VERDICT_STYLE = {
     glow: null,
   },
   illegal: {
+    token: "--v-illegal",
     color: "#a01b12",
     dash: [0.9, 0.7],
     cap: "butt",
@@ -60,6 +66,7 @@ export const VERDICT_STYLE = {
     glow: null,
   },
   no_data: {
+    token: "--v-nodata",
     color: "#4c525d",
     dash: [0, 2.2],
     cap: "round",
@@ -83,8 +90,16 @@ export const VERDICT_ORDER = ["legal", "ambiguous", "illegal", "no_data"];
  */
 export function swatchBackground(verdict, height) {
   const style = VERDICT_STYLE[verdict];
-  if (!style || !style.dash) {
-    return style ? style.color : "transparent";
+  if (!style) {
+    return "transparent";
+  }
+  // The token, not the hex: a swatch is drawn on a *panel*, and in dark mode
+  // the panels are dark while the basemap stays light, so the chip needs the
+  // dark verdict fill from tokens.css where the map needs the light one
+  // (DESIGN_DIRECTION §6). The dash rhythm is the map's either way.
+  const color = `var(${style.token})`;
+  if (!style.dash) {
+    return color;
   }
   const [on, off] = style.dash;
   // A zero-length dash with a round cap is a dot whose diameter is the line
@@ -92,7 +107,7 @@ export function swatchBackground(verdict, height) {
   const onPx = Math.max(on * height, on === 0 ? height : 0);
   const offPx = Math.max(off * height - (onPx - on * height), 2);
   return (
-    `repeating-linear-gradient(to right, ${style.color} 0 ${onPx}px, ` +
+    `repeating-linear-gradient(to right, ${color} 0 ${onPx}px, ` +
     `transparent ${onPx}px ${onPx + offPx}px)`
   );
 }

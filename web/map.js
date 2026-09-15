@@ -583,9 +583,9 @@ export class CurbMap {
       layout: { "line-cap": "round" },
       paint: {
         "line-color": ACCENT,
-        "line-width": widthExpression([14, 18, 24, 30]),
-        "line-blur": 10,
-        "line-opacity": 0.5,
+        "line-width": widthExpression([10, 13, 17, 21]),
+        "line-blur": 5,
+        "line-opacity": 0.45,
       },
     });
 

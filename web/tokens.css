@@ -253,8 +253,10 @@
   --c-chip: rgba(255, 255, 255, 0.6);
   --c-scrim: rgba(26, 25, 23, 0.28); /* behind the phone detail sheet */
 
-  --blur-panel: saturate(180%) blur(20px);
-  --blur-chip: saturate(160%) blur(10px);
+  /* Saturation stays near 1: the rail floats over the Hudson as often as over
+     buildings, and 180% turned that into a teal wash across the search card. */
+  --blur-panel: saturate(125%) blur(22px);
+  --blur-chip: saturate(120%) blur(10px);
 
   --r-2xl: 20px;
 

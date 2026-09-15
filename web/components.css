@@ -243,7 +243,9 @@ input[type="range"] {
   border: 0;
   border-radius: var(--r-lg);
   background: var(--c-accent);
-  color: #fff;
+  /* Not #fff: --c-accent is a *light* blue in dark mode, and white on it
+     measures 2:1. The inverse token flips with the scheme and keeps 7:1. */
+  color: var(--c-text-inverse);
   font-size: var(--t-body);
   font-weight: var(--w-semibold);
   letter-spacing: var(--track-tight);
@@ -265,6 +267,7 @@ input[type="range"] {
 
 .primary:disabled {
   background: var(--c-text-muted);
+  color: var(--c-text-inverse);
   cursor: progress;
   box-shadow: none;
 }
