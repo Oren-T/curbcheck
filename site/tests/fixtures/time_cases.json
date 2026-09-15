@@ -1,0 +1,2769 @@
+{
+ "wall_clocks": [
+  {
+   "epoch_ms": 1772928000000,
+   "iso": "2026-03-07T19:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1772931600000,
+   "iso": "2026-03-07T20:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1772935200000,
+   "iso": "2026-03-07T21:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1772938800000,
+   "iso": "2026-03-07T22:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1772942400000,
+   "iso": "2026-03-07T23:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1772946000000,
+   "iso": "2026-03-08T00:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772949600000,
+   "iso": "2026-03-08T01:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772953200000,
+   "iso": "2026-03-08T03:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772956800000,
+   "iso": "2026-03-08T04:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772960400000,
+   "iso": "2026-03-08T05:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772964000000,
+   "iso": "2026-03-08T06:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772967600000,
+   "iso": "2026-03-08T07:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772971200000,
+   "iso": "2026-03-08T08:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772974800000,
+   "iso": "2026-03-08T09:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772978400000,
+   "iso": "2026-03-08T10:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772982000000,
+   "iso": "2026-03-08T11:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772985600000,
+   "iso": "2026-03-08T12:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772989200000,
+   "iso": "2026-03-08T13:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772992800000,
+   "iso": "2026-03-08T14:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1772996400000,
+   "iso": "2026-03-08T15:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773000000000,
+   "iso": "2026-03-08T16:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773003600000,
+   "iso": "2026-03-08T17:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773007200000,
+   "iso": "2026-03-08T18:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773010800000,
+   "iso": "2026-03-08T19:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773014400000,
+   "iso": "2026-03-08T20:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773018000000,
+   "iso": "2026-03-08T21:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773021600000,
+   "iso": "2026-03-08T22:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773025200000,
+   "iso": "2026-03-08T23:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1773028800000,
+   "iso": "2026-03-09T00:00:00-04:00",
+   "fold": 0,
+   "weekday": 0
+  },
+  {
+   "epoch_ms": 1773032400000,
+   "iso": "2026-03-09T01:00:00-04:00",
+   "fold": 0,
+   "weekday": 0
+  },
+  {
+   "epoch_ms": 1793491200000,
+   "iso": "2026-10-31T20:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1793494800000,
+   "iso": "2026-10-31T21:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1793498400000,
+   "iso": "2026-10-31T22:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1793502000000,
+   "iso": "2026-10-31T23:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1793505600000,
+   "iso": "2026-11-01T00:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793509200000,
+   "iso": "2026-11-01T01:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793512800000,
+   "iso": "2026-11-01T01:00:00-05:00",
+   "fold": 1,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793516400000,
+   "iso": "2026-11-01T02:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793520000000,
+   "iso": "2026-11-01T03:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793523600000,
+   "iso": "2026-11-01T04:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793527200000,
+   "iso": "2026-11-01T05:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793530800000,
+   "iso": "2026-11-01T06:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793534400000,
+   "iso": "2026-11-01T07:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793538000000,
+   "iso": "2026-11-01T08:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793541600000,
+   "iso": "2026-11-01T09:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793545200000,
+   "iso": "2026-11-01T10:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793548800000,
+   "iso": "2026-11-01T11:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793552400000,
+   "iso": "2026-11-01T12:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793556000000,
+   "iso": "2026-11-01T13:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793559600000,
+   "iso": "2026-11-01T14:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793563200000,
+   "iso": "2026-11-01T15:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793566800000,
+   "iso": "2026-11-01T16:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793570400000,
+   "iso": "2026-11-01T17:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793574000000,
+   "iso": "2026-11-01T18:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793577600000,
+   "iso": "2026-11-01T19:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793581200000,
+   "iso": "2026-11-01T20:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793584800000,
+   "iso": "2026-11-01T21:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793588400000,
+   "iso": "2026-11-01T22:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793592000000,
+   "iso": "2026-11-01T23:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1793595600000,
+   "iso": "2026-11-02T00:00:00-05:00",
+   "fold": 0,
+   "weekday": 0
+  },
+  {
+   "epoch_ms": 1804982400000,
+   "iso": "2027-03-13T19:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1804986000000,
+   "iso": "2027-03-13T20:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1804989600000,
+   "iso": "2027-03-13T21:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1804993200000,
+   "iso": "2027-03-13T22:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1804996800000,
+   "iso": "2027-03-13T23:00:00-05:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1805000400000,
+   "iso": "2027-03-14T00:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805004000000,
+   "iso": "2027-03-14T01:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805007600000,
+   "iso": "2027-03-14T03:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805011200000,
+   "iso": "2027-03-14T04:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805014800000,
+   "iso": "2027-03-14T05:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805018400000,
+   "iso": "2027-03-14T06:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805022000000,
+   "iso": "2027-03-14T07:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805025600000,
+   "iso": "2027-03-14T08:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805029200000,
+   "iso": "2027-03-14T09:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805032800000,
+   "iso": "2027-03-14T10:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805036400000,
+   "iso": "2027-03-14T11:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805040000000,
+   "iso": "2027-03-14T12:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805043600000,
+   "iso": "2027-03-14T13:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805047200000,
+   "iso": "2027-03-14T14:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805050800000,
+   "iso": "2027-03-14T15:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805054400000,
+   "iso": "2027-03-14T16:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805058000000,
+   "iso": "2027-03-14T17:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805061600000,
+   "iso": "2027-03-14T18:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805065200000,
+   "iso": "2027-03-14T19:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805068800000,
+   "iso": "2027-03-14T20:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805072400000,
+   "iso": "2027-03-14T21:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805076000000,
+   "iso": "2027-03-14T22:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805079600000,
+   "iso": "2027-03-14T23:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1805083200000,
+   "iso": "2027-03-15T00:00:00-04:00",
+   "fold": 0,
+   "weekday": 0
+  },
+  {
+   "epoch_ms": 1805086800000,
+   "iso": "2027-03-15T01:00:00-04:00",
+   "fold": 0,
+   "weekday": 0
+  },
+  {
+   "epoch_ms": 1825545600000,
+   "iso": "2027-11-06T20:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1825549200000,
+   "iso": "2027-11-06T21:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1825552800000,
+   "iso": "2027-11-06T22:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1825556400000,
+   "iso": "2027-11-06T23:00:00-04:00",
+   "fold": 0,
+   "weekday": 5
+  },
+  {
+   "epoch_ms": 1825560000000,
+   "iso": "2027-11-07T00:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825563600000,
+   "iso": "2027-11-07T01:00:00-04:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825567200000,
+   "iso": "2027-11-07T01:00:00-05:00",
+   "fold": 1,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825570800000,
+   "iso": "2027-11-07T02:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825574400000,
+   "iso": "2027-11-07T03:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825578000000,
+   "iso": "2027-11-07T04:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825581600000,
+   "iso": "2027-11-07T05:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825585200000,
+   "iso": "2027-11-07T06:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825588800000,
+   "iso": "2027-11-07T07:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825592400000,
+   "iso": "2027-11-07T08:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825596000000,
+   "iso": "2027-11-07T09:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825599600000,
+   "iso": "2027-11-07T10:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825603200000,
+   "iso": "2027-11-07T11:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825606800000,
+   "iso": "2027-11-07T12:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825610400000,
+   "iso": "2027-11-07T13:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825614000000,
+   "iso": "2027-11-07T14:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825617600000,
+   "iso": "2027-11-07T15:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825621200000,
+   "iso": "2027-11-07T16:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825624800000,
+   "iso": "2027-11-07T17:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825628400000,
+   "iso": "2027-11-07T18:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825632000000,
+   "iso": "2027-11-07T19:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825635600000,
+   "iso": "2027-11-07T20:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825639200000,
+   "iso": "2027-11-07T21:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825642800000,
+   "iso": "2027-11-07T22:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825646400000,
+   "iso": "2027-11-07T23:00:00-05:00",
+   "fold": 0,
+   "weekday": 6
+  },
+  {
+   "epoch_ms": 1825650000000,
+   "iso": "2027-11-08T00:00:00-05:00",
+   "fold": 0,
+   "weekday": 0
+  }
+ ],
+ "windows": [
+  {
+   "name": "spring forward 2026, the hour that does not exist",
+   "t1": "2026-03-08T01:00:00-05:00",
+   "t2": "2026-03-08T04:00:00-04:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "02:00",
+     "time_to": "03:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-03-08T01:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T02:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 60,
+     "when": "Sun 01:00-02:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T02:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T03:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 0,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 120,
+     "when": "Sun 02:00-03:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T03:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-03-08T04:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 180,
+     "when": "Sun 03:00-04:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "spring forward 2026, twenty-four wall-clock hours",
+   "t1": "2026-03-08T00:00:00-05:00",
+   "t2": "2026-03-09T00:00:00-04:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "02:00",
+     "time_to": "03:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    },
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-03-08T00:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T02:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 120,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-02:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T02:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T03:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 0,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 120,
+     "when": "Sun 02:00-03:00",
+     "rule_active": [
+      true,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T03:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-03-08T06:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 180,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 180,
+     "when": "Sun 03:00-06:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T06:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-03-08T20:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 840,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 360,
+     "when": "Sun 06:00-20:00",
+     "rule_active": [
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T20:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-03-09T00:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 240,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 1200,
+     "when": "Sun 20:00-00:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall back 2026, the hour that happens twice",
+   "t1": "2026-11-01T00:00:00-04:00",
+   "t2": "2026-11-01T04:00:00-05:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-11-01T00:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-11-01T04:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 300,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-04:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall back 2026, twenty-four wall-clock hours",
+   "t1": "2026-11-01T00:00:00-04:00",
+   "t2": "2026-11-02T00:00:00-05:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    },
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      3
+     ],
+     "time_from": "09:00",
+     "time_to": "10:30",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": true,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [
+     "2026-11-01",
+     "2026-11-26"
+    ],
+    "major_holiday_dates": [
+     "2026-11-26"
+    ],
+    "meter_suspended_dates": [
+     "2026-11-26"
+    ],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-11-01T00:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-11-01T06:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 420,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-06:00",
+     "rule_active": [
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-01T06:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-01T09:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 180,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 360,
+     "when": "Sun 06:00-09:00",
+     "rule_active": [
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-01T09:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-01T10:30:00-05:00",
+     "end_fold": 0,
+     "minutes": 90,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 540,
+     "when": "Sun 09:00-10:30",
+     "rule_active": [
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-01T10:30:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-01T20:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 570,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 630,
+     "when": "Sun 10:30-20:00",
+     "rule_active": [
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-01T20:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-02T00:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 240,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 1200,
+     "when": "Sun 20:00-00:00",
+     "rule_active": [
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall back 2026, t1 is the second 01:30",
+   "t1": "2026-11-01T01:30:00-05:00",
+   "t2": "2026-11-01T03:00:00-05:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-11-01T01:30:00-05:00",
+     "start_fold": 1,
+     "end": "2026-11-01T03:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 90,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 90,
+     "when": "Sun 01:30-03:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall back 2026, t1 is the first 01:30",
+   "t1": "2026-11-01T01:30:00-04:00",
+   "t2": "2026-11-01T03:00:00-05:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-11-01T01:30:00-04:00",
+     "start_fold": 0,
+     "end": "2026-11-01T03:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 150,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 90,
+     "when": "Sun 01:30-03:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "spring forward 2027, the hour that does not exist",
+   "t1": "2027-03-14T01:00:00-05:00",
+   "t2": "2027-03-14T04:00:00-04:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "02:00",
+     "time_to": "03:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2027-03-14T01:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-03-14T02:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2027-03-14",
+     "start_minute_of_day": 60,
+     "when": "Sun 01:00-02:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-03-14T02:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-03-14T03:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 0,
+     "weekday": 6,
+     "date": "2027-03-14",
+     "start_minute_of_day": 120,
+     "when": "Sun 02:00-03:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-03-14T03:00:00-04:00",
+     "start_fold": 0,
+     "end": "2027-03-14T04:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2027-03-14",
+     "start_minute_of_day": 180,
+     "when": "Sun 03:00-04:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "spring forward 2027, twenty-four wall-clock hours",
+   "t1": "2027-03-14T00:00:00-05:00",
+   "t2": "2027-03-15T00:00:00-04:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "02:00",
+     "time_to": "03:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2027-03-14T00:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-03-14T02:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 120,
+     "weekday": 6,
+     "date": "2027-03-14",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-02:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-03-14T02:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-03-14T03:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 0,
+     "weekday": 6,
+     "date": "2027-03-14",
+     "start_minute_of_day": 120,
+     "when": "Sun 02:00-03:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-03-14T03:00:00-04:00",
+     "start_fold": 0,
+     "end": "2027-03-15T00:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 1260,
+     "weekday": 6,
+     "date": "2027-03-14",
+     "start_minute_of_day": 180,
+     "when": "Sun 03:00-00:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall back 2027, the hour that happens twice",
+   "t1": "2027-11-07T00:00:00-04:00",
+   "t2": "2027-11-07T04:00:00-05:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2027-11-07T00:00:00-04:00",
+     "start_fold": 0,
+     "end": "2027-11-07T04:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 300,
+     "weekday": 6,
+     "date": "2027-11-07",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-04:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fall back 2027, twenty-four wall-clock hours",
+   "t1": "2027-11-07T00:00:00-04:00",
+   "t2": "2027-11-08T00:00:00-05:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2027-11-07T00:00:00-04:00",
+     "start_fold": 0,
+     "end": "2027-11-07T06:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 420,
+     "weekday": 6,
+     "date": "2027-11-07",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-06:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-11-07T06:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-11-07T20:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 840,
+     "weekday": 6,
+     "date": "2027-11-07",
+     "start_minute_of_day": 360,
+     "when": "Sun 06:00-20:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-11-07T20:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-11-08T00:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 240,
+     "weekday": 6,
+     "date": "2027-11-07",
+     "start_minute_of_day": 1200,
+     "when": "Sun 20:00-00:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "minute 1440 across the fall-back midnight",
+   "t1": "2026-10-31T23:00:00-04:00",
+   "t2": "2026-11-01T01:00:00-04:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-10-31T23:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-11-01T00:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 5,
+     "date": "2026-10-31",
+     "start_minute_of_day": 1380,
+     "when": "Sat 23:00-00:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-11-01T00:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-11-01T01:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2026-11-01",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-01:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "minute 1440 across the spring-forward midnight",
+   "t1": "2026-03-07T23:00:00-05:00",
+   "t2": "2026-03-08T03:30:00-04:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    },
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "02:00",
+     "time_to": "03:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-03-07T23:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T00:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 5,
+     "date": "2026-03-07",
+     "start_minute_of_day": 1380,
+     "when": "Sat 23:00-00:00",
+     "rule_active": [
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T00:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T02:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 120,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 0,
+     "when": "Sun 00:00-02:00",
+     "rule_active": [
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T02:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-03-08T03:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 0,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 120,
+     "when": "Sun 02:00-03:00",
+     "rule_active": [
+      true,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-03-08T03:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-03-08T03:30:00-04:00",
+     "end_fold": 0,
+     "minutes": 30,
+     "weekday": 6,
+     "date": "2026-03-08",
+     "start_minute_of_day": 180,
+     "when": "Sun 03:00-03:30",
+     "rule_active": [
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "midnight-wrapping night regulation on an ordinary Monday",
+   "t1": "2026-09-14T19:00:00-04:00",
+   "t2": "2026-09-15T07:00:00-04:00",
+   "regulations": [
+    {
+     "action": "stand",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "20:00",
+     "time_to": "06:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-09-14T19:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-14T20:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 0,
+     "date": "2026-09-14",
+     "start_minute_of_day": 1140,
+     "when": "Mon 19:00-20:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-09-14T20:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-15T00:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 240,
+     "weekday": 0,
+     "date": "2026-09-14",
+     "start_minute_of_day": 1200,
+     "when": "Mon 20:00-00:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-09-15T00:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-15T06:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 360,
+     "weekday": 1,
+     "date": "2026-09-15",
+     "start_minute_of_day": 0,
+     "when": "Tue 00:00-06:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-09-15T06:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-15T07:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 1,
+     "date": "2026-09-15",
+     "start_minute_of_day": 360,
+     "when": "Tue 06:00-07:00",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seasonal rules on either side of their bounds",
+   "t1": "2026-11-30T07:00:00-05:00",
+   "t2": "2026-12-01T09:00:00-05:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": true,
+     "vehicle_class": "truck",
+     "exclusive": true,
+     "days": [
+      2
+     ],
+     "time_from": "08:00",
+     "time_to": "16:00",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": "06-01",
+     "effective_to": "11-30",
+     "arrow": "none"
+    },
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": null,
+     "time_to": null,
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": "11-15",
+     "effective_to": "03-15",
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-11-30T07:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-30T08:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 0,
+     "date": "2026-11-30",
+     "start_minute_of_day": 420,
+     "when": "Mon 07:00-08:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-30T08:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-30T16:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 480,
+     "weekday": 0,
+     "date": "2026-11-30",
+     "start_minute_of_day": 480,
+     "when": "Mon 08:00-16:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-30T16:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-12-01T00:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 480,
+     "weekday": 0,
+     "date": "2026-11-30",
+     "start_minute_of_day": 960,
+     "when": "Mon 16:00-00:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-12-01T00:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-12-01T08:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 480,
+     "weekday": 1,
+     "date": "2026-12-01",
+     "start_minute_of_day": 0,
+     "when": "Tue 00:00-08:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    },
+    {
+     "start": "2026-12-01T08:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-12-01T09:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 1,
+     "date": "2026-12-01",
+     "start_minute_of_day": 480,
+     "when": "Tue 08:00-09:00",
+     "rule_active": [
+      false,
+      true
+     ],
+     "meter_charged": [
+      false,
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "seasonal rule wrapping the year end",
+   "t1": "2026-12-31T22:00:00-05:00",
+   "t2": "2027-01-01T02:00:00-05:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": null,
+     "time_to": null,
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": "11-15",
+     "effective_to": "03-15",
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-12-31T22:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-01-01T00:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 120,
+     "weekday": 3,
+     "date": "2026-12-31",
+     "start_minute_of_day": 1320,
+     "when": "Thu 22:00-00:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2027-01-01T00:00:00-05:00",
+     "start_fold": 0,
+     "end": "2027-01-01T02:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 120,
+     "weekday": 4,
+     "date": "2027-01-01",
+     "start_minute_of_day": 0,
+     "when": "Fri 00:00-02:00",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "Sunday meters and the INCLUDING SUNDAY override",
+   "t1": "2026-09-20T08:00:00-04:00",
+   "t2": "2026-09-20T20:00:00-04:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": true,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "09:00",
+     "time_to": "19:00",
+     "metered": true,
+     "max_duration_min": 120,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    },
+    {
+     "action": "park",
+     "permitted": true,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "09:00",
+     "time_to": "19:00",
+     "metered": true,
+     "max_duration_min": 60,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": true,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-09-20T08:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-20T09:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2026-09-20",
+     "start_minute_of_day": 480,
+     "when": "Sun 08:00-09:00",
+     "rule_active": [
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      true
+     ]
+    },
+    {
+     "start": "2026-09-20T09:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-20T19:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 600,
+     "weekday": 6,
+     "date": "2026-09-20",
+     "start_minute_of_day": 540,
+     "when": "Sun 09:00-19:00",
+     "rule_active": [
+      true,
+      true
+     ],
+     "meter_charged": [
+      false,
+      true
+     ]
+    },
+    {
+     "start": "2026-09-20T19:00:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-20T20:00:00-04:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 6,
+     "date": "2026-09-20",
+     "start_minute_of_day": 1140,
+     "when": "Sun 19:00-20:00",
+     "rule_active": [
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      true
+     ]
+    }
+   ]
+  },
+  {
+   "name": "major legal holiday frees the meter",
+   "t1": "2026-11-26T08:00:00-05:00",
+   "t2": "2026-11-26T20:00:00-05:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": true,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "09:00",
+     "time_to": "19:00",
+     "metered": true,
+     "max_duration_min": 120,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    },
+    {
+     "action": "park",
+     "permitted": true,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ],
+     "time_from": "09:00",
+     "time_to": "19:00",
+     "metered": true,
+     "max_duration_min": 60,
+     "flags": {
+      "street_cleaning": false,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": true,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    },
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      3
+     ],
+     "time_from": "09:00",
+     "time_to": "10:30",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": true,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [
+     "2026-11-01",
+     "2026-11-26"
+    ],
+    "major_holiday_dates": [
+     "2026-11-26"
+    ],
+    "meter_suspended_dates": [
+     "2026-11-26"
+    ],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-11-26T08:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-26T09:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 3,
+     "date": "2026-11-26",
+     "start_minute_of_day": 480,
+     "when": "Thu 08:00-09:00",
+     "rule_active": [
+      false,
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      true,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-26T09:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-26T10:30:00-05:00",
+     "end_fold": 0,
+     "minutes": 90,
+     "weekday": 3,
+     "date": "2026-11-26",
+     "start_minute_of_day": 540,
+     "when": "Thu 09:00-10:30",
+     "rule_active": [
+      true,
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      true,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-26T10:30:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-26T19:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 510,
+     "weekday": 3,
+     "date": "2026-11-26",
+     "start_minute_of_day": 630,
+     "when": "Thu 10:30-19:00",
+     "rule_active": [
+      true,
+      true,
+      false
+     ],
+     "meter_charged": [
+      false,
+      true,
+      false
+     ]
+    },
+    {
+     "start": "2026-11-26T19:00:00-05:00",
+     "start_fold": 0,
+     "end": "2026-11-26T20:00:00-05:00",
+     "end_fold": 0,
+     "minutes": 60,
+     "weekday": 3,
+     "date": "2026-11-26",
+     "start_minute_of_day": 1140,
+     "when": "Thu 19:00-20:00",
+     "rule_active": [
+      false,
+      false,
+      false
+     ],
+     "meter_charged": [
+      false,
+      true,
+      false
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a window that needs a half-minute boundary",
+   "t1": "2026-09-14T09:59:30-04:00",
+   "t2": "2026-09-14T10:30:30-04:00",
+   "regulations": [
+    {
+     "action": "park",
+     "permitted": false,
+     "vehicle_class": "all",
+     "exclusive": false,
+     "days": [
+      0,
+      3
+     ],
+     "time_from": "09:00",
+     "time_to": "10:30",
+     "metered": false,
+     "max_duration_min": null,
+     "flags": {
+      "street_cleaning": true,
+      "school_days": false,
+      "except_sunday": false,
+      "including_sunday": false,
+      "snow_emergency": false,
+      "holiday_exempt": false,
+      "temporary": false,
+      "meta": false
+     },
+     "effective_from": null,
+     "effective_to": null,
+     "arrow": "none"
+    }
+   ],
+   "calendar": {
+    "asp_suspension_dates": [],
+    "major_holiday_dates": [],
+    "meter_suspended_dates": [],
+    "non_school_dates": null,
+    "snow_emergency": false,
+    "calendar_missing": false
+   },
+   "intervals": [
+    {
+     "start": "2026-09-14T09:59:30-04:00",
+     "start_fold": 0,
+     "end": "2026-09-14T10:30:00-04:00",
+     "end_fold": 0,
+     "minutes": 30,
+     "weekday": 0,
+     "date": "2026-09-14",
+     "start_minute_of_day": 599,
+     "when": "Mon 09:59-10:30",
+     "rule_active": [
+      true
+     ],
+     "meter_charged": [
+      false
+     ]
+    },
+    {
+     "start": "2026-09-14T10:30:00-04:00",
+     "start_fold": 0,
+     "end": "2026-09-14T10:30:30-04:00",
+     "end_fold": 0,
+     "minutes": 0,
+     "weekday": 0,
+     "date": "2026-09-14",
+     "start_minute_of_day": 630,
+     "when": "Mon 10:30-10:30",
+     "rule_active": [
+      false
+     ],
+     "meter_charged": [
+      false
+     ]
+    }
+   ]
+  }
+ ]
+}

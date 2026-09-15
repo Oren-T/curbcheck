@@ -689,6 +689,12 @@ async function reportHealth() {
       });
       return;
     }
+    // Only the static build sets `notice`: its data pack is rebuilt weekly, and
+    // a job that silently stopped must not leave a page that looks current
+    // (docs/STATIC_SITE.md). The server never sets it.
+    if (health.notice) {
+      renderNotice(dom.notices, health.notice);
+    }
     setStatus(`Ready. ${signs.toLocaleString("en-US")} signs loaded.`);
   } catch (error) {
     renderNotice(dom.notices, {

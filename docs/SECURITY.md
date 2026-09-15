@@ -165,6 +165,10 @@ and pan the map: there should be zero requests off `127.0.0.1`.
    `build-metadata.protomaps.dev` — are **not** in `config.ALLOWED_HOSTS` and
    should not be, because nothing in the app fetches them; `docs/DECISIONS.md`
    D11 said they were added to the allowlist and carries the correction.
+   Amended for the static site (D32): `fetch_basemap_tiles.py` now also runs
+   in `.github/workflows/pages.yml`, which makes it a release step rather than
+   a developer tool; it still checks scheme and host itself, and the binary it
+   drives is pinned by SHA-256 there.
 7. **`AllowlistedClient(transport=…)` accepts any transport.** It exists so
    tests can inject a `MockTransport`. Passing a real transport with
    `verify=False` would defeat the module; nothing does, and
@@ -186,9 +190,37 @@ and pan the map: there should be zero requests off `127.0.0.1`.
 10. **The data itself is only as good as NYC's.** That is a correctness risk, not
    a security one, and `docs/SPEC.md` §11 and §17 are where it is handled.
 
+## The static site
+
+`docs/STATIC_SITE.md` (decision D32) publishes the same frontend on GitHub
+Pages with the engine running in the browser. Each control above, restated
+for a host that runs none of our code:
+
+- **T1, T2:** the ETL runs unchanged on the GitHub runner — the same hashed
+  lockfiles, the same `net.py` allowlist. `scripts/fetch_basemap_tiles.py`
+  becomes a release step (residual risk 6 below is amended); the go-pmtiles
+  binary it needs is pinned by URL and SHA-256 in `pages.yml`. The tile
+  archive it cuts from the Protomaps daily build is the one shipped artifact
+  with no recorded hash: it is a map background, not code.
+- **T3:** the same ETL boundary and the same `web/dom.js`. The pack is data the
+  worker parses with `JSON.parse`, never code it evaluates.
+- **T4:** there is no server. The CSP is a `<meta>` tag carrying everything a
+  meta tag can express; `frame-ancestors` is not among them and Pages sends no
+  `X-Content-Type-Options`, so residual risk 1 loses one of its four legs there
+  and the page can be framed. Clickjacking — an overlay that misrepresents a
+  verdict — is accepted; the only fix is a host that sets headers.
+- **T6:** no typed text, coordinate or search leaves the browser; the geocoder,
+  the engine and the pack are same-origin files loaded whole. GitHub Pages
+  sees what any host sees: the visitor's IP, which it says it logs "for
+  security purposes" with no published retention period, and which map tiles
+  were fetched — a coarse trace of where the map was looked at. No cookies,
+  no storage, no analytics, no third-party request. `site/PRIVACY.md` says
+  this to visitors; the About sheet says the two-sentence version.
+
 ## Reporting
 
-This is a single-user tool with no deployment and no users but its owner. If you
-find a problem, open an issue in this repository, or if it is sensitive, contact
+The local server has no deployment and no users but its owner; the static
+copy at `curbcheck.orentirschwell.com` has visitors but no accounts and no
+server-side code. If you find a problem, open an issue in this repository, or if it is sensitive, contact
 the repository owner directly rather than filing publicly. There is no bounty
 and no SLA.

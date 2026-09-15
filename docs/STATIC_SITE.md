@@ -481,6 +481,32 @@ outputs (STYLE_GUIDE §6).
 | T5 prompt injection | no LLM | no LLM |
 | T6 exfiltration | nothing leaves the machine after sync | no typed text, no coordinate, no search ever leaves the browser: the geocoder and the engine are same-origin files loaded whole. What GitHub Pages does see, as any host would: the visitor's IP, the page request, and which map tiles were fetched — a coarse trace of where the map was looked at. GitHub says the IP "is logged and stored for security purposes" and publishes no retention period. No cookies, no storage, no analytics, no third-party request. |
 
+## Where the delivery departs from the contract above
+
+Recorded so the doc and the code do not silently disagree:
+
+- The window-length check (5 min – 24 h) is wall-clock, not elapsed:
+  `SearchRequest` subtracts two datetimes that share a tzinfo, which CPython
+  does without an offset correction, so the fall-back Sunday's midnight to
+  midnight is 24 h and accepted. `schemas.wallSpanMs` reproduces it; the
+  harness caught the elapsed-time version refusing 18 of 600 searches.
+- `money.meterPriceCents` is what `search._price` calls (integer cents in);
+  `cost.meterPrice` takes the rate strings and returns cents.
+- `Interval.minutes` rounds half to even, as Python's `round` does.
+- `meta.json` carries `dropped_sign_refs`, the count of `derived_from` ids that
+  named no sign row (0 on the 2026-09-15 database).
+- The typed-array choice per column follows the values, so a REAL column whose
+  values happen to be integral arrives as `Int32Array`; read `column[row]` as
+  a number and never branch on the array class.
+- `segment.derived_from` returns only ids that name a sign row; the server
+  returns the stored JSON list. Equal on every current row.
+- `health()` in the static `api.js` waits up to 120 s for the pack to load;
+  every other call queues behind that load without a timer of its own, then
+  gets the server's budgets.
+- `site/tests/geocode.test.js` carries its own 400-line synthetic pack
+  builder; a shared `site/tests/helpers/synthetic_pack.js` is the split to make
+  if another test needs it.
+
 ## What stays the owner's call
 
 The repository licence (README: "TBD"), the NYC Open Data terms review for the

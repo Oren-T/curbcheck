@@ -76,6 +76,20 @@ No known vulnerabilities found
 Run on 2026-09-15 with pip-audit 2.10.1, after adding hatchling and editables.
 `make audit` reruns the first of these and is part of `make check`.
 
+## Tools the Pages workflow downloads, and are not dependencies
+
+`.github/workflows/pages.yml` needs the `pmtiles` CLI to cut the Manhattan
+basemap out of the Protomaps daily build (`scripts/fetch_basemap_tiles.py`).
+It is not a Python package and nothing in the repo imports it, so it is pinned
+where it is used:
+
+| Tool | Version | License | Pin |
+|---|---|---|---|
+| go-pmtiles | 1.31.2 (Linux x86_64) | BSD-3-Clause | release URL plus SHA-256 `3ed7dbf4ec2e6dfe5e25b6f70d1ffc932729f93c86db353bf514dd71010a312f`, checked with `sha256sum --check` before the tarball is opened. The release publishes no checksums file; the digest is the one the GitHub Releases API reports for the asset and was verified against a local download on 2026-09-15. |
+
+The archive it produces changes with every Protomaps build and carries no hash
+of its own (`docs/SECURITY.md`, "The static site").
+
 ## Packages the spec listed that are deliberately absent
 
 - **duckdb** and its `spatial` extension — replaced by stdlib `sqlite3`; see
