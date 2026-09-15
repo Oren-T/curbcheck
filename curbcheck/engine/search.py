@@ -466,7 +466,7 @@ def _label_candidates(conn: sqlite3.Connection, candidates: Sequence[_Candidate]
     segment_ids = sorted({c.segment_id for c in candidates if c.segment_id is not None})
     for chunk in _chunked(segment_ids):
         for row in conn.execute(_STREET_SQL + placeholders(len(chunk)) + ")", chunk):
-            street_name = _optional_str(row["street_name"])
+            street_name = _single_spaced(_optional_str(row["street_name"]) or "")
             if street_name:
                 between[str(row["segment_id"])] = street_name + _cross_street_phrase(
                     street_name, row["from_names"], row["to_names"]
@@ -506,12 +506,22 @@ def _cross_street(names: Any, street_name: str) -> str | None:
     own = _collapse(street_name)
     for name in json_string_list(names):
         if name and _collapse(name) != own:
-            return name
+            return _single_spaced(name)
     return None
 
 
+def _single_spaced(name: str) -> str:
+    """CSCL writes the same street as `E 85 ST` on one row and `E  85 ST` on another.
+
+    The label is the one place a street name reaches the user's eye, so the
+    runs of spaces the source carries are collapsed there rather than in the
+    ETL, which keeps the stored name byte-identical to DOT's.
+    """
+    return " ".join(name.split())
+
+
 def _collapse(name: str) -> str:
-    return " ".join(name.split()).casefold()
+    return _single_spaced(name).casefold()
 
 
 def _load_stacks(

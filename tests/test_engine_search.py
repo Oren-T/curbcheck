@@ -369,7 +369,8 @@ def test_a_corner_is_never_labelled_as_its_own_cross_street(conn: sqlite3.Connec
 
     result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
 
-    assert result.street_name == "E  85 ST, east side, at 2 AVENUE"
+    # And the run of spaces CSCL carries does not reach the label.
+    assert result.street_name == "E 85 ST, east side, at 2 AVENUE"
 
 
 def test_a_span_whose_chain_ends_name_no_cross_street_is_still_labelled(
