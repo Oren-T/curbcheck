@@ -230,7 +230,9 @@ Frontend, not fixed — judgment rather than defect, or out of this pass's scope
    (hit repeatedly during this pass: `format.js` kept a stale export). Harmless
    in use, a trap for anyone developing against `curbcheck serve`.
 
-Backend, recorded rather than fixed (a cleanup agent owns `curbcheck/`):
+Backend, recorded rather than fixed in this pass (a cleanup agent owns
+`curbcheck/`). All four are now closed; see §7 for what changed and what the
+numbers became:
 
 10. **The engine's `reason` for an `unmatched_signs` span is "no sign data on
     this block", which is false of that span.** DOT publishes signs for the
@@ -262,3 +264,57 @@ Backend, recorded rather than fixed (a cleanup agent owns `curbcheck/`):
     under a sentence-case heading: *"part of this window has no posted rule; read
     the curb"* is the first line of **Before you park** on every
     legality-by-absence verdict. `04`
+
+---
+
+## 7. Backend follow-up
+
+Open items 10–13 above, closed in `curbcheck/`. Nothing in §1–§6 was re-scored
+and no file in `web/` was touched.
+
+**10 — the false `reason`.** `evaluate_segment` now takes the span's
+`gap_kind`, so an empty stack says which kind of nothing it is: `no_signs` →
+*"NYC DOT lists no signs on this stretch"*, `unmatched_signs` → *"Signs exist
+here that CurbCheck could not place"*, and *"No sign data for this stretch"* on
+a snapshot that predates the column. Each carries the matching `caveats` entry.
+On `5dd8b7fe8bd4a328` the reproducer now prints the second of the three.
+`tests/test_engine_resolve.py`, `test_engine_search.py` and `test_api.py` cover
+both kinds at all three levels.
+
+**13 — caveat case.** Every caveat the engine and the API produce is now a
+sentence: leading capital, closing full stop, normalised where the strings are
+written. `docs/API.md` says so and `test_api.py::test_every_caveat_is_a_sentence`
+holds it.
+
+**11 and 12 — the numbers.** Measured through `scripts/bench_api.py` on the 9p
+`data/` mount, median of three runs of twelve. `cold` is the first call on a
+fresh connection after the page's own `/api/health`, which is what a first
+keystroke and a first search cost; `p50` is warm. "Before" is the same script
+against the same data with the previous indexes and code.
+
+| | cold before | cold after | p50 before | p50 after |
+|---|---|---|---|---|
+| `/api/geocode?q=1519 3` | 277 ms | **32 ms** | 13.3 ms | **5.8 ms** |
+| `/api/geocode?q=1519 3 av` | 11.7 ms | 9.2 ms | 9.2 ms | 6.4 ms |
+| `/api/geocode?q=100 w` | 56.7 ms | **32 ms** | 14.7 ms | 9.6 ms |
+| `/api/geocode?q=86th st` | 13.1 ms | 9.2 ms | 8.4 ms | 3.7 ms |
+| `/api/search` 5 min | 609 ms | 505 ms | 104 ms | 80 ms |
+| `/api/search` 10 min | 1,331 ms | 735 ms | 1,473 ms | **189 ms** |
+| `/api/search` 20 min | 2,960 ms | 1,348 ms | 3,045 ms | **528 ms** |
+| `/api/search` 30 min | 4,641 ms | 1,303 ms | 4,791 ms | **870 ms** |
+
+Four changes, none of which moves an answer: all four bbox bounds in one index
+per table (the coverage check behind each geocode candidate was fetching a
+table row for every segment in a longitude band to test its latitude);
+`within_coverage` walking its cursor instead of draining it; the street label
+and the raw sign text fetched for the spans the caps kept rather than for all
+4,400 in a 30-minute radius; and the read-only page cache raised from 8 MB to
+48 MB, which is the measured working set of the widest search the card offers.
+`tests/test_engine_search_real.py` (slow) checks a capped answer against an
+uncapped one span for span, on the real database, for two fixed queries.
+
+**Left open.** `web/format.js` still rewrites the `unmatched_signs` reason
+(F7). It is no longer a correction — the engine's own sentence is true now —
+but it means the card and the API print different words for the same span.
+Removing it is three files (`format.js`, `copy.js`, `test_web_static.py`) and
+belongs to whoever owns `web/` next.

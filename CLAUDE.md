@@ -59,9 +59,11 @@ same SIMS export we read, so that is a check on our source, not a survey.
 Address search comes from a local index of 63,245 doors, 5,645 corners, 5,817
 places and 2,814 street spellings (D29): median 0 m error on a 400-door sample,
 nothing leaving the machine, answered from one read-only connection per worker
-thread whose 48 MB page cache holds `/api/geocode` at a 22 ms p50 on this data
-mount, where it was 489 ms. The UI is the `docs/ux/` redesign: map-first, a
-36 px §17 strip with the full notice one click away (D30), local autocomplete.
+thread whose 48 MB page cache holds `/api/geocode` at a 6 ms p50 on this data
+mount (32 ms on a street the connection has not read yet), where it was 489 ms;
+the same cache is what holds a 30-minute search at 0.9 s, where it was 4.8 s.
+The UI is the `docs/ux/` redesign: map-first, a 36 px §17 strip with the full
+notice one click away (D30), local autocomplete.
 
 ## Non-negotiables
 
