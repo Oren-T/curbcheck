@@ -438,12 +438,12 @@ shipped.
 
 `.github/workflows/pages.yml`: `schedule` Mondays 09:00 UTC, `workflow_dispatch`,
 and `push` to `main` when `web/`, `site/`, `curbcheck/`, `requirements*.txt`
-or the workflow changed. `permissions: contents: read, pages: write, id-token:
-write`; `concurrency: { group: pages, cancel-in-progress: false }`;
-`timeout-minutes: 30` on build, 10 on deploy. `--max-age-days 0` because the
-restored cache keeps last week's mtimes and the default freshness rule would
-skip every download on a run under a week after the last, then stamp
-`built_at` now.
+or the workflow changed. `contents: read` for the workflow and `pages: write`,
+`id-token: write` on the `deploy` job only; every action pinned by commit SHA;
+`concurrency: { group: pages, cancel-in-progress: false }`; `timeout-minutes:
+30` on build, 10 on deploy. `--max-age-days 0` because the restored cache keeps
+last week's mtimes and the default freshness rule would skip every download on
+a run under a week after the last, then stamp `built_at` now.
 
 ```
 build:
