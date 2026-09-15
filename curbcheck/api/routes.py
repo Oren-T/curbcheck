@@ -19,7 +19,7 @@ from fastapi import APIRouter, Query, Request
 
 from curbcheck.api.errors import ApiError, database_unavailable
 from curbcheck.api.schemas import MAX_QUERY_CHARS, REG_SEG_ID_PATTERN, SearchRequest
-from curbcheck.db import connect, regulation_from_row
+from curbcheck.db import connect, json_string_list, regulation_from_row
 from curbcheck.engine.search import SearchResult, calendar_is_missing, search
 from curbcheck.geocode import GeocodeCandidate, geocode
 
@@ -153,7 +153,7 @@ def get_segment(request: Request, reg_seg_id: str) -> dict[str, Any]:
                 "capacity_cars": _optional_int(row["capacity_cars"]),
                 "capacity_approximate": bool(row["capacity_approximate"]),
                 "confidence": float(row["confidence"] or 0.0),
-                "derived_from": _json_list(row["derived_from"]),
+                "derived_from": json_string_list(row["derived_from"]),
             },
             "geometry": json.loads(str(row["geom"])),
             "regulations": _segment_regulations(conn, reg_seg_id),
@@ -322,22 +322,12 @@ def _segment_meter_rates(
             "blockface_id": str(row["blockface_id"]),
             "side": _optional_str(row["side"]),
             "rate_label": _optional_str(row["rate_label"]),
-            "hour_rates": _json_list(row["hour_rates"]),
+            "hour_rates": json_string_list(row["hour_rates"]),
             "max_session_min": _optional_int(row["max_session_min"]),
         }
         for row in rows
         if row["side"] is None or side is None or str(row["side"]) == side
     ]
-
-
-def _json_list(value: Any) -> list[str]:
-    if value is None:
-        return []
-    try:
-        parsed = json.loads(str(value))
-    except (ValueError, json.JSONDecodeError):
-        return []
-    return [str(item) for item in parsed] if isinstance(parsed, list) else []
 
 
 def _as_int(value: str | None) -> int:

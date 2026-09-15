@@ -21,7 +21,7 @@ from shapely.errors import ShapelyError
 from shapely.geometry import Point, shape
 from shapely.geometry.base import BaseGeometry
 
-from curbcheck.db import placeholders, regulation_from_row
+from curbcheck.db import json_string_list, placeholders, regulation_from_row
 from curbcheck.engine.cost import (
     Weights,
     meter_price,
@@ -406,7 +406,7 @@ def _candidates_in_radius(
                 geometry=geometry,
                 capacity_cars=None if row["capacity_cars"] is None else int(row["capacity_cars"]),
                 snap_confidence=float(row["confidence"] or 0.0),
-                sign_ids=_json_string_list(row["derived_from"]),
+                sign_ids=json_string_list(row["derived_from"]),
                 walk_min=walk_minutes_for_meters(distance_m),
                 gap_kind=_optional_str(row["gap_kind"]) if has_gap_kind else None,
             )
@@ -495,7 +495,7 @@ def _cross_street(names: Any, street_name: str) -> str | None:
     would label a corner as its own cross street.
     """
     own = _collapse(street_name)
-    for name in _json_string_list(names):
+    for name in json_string_list(names):
         if name and _collapse(name) != own:
             return name
     return None
@@ -689,31 +689,10 @@ def _chunked(values: Sequence[str], size: int = _ID_CHUNK) -> Iterator[list[str]
         yield list(values[start : start + size])
 
 
-def _json_string_list(value: Any) -> list[str]:
-    """Read a JSON list column, treating anything unreadable as empty.
-
-    The database is untrusted at read time (CLAUDE.md), including columns the
-    ETL is supposed to have written as JSON. A `derived_from` or `hour_rates`
-    cell that is not a JSON list means "no sign ids" and "no known rate", which
-    the caller already handles; letting the decode error out would turn a
-    half-built snapshot into a 500 on every search. Matches
-    `api.routes._json_list`.
-    """
-    if value is None:
-        return []
-    try:
-        parsed = json.loads(str(value))
-    except ValueError:
-        return []
-    if not isinstance(parsed, list):
-        return []
-    return [str(item) for item in parsed]
-
-
 def _decimal_list(value: Any) -> list[Decimal]:
     """Hourly rates are stored as JSON strings so money never round-trips through a float."""
     rates = []
-    for item in _json_string_list(value):
+    for item in json_string_list(value):
         try:
             rates.append(Decimal(item))
         except InvalidOperation:

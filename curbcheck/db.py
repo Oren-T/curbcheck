@@ -327,6 +327,24 @@ def regulation_to_params(
     }
 
 
+def json_string_list(value: Any) -> list[str]:
+    """Read a JSON list column as strings, treating anything unreadable as empty.
+
+    `derived_from`, `street_names` and `hour_rates` are all JSON lists, and
+    everything in `data/` is untrusted at read time (CLAUDE.md). A cell that is
+    not a JSON list means "no ids", "no names" or "no known rate", which every
+    caller already handles; raising would turn a half-built snapshot into a 500
+    on every search.
+    """
+    if value is None:
+        return []
+    try:
+        parsed = json.loads(str(value))
+    except ValueError:
+        return []
+    return [str(item) for item in parsed] if isinstance(parsed, list) else []
+
+
 def geojson_bbox(geometry: Mapping[str, Any] | str) -> tuple[float, float, float, float]:
     """Bounding box (min_lon, min_lat, max_lon, max_lat) of a GeoJSON geometry."""
     parsed = json.loads(geometry) if isinstance(geometry, str) else geometry

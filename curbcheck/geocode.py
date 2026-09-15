@@ -36,6 +36,7 @@ from typing import Any
 from shapely.geometry import LineString, MultiLineString, shape
 from shapely.ops import linemerge
 
+from curbcheck.db import json_string_list
 from curbcheck.etl.streets import normalize_street_name
 
 MAX_CANDIDATES = 5
@@ -330,7 +331,7 @@ def _intersection_candidates(
     second = set(_street_variants(query.second))
     candidates = []
     for row in conn.execute(_NODES_SQL):
-        names = _name_list(row["street_names"])
+        names = json_string_list(row["street_names"])
         normalized = {_normalize(name) for name in names}
         if not (first & normalized) or not (second & normalized):
             continue
@@ -416,15 +417,3 @@ def _house_int(value: Any) -> int | None:
         return None
     match = _LEADING_DIGITS.match(str(value))
     return int(match.group(1)) if match else None
-
-
-def _name_list(value: Any) -> list[str]:
-    if value is None:
-        return []
-    try:
-        parsed = json.loads(str(value))
-    except (ValueError, json.JSONDecodeError):
-        return []
-    if not isinstance(parsed, list):
-        return []
-    return [str(item) for item in parsed]

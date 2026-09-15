@@ -16,6 +16,7 @@ import pytest
 
 from curbcheck import db
 from curbcheck.config import NYC_TZ
+from curbcheck.db import json_string_list
 from curbcheck.engine.cost import Weights
 from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT, Verdict
 from curbcheck.engine.search import (
@@ -23,7 +24,6 @@ from curbcheck.engine.search import (
     SearchResult,
     SearchResults,
     _decimal_list,
-    _json_string_list,
     search,
 )
 from curbcheck.model import Action, ParseMethod, Regulation
@@ -616,10 +616,10 @@ def test_a_readable_database_logs_no_geometry_warning(conn: sqlite3.Connection, 
 def test_an_unreadable_json_column_reads_as_empty_rather_than_raising():
     """A half-built snapshot must degrade, not 500 (CLAUDE.md: data/ is untrusted)."""
     for broken in ("not json", "", "{", '{"a": 1}', "null", "12"):
-        assert _json_string_list(broken) == []
+        assert json_string_list(broken) == []
         assert _decimal_list(broken) == []
 
-    assert _json_string_list('["sign-1", "sign-2"]') == ["sign-1", "sign-2"]
+    assert json_string_list('["sign-1", "sign-2"]') == ["sign-1", "sign-2"]
     assert _decimal_list('["4.50"]') == [Decimal("4.50")]
 
 

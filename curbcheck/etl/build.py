@@ -264,7 +264,7 @@ def run_parse(conn: sqlite3.Connection) -> ParseStats:
     rows: list[dict[str, Any]] = []
     for segment in conn.execute(_REG_SEGMENTS_FOR_PARSE_SQL).fetchall():
         forward = _segment_points(str(segment["geom"]))
-        sign_ids = _json_string_list(segment["derived_from"])
+        sign_ids = db.json_string_list(segment["derived_from"])
         members = [signs[sign_id] for sign_id in sign_ids if sign_id in signs]
         segment_rows = _segment_regulations(
             str(segment["reg_seg_id"]),
@@ -817,11 +817,6 @@ def _write_regulation_segments(
             for segment in segments
         ],
     )
-
-
-def _json_string_list(value: Any) -> list[str]:
-    parsed = json.loads(str(value))
-    return [str(item) for item in parsed] if isinstance(parsed, list) else []
 
 
 def _optional_text(value: Any) -> str | None:
