@@ -81,6 +81,13 @@ Read the sign the way a traffic agent standing in front of it would.
   suspected typo leaves a real choice; a string whose core rule cannot be read
   at all is `parse_method: "unparsed"`, `regulations: []`, `confidence: 0`.
 
+## Adjudications
+
+`ADJUDICATIONS.md` records every disagreement between these labels and the
+parser: which side was corrected and why, and which spelling differences were
+accepted as having the same meaning for a passenger car. One label has been
+corrected since the set was written; the entry says which and on what evidence.
+
 ## Known limits
 
 - `flags.snow_emergency`, `flags.including_sunday`, `flags.holiday_exempt` and
