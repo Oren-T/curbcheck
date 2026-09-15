@@ -37,6 +37,11 @@ CALENDAR_MISSING_CAVEAT = (
     "may be wrong"
 )
 
+# The reason on a span that is legal only because nothing is posted. Written as
+# a sentence, not as a phrase like the other reasons, because the UI leads the
+# card with it rather than appending it to a verdict word (UX audit P0-1).
+ABSENCE_REASON = "No posted rule covers this window"
+
 # Least to most restrictive when prohibited, for picking what to report.
 _PROHIBITION_RANK: dict[Action, int] = {Action.PARK: 0, Action.STAND: 1, Action.STOP: 2}
 
@@ -54,6 +59,20 @@ class Verdict(StrEnum):
     ILLEGAL = "illegal"
     AMBIGUOUS = "ambiguous"
     NO_DATA = "no_data"
+
+
+class VerdictBasis(StrEnum):
+    """Why a LEGAL verdict is legal: a rule that permits, or no rule at all.
+
+    Absence really is a permission under 34 RCNY 4-08, but it is evidence of
+    nothing having been read, and the two must not reach the user as one thing:
+    every ranked result on the Upper East Side read "Legal - 100% confidence -
+    no posted rule covers this window", which is the app announcing that it
+    found nothing in its most confident voice (UX audit P0-1).
+    """
+
+    POSTED = "posted"
+    ABSENCE = "absence"
 
 
 @dataclass(frozen=True)
@@ -100,6 +119,20 @@ class SegmentVerdict:
     max_duration_min: int | None = None
     confidence: float = 1.0
     first_offending: IntervalOutcome | None = None
+
+    @property
+    def basis(self) -> VerdictBasis | None:
+        """Why this span is legal, or None when the verdict is not LEGAL.
+
+        ABSENCE only when *no* posted rule was in force for any part of the
+        window; one permitting rule anywhere in it makes the verdict POSTED,
+        because there is then a sign the user can go and read.
+        """
+        if self.verdict is not Verdict.LEGAL:
+            return None
+        if self.intervals and all(outcome.by_absence for outcome in self.intervals):
+            return VerdictBasis.ABSENCE
+        return VerdictBasis.POSTED
 
     @property
     def charged_intervals(self) -> list[IntervalOutcome]:
@@ -225,7 +258,7 @@ def evaluate_segment(
         )
 
     if all(outcome.by_absence for outcome in outcomes):
-        return decided(Verdict.LEGAL, "no posted rule covers this window")
+        return decided(Verdict.LEGAL, ABSENCE_REASON)
     return decided(Verdict.LEGAL, "parking permitted for the whole window")
 
 

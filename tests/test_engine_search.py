@@ -18,8 +18,9 @@ from curbcheck import db
 from curbcheck.config import NYC_TZ
 from curbcheck.db import json_string_list
 from curbcheck.engine.cost import Weights
-from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT, Verdict
+from curbcheck.engine.resolve import CALENDAR_MISSING_CAVEAT, Verdict, VerdictBasis
 from curbcheck.engine.search import (
+    COST_TIE_BAND,
     MAX_MAP_LIMIT,
     SearchResult,
     SearchResults,
@@ -735,3 +736,196 @@ def test_a_prohibition_on_the_other_side_of_the_street_does_not_contest(
     by_id = {result.reg_seg_id: result for result in run_search(conn)}
 
     assert by_id["seg-hmp"].verdict is Verdict.LEGAL
+
+
+# --- how a legal verdict was reached -------------------------------------
+
+
+def test_a_permitting_rule_makes_the_basis_posted(conn: sqlite3.Connection) -> None:
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
+
+    assert result.verdict is Verdict.LEGAL
+    assert result.basis is VerdictBasis.POSTED
+    assert result.confidence_shown
+
+
+def test_a_window_no_rule_reaches_is_legal_by_absence(conn: sqlite3.Connection) -> None:
+    """34 RCNY 4-08 makes this legal; it is still the engine finding nothing (UX audit P0-1)."""
+    sunday = (
+        datetime.fromisoformat("2026-09-20T10:00").replace(tzinfo=NYC_TZ),
+        datetime.fromisoformat("2026-09-20T11:00").replace(tzinfo=NYC_TZ),
+    )
+
+    result = next(
+        r for r in run_search(conn, t1=sunday[0], t2=sunday[1]) if r.reg_seg_id == "seg-meter"
+    )
+
+    assert result.verdict is Verdict.LEGAL
+    assert result.basis is VerdictBasis.ABSENCE
+    assert result.reason == "No posted rule covers this window"
+    # The percentage is hidden, not the number: the audit block still shows it.
+    assert result.confidence_shown is False
+    assert result.confidence == pytest.approx(0.98)
+
+
+def test_a_non_legal_verdict_has_no_basis(conn: sqlite3.Connection) -> None:
+    by_id = {result.reg_seg_id: result for result in run_search(conn)}
+
+    assert by_id["seg-free"].basis is None
+    assert by_id["seg-odd"].basis is None
+    assert by_id["seg-blank"].basis is None
+    assert by_id["seg-blank"].confidence_shown is False
+    # An ambiguous span's confidence is the reason it is ambiguous; it is shown.
+    assert by_id["seg-odd"].confidence_shown is True
+
+
+# --- the terms behind the score ------------------------------------------
+
+
+def test_each_result_carries_the_terms_its_score_is_made_of(conn: sqlite3.Connection) -> None:
+    """The client re-ranks locally, so it needs the same numbers the server added up."""
+    weights = Weights(walk=1.0, money=1.0, risk=0.5)
+    result = next(r for r in run_search(conn, weights=weights) if r.reg_seg_id == "seg-meter")
+
+    assert result.money_value == pytest.approx(9.13)
+    assert result.money == "9.13"
+    assert result.risk == pytest.approx(0.65)
+    assert result.score == pytest.approx(
+        weights.walk * result.walk_min + weights.money * 9.13 + weights.risk * 0.65
+    )
+
+
+def test_risk_grows_as_the_snap_confidence_falls(conn: sqlite3.Connection) -> None:
+    conn.execute("UPDATE regulation_segment SET confidence = 0.5 WHERE reg_seg_id = 'seg-meter'")
+
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
+
+    assert result.risk == pytest.approx(16.25)
+
+
+def test_an_unknown_price_has_no_numeric_twin(conn: sqlite3.Connection) -> None:
+    conn.execute("DELETE FROM meter_rate")
+
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-meter")
+
+    assert result.money is None
+    assert result.money_value is None
+
+
+# --- curb with no data has no price --------------------------------------
+
+
+def test_a_no_data_span_has_no_price_at_all(conn: sqlite3.Connection) -> None:
+    """ "$0.00" and "no meter" on grey curb assert what the data never said (UX audit P0-5)."""
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-blank")
+
+    assert result.verdict is Verdict.NO_DATA
+    assert result.money is None
+    assert result.money_value is None
+    assert result.price_known is False
+    assert result.rate_label is None
+
+
+def test_a_placeholder_span_has_no_price_even_where_the_block_is_metered(
+    conn: sqlite3.Connection,
+) -> None:
+    add_placeholder(conn, "seg-gap", lat=ORIGIN_LAT + 0.0013, gap_kind="no_signs")
+    add_meter_rate(conn, "bf-gap", "seg-gap", ["5.00", "8.25"])
+
+    result = next(r for r in run_search(conn) if r.reg_seg_id == "seg-gap")
+
+    assert result.money is None
+    assert result.price_known is False
+    assert result.rate_label is None
+
+
+# --- ranking ---------------------------------------------------------------
+
+
+def test_a_posted_permission_outranks_absence_at_the_same_cost(conn: sqlite3.Connection) -> None:
+    """Both spans cost the same; the one with a sign to read goes first (decision D27)."""
+    add_sign(conn, "sign-posted", "PARKING PERMITTED")
+    add_segment(conn, "seg-posted", lat=ORIGIN_LAT + 0.0009, sign_ids=["sign-posted"])
+    add_regulation(
+        conn,
+        "reg-posted",
+        "seg-posted",
+        Regulation(action=Action.PARK, permitted=True),
+        raw="PARKING PERMITTED",
+    )
+    add_sign(conn, "sign-weekday", "NO PARKING MON-FRI")
+    add_segment(conn, "seg-absent", lat=ORIGIN_LAT + 0.0009, sign_ids=["sign-weekday"])
+    add_regulation(
+        conn,
+        "reg-weekday",
+        "seg-absent",
+        Regulation(action=Action.PARK, permitted=False, days=[0, 1, 2, 3, 4]),
+        raw="NO PARKING MON-FRI",
+    )
+
+    found = run(conn)
+    ranked = [result.reg_seg_id for result in found.legal]
+
+    absent = next(r for r in found.legal if r.reg_seg_id == "seg-absent")
+    posted = next(r for r in found.legal if r.reg_seg_id == "seg-posted")
+    assert absent.basis is VerdictBasis.ABSENCE
+    assert abs(absent.score - posted.score) < 0.5
+    assert ranked.index("seg-posted") < ranked.index("seg-absent")
+
+
+def test_a_cheaper_absence_still_outranks_a_dearer_posted_span(conn: sqlite3.Connection) -> None:
+    """The tie-break is a tie-break: it never reorders spans whose cost differs."""
+    add_sign(conn, "sign-weekday", "NO PARKING MON-FRI")
+    add_segment(conn, "seg-absent", lat=ORIGIN_LAT + 0.0002, sign_ids=["sign-weekday"])
+    add_regulation(
+        conn,
+        "reg-weekday",
+        "seg-absent",
+        Regulation(action=Action.PARK, permitted=False, days=[0, 1, 2, 3, 4]),
+        raw="NO PARKING MON-FRI",
+    )
+
+    found = run(conn)
+
+    assert found.legal[0].reg_seg_id == "seg-absent"
+    assert found.legal[0].score + COST_TIE_BAND < found.legal[1].score
+
+
+def test_a_dense_run_of_costs_does_not_chain_into_one_tie(conn: sqlite3.Connection) -> None:
+    """Banding on the previous result rather than on the band's first would tie everything.
+
+    Twenty spans a fifth of a point apart, plus one posted span that is the
+    dearest of all: if the bands chained, the whole run would be one tie and
+    the posted span would be promoted to the front of a list it is last in.
+    """
+    for index in range(20):
+        add_sign(conn, f"sign-step-{index}", "NO PARKING MON-FRI")
+        add_segment(
+            conn,
+            f"seg-step-{index}",
+            lat=ORIGIN_LAT + 0.0002 + index * 0.00005,
+            sign_ids=[f"sign-step-{index}"],
+        )
+        add_regulation(
+            conn,
+            f"reg-step-{index}",
+            f"seg-step-{index}",
+            Regulation(action=Action.PARK, permitted=False, days=[0, 1, 2, 3, 4]),
+            raw="NO PARKING MON-FRI",
+        )
+    add_sign(conn, "sign-dearest", "PARKING PERMITTED")
+    add_segment(conn, "seg-dearest", lat=ORIGIN_LAT + 0.0016, sign_ids=["sign-dearest"])
+    add_regulation(
+        conn,
+        "reg-dearest",
+        "seg-dearest",
+        Regulation(action=Action.PARK, permitted=True),
+        raw="PARKING PERMITTED",
+    )
+
+    found = run(conn)
+    ranked = [result.reg_seg_id for result in found.legal]
+
+    assert all(result.basis is VerdictBasis.ABSENCE for result in found.legal[:20])
+    assert ranked[0] == "seg-step-0"
+    assert ranked.index("seg-dearest") == 20

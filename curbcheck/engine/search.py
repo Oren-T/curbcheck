@@ -1,15 +1,13 @@
 """Radius query over regulation segments, evaluated and ranked.
 
-The only module in the engine that touches SQLite. Shape of the work: bbox
-prefilter in SQL, exact distance in Python with shapely, one batched query per
-kind of related row (never one per candidate), then verdict, price, and rank.
+Shape of the work: bbox prefilter in SQL, exact distance in Python with
+shapely, one batched query per kind of related row (never one per candidate),
+then verdict, price, and rank.
 """
 
 from __future__ import annotations
 
-import json
 import logging
-import math
 import sqlite3
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass, replace
@@ -30,10 +28,13 @@ from curbcheck.engine.cost import (
     walk_minutes_for_meters,
     walk_radius_meters,
 )
+from curbcheck.engine.geo import degree_padding, measure
+from curbcheck.engine.labels import between_phrase, single_spaced, span_label
 from curbcheck.engine.resolve import (
     RegulationWithMeta,
     SegmentVerdict,
     Verdict,
+    VerdictBasis,
     evaluate_segment,
 )
 from curbcheck.engine.window import CalendarContext
@@ -57,11 +58,11 @@ MAX_MAP_LIMIT = 5000
 # older builds use 999. 400 ids per query is comfortably under both.
 _ID_CHUNK = 400
 
-# Local flat-earth scale. Over a 1 km radius at Manhattan's latitude the error
-# against a proper projection is under a metre, and it keeps pyproj out of the
-# request path. Values are the WGS-84 metres per degree at 40.75 N.
-_M_PER_DEG_LAT = 111_132.0
-_M_PER_DEG_LON_AT_EQUATOR = 111_320.0
+# Two legal spans whose cost differs by less than this are the same price as
+# far as the ranking is concerned: half a minute of walking under the default
+# weights, which is under the noise in a straight-line walk estimate. Inside a
+# band a posted permission outranks mere absence of a rule (decision D27).
+COST_TIE_BAND = 0.5
 
 _CANDIDATE_COLUMNS = (
     "reg_seg_id, segment_id, side, geom, length_ft, capacity_cars, confidence, derived_from"
@@ -122,6 +123,16 @@ class SearchResult:
     charged_minutes: int = 0
     metered: bool = False
     score: float = 0.0
+    # The three terms `score` is made of, so a client can re-rank under its own
+    # weights without a round trip: walk_min above, `money_value` here as the
+    # numeric twin of the `money` string, and `risk` in the same dollars.
+    money_value: float | None = None
+    risk: float = 0.0
+    # Why a LEGAL span is legal, and whether the confidence number means
+    # anything on it. Both are None/False on the states where a percentage
+    # would be the app sounding sure about having found nothing (UX audit P0-1).
+    basis: VerdictBasis | None = None
+    confidence_shown: bool = True
     rate_label: str | None = None
     # A human label for the span, e.g. "3 AVENUE, west side, E 85 ST -> E 86 ST".
     # None when the span has no centerline segment to name it from.
@@ -324,16 +335,47 @@ def _overlaps(line: BaseGeometry, other: BaseGeometry | None) -> bool:
 
 
 def _split_and_cap(results: list[SearchResult], *, limit: int, map_limit: int) -> SearchResults:
-    legal = sorted(
-        (result for result in results if result.verdict is Verdict.LEGAL),
-        key=lambda result: (result.score, result.reg_seg_id),
-    )
+    legal = _rank_legal([result for result in results if result.verdict is Verdict.LEGAL])
     others = [result for result in results if result.verdict is not Verdict.LEGAL]
     # Choose *which* others survive the cap by distance, so a dense band of one
     # verdict cannot crowd out another, then order the survivors for display.
     kept = sorted(others, key=lambda result: (result.walk_min, result.reg_seg_id))[:map_limit]
     kept.sort(key=lambda result: (_VERDICT_ORDER[result.verdict], result.score, result.reg_seg_id))
     return SearchResults(legal=legal[:limit], others=kept, counts=_count_verdicts(results))
+
+
+def _rank_legal(legal: list[SearchResult]) -> list[SearchResult]:
+    """Cheapest first, but a posted permission ahead of mere absence at the same cost.
+
+    The ranking stays a cost ranking: only spans whose cost the user could not
+    tell apart are reordered, and only to put a span with a sign to read above
+    one where nothing is posted (decision D27, UX audit P0-1).
+    """
+    by_cost = sorted(legal, key=lambda result: (result.score, result.reg_seg_id))
+    ranked: list[SearchResult] = []
+    for band in _cost_bands(by_cost):
+        ranked.extend(
+            sorted(band, key=lambda result: (_BASIS_ORDER.get(result.basis, 1), result.score))
+        )
+    return ranked
+
+
+def _cost_bands(by_cost: Sequence[SearchResult]) -> Iterator[list[SearchResult]]:
+    """Runs of results within COST_TIE_BAND of the *first* result in the run.
+
+    Anchoring each band on its own first element rather than on the previous
+    one is what keeps a dense list from chaining into one band: 600 spans a
+    tenth of a point apart would otherwise all tie, and the cost ranking would
+    stop meaning anything.
+    """
+    band: list[SearchResult] = []
+    for result in by_cost:
+        if band and result.score - band[0].score > COST_TIE_BAND:
+            yield band
+            band = []
+        band.append(result)
+    if band:
+        yield band
 
 
 def _count_verdicts(results: Sequence[SearchResult]) -> SearchCounts:
@@ -394,10 +436,9 @@ def _meta_says_calendar_missing(conn: sqlite3.Connection) -> bool:
 def _candidates_in_radius(
     conn: sqlite3.Connection, *, lon: float, lat: float, radius_m: float
 ) -> list[_Candidate]:
-    lat_pad = radius_m / _M_PER_DEG_LAT
-    lon_pad = radius_m / _meters_per_degree_lon(lat)
-    has_gap_kind = _has_gap_kind(conn)
-    columns = _CANDIDATE_COLUMNS + (", gap_kind" if has_gap_kind else "")
+    lon_pad, lat_pad = degree_padding(lat, radius_m)
+    gap_kind_column = has_gap_kind(conn)
+    columns = _CANDIDATE_COLUMNS + (", gap_kind" if gap_kind_column else "")
     rows = conn.execute(
         _CANDIDATE_SQL.format(columns=columns),
         (lon - lon_pad, lon + lon_pad, lat - lat_pad, lat + lat_pad),
@@ -407,7 +448,7 @@ def _candidates_in_radius(
     candidates: list[_Candidate] = []
     unreadable = 0
     for row in rows:
-        measured = _measure(row["geom"], lon=lon, lat=lat, origin=origin)
+        measured = measure(row["geom"], lon=lon, lat=lat, origin=origin)
         if measured is None:
             unreadable += 1
             continue
@@ -424,7 +465,7 @@ def _candidates_in_radius(
                 snap_confidence=float(row["confidence"] or 0.0),
                 sign_ids=json_string_list(row["derived_from"]),
                 walk_min=walk_minutes_for_meters(distance_m),
-                gap_kind=_optional_str(row["gap_kind"]) if has_gap_kind else None,
+                gap_kind=_optional_str(row["gap_kind"]) if gap_kind_column else None,
             )
         )
     if unreadable:
@@ -432,32 +473,6 @@ def _candidates_in_radius(
         # can hold thousands of these and the point is the count, not each id.
         LOGGER.warning("skipped %d regulation_segment row(s) with unreadable geometry", unreadable)
     return candidates
-
-
-def _measure(
-    geom: Any, *, lon: float, lat: float, origin: Point
-) -> tuple[dict[str, Any], float] | None:
-    """The row's geometry and its distance in metres, or None when it cannot be read.
-
-    The database is untrusted at read time (CLAUDE.md), and `geom` is the last
-    column in this query that was still decoded unguarded: a truncated or
-    hand-edited snapshot answered every search with a 500
-    (docs/SECURITY.md residual 9). Dropping the row hides a stretch of curb the
-    user asked about, which is why the count is logged rather than swallowed —
-    but a search that answers about the rest of the neighbourhood is worth more
-    than one that answers about none of it.
-    """
-    try:
-        geometry = json.loads(str(geom))
-        local = shape(_to_local_meters(geometry, lon0=lon, lat0=lat))
-        return geometry, float(local.distance(origin))
-    except (ValueError, TypeError, KeyError, IndexError, ShapelyError):
-        return None
-
-
-# CSCL writes street names in capitals ("3 AVENUE"); they are shown as stored,
-# because a title-cased "3 Avenue" is our text, not DOT's.
-_SIDE_WORDS = {"N": "north", "S": "south", "E": "east", "W": "west"}
 
 
 def _label_candidates(conn: sqlite3.Connection, candidates: Sequence[_Candidate]) -> None:
@@ -469,66 +484,21 @@ def _label_candidates(conn: sqlite3.Connection, candidates: Sequence[_Candidate]
     Without it a result card can only show the opaque `reg_seg_id`, and the
     frontend used to buy the name back with one `/api/segment` request per card.
     """
-    between: dict[str, str] = {}
+    labels: dict[str, tuple[str, str | None]] = {}
     segment_ids = sorted({c.segment_id for c in candidates if c.segment_id is not None})
     for chunk in _chunked(segment_ids):
         for row in conn.execute(_STREET_SQL + placeholders(len(chunk)) + ")", chunk):
-            street_name = _single_spaced(_optional_str(row["street_name"]) or "")
+            street_name = single_spaced(_optional_str(row["street_name"]) or "")
             if street_name:
-                between[str(row["segment_id"])] = street_name + _cross_street_phrase(
-                    street_name, row["from_names"], row["to_names"]
+                labels[str(row["segment_id"])] = (
+                    street_name,
+                    between_phrase(street_name, row["from_names"], row["to_names"]),
                 )
     for candidate in candidates:
-        label = between.get(candidate.segment_id or "")
-        if label is None:
+        named = labels.get(candidate.segment_id or "")
+        if named is None:
             continue
-        side = _SIDE_WORDS.get(candidate.side or "")
-        candidate.street_name = _with_side(label, side) if side else label
-
-
-def _with_side(label: str, side: str) -> str:
-    """Insert the side after the street name, before the cross streets."""
-    street_name, separator, rest = label.partition(", ")
-    return f"{street_name}, {side} side{separator}{rest}"
-
-
-def _cross_street_phrase(street_name: str, from_names: Any, to_names: Any) -> str:
-    """ ", E 85 ST → E 86 ST", ", at E 85 ST", or "" when neither node names one."""
-    start = _cross_street(from_names, street_name)
-    end = _cross_street(to_names, street_name)
-    if start and end:
-        return f", {start} → {end}"
-    if start or end:
-        return f", at {start or end}"
-    return ""
-
-
-def _cross_street(names: Any, street_name: str) -> str | None:
-    """The first name on the node that is not the street the span runs along.
-
-    Compared on collapsed whitespace: CSCL writes the same street as `E 85 ST`
-    on the node and `E  85 ST` on the segment often enough that an exact match
-    would label a corner as its own cross street.
-    """
-    own = _collapse(street_name)
-    for name in json_string_list(names):
-        if name and _collapse(name) != own:
-            return _single_spaced(name)
-    return None
-
-
-def _single_spaced(name: str) -> str:
-    """CSCL writes the same street as `E 85 ST` on one row and `E  85 ST` on another.
-
-    The label is the one place a street name reaches the user's eye, so the
-    runs of spaces the source carries are collapsed there rather than in the
-    ETL, which keeps the stored name byte-identical to DOT's.
-    """
-    return " ".join(name.split())
-
-
-def _collapse(name: str) -> str:
-    return _single_spaced(name).casefold()
+        candidate.street_name = span_label(named[0], candidate.side, named[1])
 
 
 def _load_stacks(
@@ -629,9 +599,12 @@ def _build_result(
     weights: Weights,
 ) -> SearchResult:
     caveats = list(verdict.caveats)
-    money, price_known, rate_label = _price(verdict, rates, caveats)
+    money, price_known, rate_label = _price(
+        verdict, rates, caveats, placeholder=candidate.gap_kind is not None
+    )
     risk = risk_dollars(verdict.confidence, candidate.snap_confidence)
     score = total_cost(candidate.walk_min, money or Decimal("0.00"), risk, weights)
+    basis = verdict.basis
     return SearchResult(
         reg_seg_id=candidate.reg_seg_id,
         geometry=candidate.geometry,
@@ -647,18 +620,42 @@ def _build_result(
         charged_minutes=verdict.charged_minutes,
         metered=verdict.metered,
         score=score,
+        money_value=None if money is None else float(money),
+        risk=float(risk),
+        basis=basis,
+        confidence_shown=_confidence_is_meaningful(verdict.verdict, basis),
         rate_label=rate_label,
         street_name=candidate.street_name,
         gap_kind=candidate.gap_kind,
     )
 
 
+def _confidence_is_meaningful(verdict: Verdict, basis: VerdictBasis | None) -> bool:
+    """Whether the confidence number says anything the user should be shown.
+
+    On NO_DATA it is 0 next to "no sign data on this block", and on an
+    absence-based LEGAL verdict it is the confidence of an empty stack, i.e. 1.
+    Both printed as a percentage read as certainty about parking rather than as
+    certainty about a reading (UX audit P0-1, P2-1).
+    """
+    return verdict is not Verdict.NO_DATA and basis is not VerdictBasis.ABSENCE
+
+
 def _price(
     verdict: SegmentVerdict,
     rates: list[tuple[str | None, list[Decimal]]],
     caveats: list[str],
+    *,
+    placeholder: bool,
 ) -> tuple[Decimal | None, bool, str | None]:
-    """Meter cost for the window, or None when we have no rate. Never fabricate one (SPEC §13.1d)."""
+    """Meter cost for the window, or None when we have no rate. Never fabricate one (SPEC §13.1d).
+
+    Curb with no rules is unpriced, not free: "$0.00" and "no meter" were being
+    printed on grey spans the app knows nothing about, which is a claim the data
+    never made (UX audit P0-5, SPEC §11).
+    """
+    if placeholder or verdict.verdict is Verdict.NO_DATA:
+        return (None, False, None)
     if not verdict.metered or verdict.charged_minutes == 0:
         return (Decimal("0.00"), True, None)
     if not rates:
@@ -677,6 +674,8 @@ def _price(
     return (highest[0], True, highest[1])
 
 
+_BASIS_ORDER: dict[VerdictBasis | None, int] = {VerdictBasis.POSTED: 0, VerdictBasis.ABSENCE: 1}
+
 _VERDICT_ORDER: dict[Verdict, int] = {
     Verdict.LEGAL: 0,
     Verdict.AMBIGUOUS: 1,
@@ -685,7 +684,7 @@ _VERDICT_ORDER: dict[Verdict, int] = {
 }
 
 
-def _has_gap_kind(conn: sqlite3.Connection) -> bool:
+def has_gap_kind(conn: sqlite3.Connection) -> bool:
     """Whether this database has `regulation_segment.gap_kind`.
 
     One `PRAGMA table_info` per search, cheaper than the bbox query beside it.
@@ -693,21 +692,6 @@ def _has_gap_kind(conn: sqlite3.Connection) -> bool:
     before it is still usable — it just cannot say *why* a stretch is empty.
     """
     return any(str(row[1]) == "gap_kind" for row in conn.execute(_GAP_KIND_PRAGMA))
-
-
-def _meters_per_degree_lon(lat: float) -> float:
-    return _M_PER_DEG_LON_AT_EQUATOR * math.cos(math.radians(lat))
-
-
-def _to_local_meters(geometry: dict[str, Any], *, lon0: float, lat0: float) -> dict[str, Any]:
-    scale_lon = _meters_per_degree_lon(lat0)
-
-    def convert(node: Any) -> Any:
-        if isinstance(node, (list, tuple)) and node and isinstance(node[0], (int, float)):
-            return [(float(node[0]) - lon0) * scale_lon, (float(node[1]) - lat0) * _M_PER_DEG_LAT]
-        return [convert(child) for child in node]
-
-    return {"type": geometry["type"], "coordinates": convert(geometry["coordinates"])}
 
 
 def _chunked(values: Sequence[str], size: int = _ID_CHUNK) -> Iterator[list[str]]:

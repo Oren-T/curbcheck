@@ -11,9 +11,11 @@ from datetime import date, datetime
 
 from curbcheck.config import NYC_TZ
 from curbcheck.engine.resolve import (
+    ABSENCE_REASON,
     AMBIGUITY_THRESHOLD,
     RegulationWithMeta,
     Verdict,
+    VerdictBasis,
     evaluate_segment,
     resolve_interval,
 )
@@ -648,3 +650,60 @@ def test_no_standing_handicap_bus_stop_is_illegal_for_us() -> None:
     )
 
     assert verdict.verdict is Verdict.ILLEGAL
+
+
+# --- why a legal verdict is legal ----------------------------------------
+
+
+def test_a_rule_that_permits_the_whole_window_gives_a_posted_basis() -> None:
+    verdict = evaluate_segment(
+        stacked(two_hour_meter_saturday()),
+        moment("2026-09-19T10:00"),
+        moment("2026-09-19T11:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.LEGAL
+    assert verdict.basis is VerdictBasis.POSTED
+
+
+def test_a_window_no_rule_reaches_gives_an_absence_basis() -> None:
+    """Legal under 34 RCNY 4-08, but the engine read no permission (UX audit P0-1)."""
+    verdict = evaluate_segment(
+        stacked(two_hour_meter_saturday()),
+        moment("2026-09-20T10:00"),
+        moment("2026-09-20T11:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.LEGAL
+    assert verdict.basis is VerdictBasis.ABSENCE
+    assert verdict.reason == ABSENCE_REASON
+
+
+def test_one_permitting_interval_is_enough_to_make_the_basis_posted() -> None:
+    """A window half inside the posted hours has a sign the driver can go and read."""
+    verdict = evaluate_segment(
+        stacked(two_hour_meter_saturday()),
+        moment("2026-09-19T18:30"),
+        moment("2026-09-19T20:00"),
+        EMPTY_CALENDAR,
+    )
+
+    assert verdict.verdict is Verdict.LEGAL
+    assert verdict.basis is VerdictBasis.POSTED
+
+
+def test_a_verdict_that_is_not_legal_has_no_basis() -> None:
+    illegal = evaluate_segment(
+        stacked(no_parking_anytime()),
+        moment("2026-09-19T10:00"),
+        moment("2026-09-19T11:00"),
+        EMPTY_CALENDAR,
+    )
+    no_data = evaluate_segment(
+        [], moment("2026-09-19T10:00"), moment("2026-09-19T11:00"), EMPTY_CALENDAR
+    )
+
+    assert illegal.basis is None
+    assert no_data.basis is None
