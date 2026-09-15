@@ -6,6 +6,8 @@ import pytest
 from test_etl_fixtures import (
     AVENUE_LENGTH_FT,
     AVENUE_LENGTHS_FT,
+    AVENUE_LON,
+    CROSS_LATS,
     STUB_LAT,
     STUB_LONS,
     centerline_row,
@@ -20,6 +22,7 @@ from curbcheck.etl.streets import (
     DEFAULT_STREET_WIDTH_FT,
     NameMatch,
     build_graph,
+    lonlat_to_feet,
     normalize_street_name,
 )
 
@@ -222,6 +225,49 @@ def test_a_dead_end_walk_refuses_a_fork():
 
     assert lookup.match is None
     assert lookup.reason == "cross_street_is_dead_end"
+
+
+def test_a_cross_street_missing_from_the_centerline_is_inferred_from_the_coordinate():
+    # docs/VALIDATION.md §4 D4: 739 sign rows name a cross street CSCL does not
+    # carry. The block is one segment from the corner that did resolve, and the
+    # published point says which way.
+    graph = grid_graph()
+    north = lonlat_to_feet(AVENUE_LON, (CROSS_LATS[1] + CROSS_LATS[2]) / 2)
+    south = lonlat_to_feet(AVENUE_LON, (CROSS_LATS[0] + CROSS_LATS[1]) / 2)
+
+    towards_north = graph.find_block_detail(
+        "BROAD AVENUE", "E 2 STREET", "HIDDEN PLAZA", near_ft=north
+    )
+    towards_south = graph.find_block_detail(
+        "BROAD AVENUE", "E 2 STREET", "HIDDEN PLAZA", near_ft=south
+    )
+
+    assert towards_north.match is not None and towards_south.match is not None
+    assert [s.segment_id for s in towards_north.match.segments] == ["avenue-1"]
+    assert [s.segment_id for s in towards_south.match.segments] == ["avenue-0"]
+    assert towards_north.to.match is NameMatch.INFERRED
+    # Distance is still measured from the corner DOT named first, whichever way
+    # the inferred block runs.
+    assert towards_north.match.from_node == towards_south.match.from_node
+
+
+def test_a_missing_cross_street_falls_back_to_the_next_corners_own_name():
+    graph = grid_graph()
+
+    lookup = graph.find_block_detail("BROAD AVENUE", "E 2 STREET", "EAST 3 STREET NORTH")
+
+    assert lookup.match is not None
+    assert [segment.segment_id for segment in lookup.match.segments] == ["avenue-1"]
+
+
+def test_a_missing_cross_street_with_nothing_to_point_the_way_stays_unmatched():
+    # A coin flip would put the sign on the wrong block half the time.
+    graph = grid_graph()
+
+    lookup = graph.find_block_detail("BROAD AVENUE", "E 2 STREET", "HIDDEN PLAZA")
+
+    assert lookup.match is None
+    assert lookup.reason == "cross_street_not_in_centerline"
 
 
 def test_resolve_street_distinguishes_exact_alias_and_fuzzy_matches():

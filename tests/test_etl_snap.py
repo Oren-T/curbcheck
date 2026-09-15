@@ -237,6 +237,29 @@ def test_a_divided_roadway_picks_the_carriageway_whose_named_curb_faces_out():
     assert any("2 equally short chains" in note for note in east.snap_notes)
 
 
+def test_an_inferred_cross_street_lands_in_the_low_confidence_tier():
+    # docs/VALIDATION.md §4 D4: the block came from one corner plus the
+    # published point, so the row must read as low confidence, not as a match.
+    graph = grid_graph()
+    north = lonlat_to_feet(AVENUE_LON, (CROSS_LATS[1] + CROSS_LATS[2]) / 2)
+
+    result = snap_one(
+        staged_sign(
+            "x",
+            from_street="E 2 STREET",
+            to_street="HIDDEN PLAZA",
+            x_coord=north[0],
+            y_coord=north[1],
+        ),
+        graph,
+    )
+
+    assert result.matched is True
+    assert result.segment_id == "avenue-1"
+    assert 0.55 < result.snap_confidence < 0.8
+    assert any("in no centerline row" in note for note in result.snap_notes)
+
+
 def test_coverage_report_separates_a_matching_gap_from_a_data_gap():
     graph = grid_graph()
     signs = [

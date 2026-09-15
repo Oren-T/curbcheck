@@ -20,7 +20,7 @@ from enum import StrEnum
 from typing import Any
 
 from pyproj import Transformer
-from shapely.geometry import LineString, MultiLineString, shape
+from shapely.geometry import LineString, MultiLineString, Point, shape
 from shapely.ops import linemerge, transform
 
 from curbcheck.etl.stage import RawCenterlineRow
@@ -95,6 +95,9 @@ NAME_ALIASES: dict[str, str] = {
     "QUEENSBORO BRG": "ED KOCH QUEENSBORO BRG",
     "N D PERLMAN PL": "NATHAN D PERLMAN PL",
     "ROBERT F WAGNER PL": "R F WAGNER SR PL",
+    "ROBERT F WAGNER SR PL": "R F WAGNER SR PL",
+    "QUEENSBOROUGH BRG": "ED KOCH QUEENSBORO BRG",
+    "LUIS MUNOZ MARIN BLVD": "E 116 ST",
     "CORBIN DR": "MARGARET CORBIN DR",
     # Word-spacing disagreements between the two datasets.
     "MACDOUGAL ST": "MAC DOUGAL ST",
@@ -107,6 +110,17 @@ NAME_ALIASES: dict[str, str] = {
     "CUMMINGS ST": "CUMMING ST",
     "THEATRE ALY": "THEATER ALY",
     "MARGRET CORBIN DR": "MARGARET CORBIN DR",
+    "AUDOBON AVE": "AUDUBON AVE",
+    "BENSON ST": "BENSON PL",
+    # DOT adds a directional to a roadway CSCL carries under one name. Each
+    # target was checked against `street_segment.street_norm` before it was
+    # added, and the names with no CSCL entry at all — ROCKEFELLER PLZ,
+    # COENTIES SLIP, THELONIOUS SPHERE MONK CIR — are deliberately absent
+    # (docs/DATA.md §1.9, docs/VALIDATION.md §4 D4).
+    "MAIN ST N": "MAIN ST",
+    "CENTRAL RD N": "CENTRAL RD",
+    "DELANCEY ST N": "DELANCEY ST",
+    "DELANCEY ST S": "DELANCEY ST",
 }
 
 # Values DOT writes into from_street/to_street where no cross street exists.
@@ -141,6 +155,16 @@ MAX_TIED_CHAINS = 8
 # E 85 ST -> E 86 ST (0.86), which is the pair that must never be confused.
 FUZZY_NAME_CUTOFF = 0.92
 
+# Looser ratio used only to ask "does the corner one block along carry a name
+# like the one DOT wrote?", where the alternative is dropping the sign entirely
+# and the published coordinate has already had its say.
+NEAR_NAME_CUTOFF = 0.8
+
+# Feet per bucket when a published coordinate joins the block-lookup cache key.
+# Half a short block: fine enough that two signs in one bucket want the same
+# block, coarse enough that the cache still pays.
+_COORD_BUCKET_FT = 50.0
+
 _PUNCTUATION = re.compile(r"[.,]")
 _WHITESPACE = re.compile(r"\s+")
 
@@ -155,6 +179,8 @@ class NameMatch(StrEnum):
     ALIAS = "alias"
     FUZZY = "fuzzy"
     DEAD_END = "dead_end"
+    INFERRED = "inferred"
+    """The name is in no centerline row; the block was inferred from the other corner."""
     """`DEAD END` resolved to the street's own terminal node by walking the chain."""
     NOT_A_STREET = "not_a_street"
     MISSING = "missing"
@@ -295,6 +321,7 @@ class StreetNameLookup:
             NameMatch.ALIAS,
             NameMatch.FUZZY,
             NameMatch.DEAD_END,
+            NameMatch.INFERRED,
         )
 
 
@@ -371,6 +398,7 @@ class StreetGraph:
         self._street_names: tuple[str, ...] = tuple(sorted(self._by_street))
         self._fuzzy_cache: dict[str, str | None] = {}
         self._block_cache: dict[tuple[str, str, str], BlockLookup] = {}
+        self._near_block_cache: dict[tuple[str, str, str, int, int], BlockLookup] = {}
 
     @property
     def street_names(self) -> tuple[str, ...]:
@@ -406,15 +434,100 @@ class StreetGraph:
         """
         return self.find_block_detail(on, from_, to).match
 
-    def find_block_detail(self, on: str, from_: str, to: str) -> BlockLookup:
-        """`find_block` plus the reason for a miss, which the coverage report needs."""
+    def find_block_detail(
+        self, on: str, from_: str, to: str, *, near_ft: tuple[float, float] | None = None
+    ) -> BlockLookup:
+        """`find_block` plus the reason for a miss, which the coverage report needs.
+
+        `near_ft` is the sign's published EPSG:2263 point. It never moves a block
+        that the names resolve on their own (SPEC §B.1); it is only consulted
+        when one cross street is not in the centerline at all and the block has
+        to be inferred from the other corner.
+        """
         key = (on, from_, to)
-        cached = self._block_cache.get(key)
-        if cached is not None:
-            return cached
-        lookup = self._find_block_uncached(on, from_, to)
-        self._block_cache[key] = lookup
-        return lookup
+        lookup = self._block_cache.get(key)
+        if lookup is None:
+            lookup = self._find_block_uncached(on, from_, to)
+            self._block_cache[key] = lookup
+        if lookup.match is not None or not _half_named(lookup):
+            return lookup
+        near_key = (*key, *_coordinate_bucket(near_ft))
+        inferred = self._near_block_cache.get(near_key)
+        if inferred is None:
+            inferred = self._one_block_from_known_corner(lookup, near_ft)
+            self._near_block_cache[near_key] = inferred
+        return inferred
+
+    def _one_block_from_known_corner(
+        self, lookup: BlockLookup, near_ft: tuple[float, float] | None
+    ) -> BlockLookup:
+        """Infer the block when only one of the two cross streets is in the centerline.
+
+        739 sign rows name a cross street CSCL does not carry — a renamed circle,
+        a plaza, a ferry terminal (docs/VALIDATION.md §4 D4). The block is then
+        one segment away from the corner that *did* resolve, and the only
+        question is which way. The published coordinate answers it where DOT
+        supplied one; failing that, a far corner whose own names look like the
+        missing one answers it; failing both, the sign stays unmatched, because
+        a coin flip would put it on the wrong block half the time.
+        """
+        from_known = lookup.from_.found
+        known = lookup.from_ if from_known else lookup.to
+        missing = lookup.to if from_known else lookup.from_
+        nodes = self._nodes_where(lookup.on.norm, known.norm)
+        if not nodes:
+            return lookup
+        chosen = self._block_towards(lookup.on.norm, nodes, missing.norm, near_ft)
+        if chosen is None:
+            return lookup
+        node_id, segment_id = chosen
+        far_node = self.segments[segment_id].other_end(node_id)
+        start_node, end_node = (node_id, far_node) if from_known else (far_node, node_id)
+        match = self._build_block(lookup.on.norm, [segment_id], start_node, end_node, 1)
+        inferred = StreetNameLookup(norm=missing.norm, match=NameMatch.INFERRED)
+        return BlockLookup(
+            match,
+            "matched",
+            lookup.on,
+            lookup.from_ if from_known else inferred,
+            inferred if from_known else lookup.to,
+            (match,),
+        )
+
+    def _block_towards(
+        self,
+        street_norm: str,
+        nodes: Sequence[str],
+        missing_norm: str,
+        near_ft: tuple[float, float] | None,
+    ) -> tuple[str, str] | None:
+        """The one segment off a known corner that the sign's own evidence points at."""
+        candidates = [
+            (node_id, segment_id)
+            for node_id in sorted(nodes)
+            for segment_id in sorted(self._incident.get((street_norm, node_id), ()))
+        ]
+        if not candidates:
+            return None
+        if near_ft is not None:
+            point = Point(*near_ft)
+            return min(candidates, key=lambda pair: self.segments[pair[1]].line_ft.distance(point))
+        named = [
+            pair
+            for pair in candidates
+            if self._names_like(
+                missing_norm, self.nodes[self.segments[pair[1]].other_end(pair[0])].street_norms
+            )
+        ]
+        return named[0] if len(named) == 1 else None
+
+    def _names_like(self, missing_norm: str, far_names: Iterable[str]) -> bool:
+        """Whether a corner's own street names look like the name DOT wrote."""
+        return any(
+            name != missing_norm
+            and difflib.SequenceMatcher(None, missing_norm, name).ratio() >= NEAR_NAME_CUTOFF
+            for name in far_names
+        )
 
     def _find_block_uncached(self, on: str, from_: str, to: str) -> BlockLookup:
         on_name = self.resolve_street(on)
@@ -643,6 +756,19 @@ class StreetGraph:
         best = matches[0] if matches else None
         self._fuzzy_cache[name] = best
         return best
+
+
+def _half_named(lookup: BlockLookup) -> bool:
+    """Whether exactly one cross street reached a centerline name."""
+    return lookup.reason == "cross_street_not_in_centerline" and (
+        lookup.from_.found != lookup.to.found
+    )
+
+
+def _coordinate_bucket(near_ft: tuple[float, float] | None) -> tuple[int, int]:
+    if near_ft is None:
+        return (0, 0)
+    return (int(near_ft[0] // _COORD_BUCKET_FT), int(near_ft[1] // _COORD_BUCKET_FT))
 
 
 @dataclass

@@ -62,6 +62,10 @@ _NAME_QUALITY: dict[NameMatch, float] = {
     # does stop there, so the penalty is modest (docs/VALIDATION.md §4 D2).
     NameMatch.DEAD_END: 0.85,
     NameMatch.FUZZY: 0.75,
+    # A cross street CSCL does not carry at all: the block was inferred from the
+    # other corner plus the published coordinate, which lands the whole row in
+    # the 0.6-ish tier the UI already shows as low (docs/VALIDATION.md §4 D4).
+    NameMatch.INFERRED: 0.35,
     NameMatch.NOT_A_STREET: 0.0,
     NameMatch.MISSING: 0.0,
 }
@@ -200,7 +204,9 @@ def curb_point_ft(
 
 def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
     """Locate one sign on the curb, with a confidence in [0, 1] and notes on what hurt it."""
-    lookup = graph.find_block_detail(sign.on_street, sign.from_street, sign.to_street)
+    lookup = graph.find_block_detail(
+        sign.on_street, sign.from_street, sign.to_street, near_ft=_published_point_ft(sign)
+    )
     block = lookup.match
     if block is None:
         return SnapResult(
@@ -231,6 +237,11 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
         elif name.match is NameMatch.DEAD_END:
             notes.append(
                 f"{label}_street is a dead end; used the terminal node of {name.norm}'s own chain"
+            )
+        elif name.match is NameMatch.INFERRED:
+            notes.append(
+                f"{label}_street {name.norm} is in no centerline row; took the block one segment"
+                " from the other corner"
             )
 
     chain_quality = 1.0
@@ -276,6 +287,13 @@ def snap_sign(sign: StagedSign, graph: StreetGraph) -> SnapResult:
         distance_clamped=sign.distance_from_intersection_ft > block.length_ft,
         side_ambiguous=side_ambiguous,
     )
+
+
+def _published_point_ft(sign: StagedSign) -> tuple[float, float] | None:
+    """The sign's published EPSG:2263 point, when DOT gave one (docs/DATA.md §1.7)."""
+    if sign.sign_x_coord is None or sign.sign_y_coord is None:
+        return None
+    return (sign.sign_x_coord, sign.sign_y_coord)
 
 
 def side_normal(line_ft: LineString, side: str) -> tuple[float, float]:
