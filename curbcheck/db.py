@@ -13,7 +13,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
@@ -240,6 +241,15 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
         updated_at TEXT
     )
     """,
+    # Looking a street up by name is what every geocode does, and without this
+    # it was a scan of 11,102 rows carrying their geometry: 516 ms -> 0.4 ms
+    # for "1519 3rd ave" on the 9p mount.
+    "CREATE INDEX IF NOT EXISTS ix_street_segment_norm ON street_segment (street_norm)",
+    # `engine.coverage` asks "is this point near any centerline?" once per
+    # candidate, which was the same full scan again: 395 ms -> 3.3 ms per
+    # /api/geocode. Longitude first, for the same reason as the spans below.
+    "CREATE INDEX IF NOT EXISTS ix_street_segment_lon ON street_segment (min_lon, max_lon)",
+    "CREATE INDEX IF NOT EXISTS ix_street_segment_lat ON street_segment (min_lat, max_lat)",
     # The radius query filters on longitude first (Manhattan is tall and narrow,
     # so a longitude band cuts more candidates than a latitude band).
     "CREATE INDEX IF NOT EXISTS ix_reg_seg_lon ON regulation_segment (min_lon, max_lon)",
@@ -247,6 +257,15 @@ SCHEMA_STATEMENTS: tuple[str, ...] = (
     "CREATE INDEX IF NOT EXISTS ix_reg_seg_segment ON regulation_segment (segment_id, side)",
     "CREATE INDEX IF NOT EXISTS ix_regulation_seg ON regulation (reg_seg_id)",
     "CREATE INDEX IF NOT EXISTS ix_sign_segment ON sign (segment_id)",
+    # A sign that never snapped has no geometry, so `engine.signs` finds it by
+    # blockface name instead. This partial index holds only those 2,700 rows
+    # and every column that query reads, so the lookup is a range scan inside
+    # the index with no table fetch at all: 615 ms -> 2.5 ms per detail panel
+    # on the 9p mount, for 0.71 MB.
+    "CREATE INDEX IF NOT EXISTS ix_sign_unmatched ON sign"
+    " (side_of_street, on_street, from_street, to_street, sign_id, order_number, sign_code,"
+    " sign_description, distance_from_intersection, arrow_direction, snap_confidence,"
+    " snap_notes, is_regulation, panel_class) WHERE segment_id IS NULL",
     "CREATE INDEX IF NOT EXISTS ix_meter_rate_segment ON meter_rate (segment_id, side)",
     # Covering indexes: every suggestion query is answered out of the index
     # without touching the table, which is what holds a keystroke under a
@@ -315,6 +334,29 @@ def connect(path: Path | str, *, readonly: bool = False) -> sqlite3.Connection:
         # the server only reads, so the rollback journal costs us nothing.
         conn.execute("PRAGMA journal_mode = DELETE")
     return conn
+
+
+@contextmanager
+def read_snapshot(conn: sqlite3.Connection) -> Iterator[None]:
+    """Run a burst of SELECTs inside one read transaction.
+
+    Outside a transaction SQLite opens and closes one per statement, and each
+    of those re-reads page 1 to check the file's change counter. On the 9p
+    mount `data/` sits on that costs ~2.5 ms a statement, which took a ten-query
+    suggestion from 4.5 ms to 35 ms. It is also the correctness-shaped thing to
+    do: `curbcheck sync` swaps a new database file in under a running server,
+    and one transaction means the whole answer is read from one snapshot.
+
+    Nested calls are a no-op, because SQLite has no nested transactions.
+    """
+    if conn.in_transaction:
+        yield
+        return
+    conn.execute("BEGIN")
+    try:
+        yield
+    finally:
+        conn.execute("END")
 
 
 def create_schema(conn: sqlite3.Connection) -> None:
