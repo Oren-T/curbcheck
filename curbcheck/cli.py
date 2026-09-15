@@ -12,6 +12,7 @@ import uvicorn
 from curbcheck.api.app import create_app
 from curbcheck.config import BIND_HOST, DATA_DIR, DB_PATH, PORT, RAW_DIR, REPO_ROOT
 from curbcheck.etl import build, fetch
+from curbcheck.etl.parse import report as parse_report
 
 # The frontend is checked in; the basemap is a 23 MB gitignored artifact that
 # `scripts/fetch_basemap.py` drops next to the database (docs/DECISIONS.md D11).
@@ -34,6 +35,21 @@ def build_parser() -> argparse.ArgumentParser:
         default=fetch.DEFAULT_MAX_AGE_DAYS,
         help="refetch a dataset only when its snapshot is older than this",
     )
+    coverage = subcommands.add_parser(
+        "parse-report", help="measure grammar coverage over the description corpus"
+    )
+    coverage.add_argument(
+        "--corpus",
+        type=Path,
+        default=parse_report.DEFAULT_CORPUS,
+        help="TSV of count/sign_codes/sign_description, from scripts/explore_signs.py",
+    )
+    coverage.add_argument(
+        "--residue",
+        type=Path,
+        default=parse_report.DEFAULT_RESIDUE,
+        help="where to write the unparsed and partially parsed strings",
+    )
     serve = subcommands.add_parser(
         "serve", help=f"serve the API and UI on http://{BIND_HOST}:{PORT}"
     )
@@ -51,6 +67,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _sync(offline=args.offline, max_age_days=args.max_age_days)
     if args.command == "serve":
         return _serve(port=args.port, db_path=args.db)
+    if args.command == "parse-report":
+        return _parse_report(corpus=args.corpus, residue=args.residue)
     print(f"{args.command}: not implemented yet")
     return 0
 
@@ -58,13 +76,50 @@ def main(argv: Sequence[str] | None = None) -> int:
 def _sync(*, offline: bool, max_age_days: float) -> int:
     fetch.fetch_all(raw_dir=RAW_DIR, max_age_days=max_age_days, offline=offline)
     stats = build.build_all(RAW_DIR, DB_PATH)
+    for line in _sync_summary(stats):
+        print(line)
+    return 0
+
+
+def _sync_summary(stats: build.BuildStats) -> list[str]:
+    """The four lines `curbcheck sync` prints: geometry, rules, price, calendar.
+
+    Every count that says how much of the city we could *not* read is here on
+    purpose (SPEC §11): a silent sync that halved its coverage would otherwise
+    look exactly like a good one.
+    """
     snap = stats.snap
-    print(
+    parse = stats.parse
+    meters = stats.meters
+    calendar = stats.calendar
+    by_method = ", ".join(
+        f"{method} {count}" for method, count in sorted(parse.rows_by_parse_method.items())
+    )
+    return [
         f"{DB_PATH}: {snap.signs} signs, {snap.matched} snapped "
         f"({100 * snap.matched_share:.1f}%), {stats.segments.segments} regulation segments, "
         f"{100 * snap.blockface_side_share:.1f}% of blockface-sides covered, "
-        f"{stats.elapsed_s:.1f}s"
-    )
+        f"{stats.elapsed_s:.1f}s",
+        f"  rules:    {parse.regulation_rows} ({by_method}); "
+        f"{parse.segments_with_rules} segments with rules, "
+        f"{parse.meta_segments} made ambiguous by a meta sign",
+        f"  meters:   {meters.rows_written} rate rows "
+        f"({meters.rate_zone_fallbacks} from a rate zone), "
+        f"{meters.metered_segments_without_rate} of {meters.metered_segments} "
+        f"metered segments have no rate",
+        f"  calendar: {calendar.suspended_days} suspended days over "
+        f"{calendar.distinct_dates} dates, {calendar.major_holidays} major legal holidays"
+        + ("" if calendar.source_path else " (NO CALENDAR FILE FOUND)"),
+    ]
+
+
+def _parse_report(*, corpus: Path, residue: Path) -> int:
+    try:
+        _coverage, text = parse_report.run(corpus, residue)
+    except parse_report.CorpusMissingError as error:
+        print(error)
+        return 1
+    print(text)
     return 0
 
 
