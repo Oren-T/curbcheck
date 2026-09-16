@@ -426,6 +426,11 @@ h4 {
      Browsers without `safe` reject the declaration and fall back to
      flex-start, which is the behaviour `safe` asks for anyway. */
   justify-content: safe center;
+  /* The wordmark below is taken out of the flow and pinned to the corner, so
+     the flow has to leave its corner empty: on a 14-inch laptop the content
+     is taller than the rail, `safe center` becomes flex-start, and without
+     this the tagline sat on top of the wordmark. */
+  padding-top: calc(var(--s-7) + var(--t-display) * var(--lh-normal) + var(--s-6));
 }
 
 .rail-scroll.is-first-load .wordmark {
@@ -796,6 +801,8 @@ h4 {
      search field off the top of a two-line window. */
   .rail-scroll.is-first-load {
     display: block;
+    /* The wordmark is hidden on a phone, so nothing needs the room above. */
+    padding-top: var(--s-3);
   }
 
   .wordmark {

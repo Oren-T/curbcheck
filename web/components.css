@@ -1251,9 +1251,12 @@ input[type="range"] {
 @media (max-width: 1099px) {
   /* 520 px of a 1024 px screen, next to a 340 px rail, left 145 px of map and
      buried the legend under the sheet. The sheet is still the widest thing on
-     the screen; it just stops short of hiding what the map has to keep saying. */
+     the screen; it just stops short of hiding what the map has to keep saying.
+     The second term keeps it off the rail too: 440 px next to the 340 px rail
+     needs 816 px, and an iPad in portrait is 768, where the sheet's left edge
+     used to sit 36 px over the results. */
   .detail {
-    width: min(440px, calc(100% - var(--s-5) * 2));
+    width: min(440px, calc(100% - 340px - var(--s-5) * 3));
     right: var(--s-5);
     top: var(--s-5);
     bottom: calc(var(--s-5) + 30px);
