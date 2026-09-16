@@ -57,13 +57,17 @@ def test_allowlist_holds_exactly_the_hosts_the_threat_model_names() -> None:
     assert config.ALLOWED_HOSTS == expected
 
 
-def test_the_package_declares_no_licence_the_owner_has_not_chosen() -> None:
-    """README.md: "License: TBD by the owner". pyproject used to say MIT."""
+def test_the_package_declares_the_licence_the_repository_carries() -> None:
+    """The owner chose MIT on 2026-09-15; the metadata, the file and README agree."""
     root = Path(__file__).resolve().parents[1]
     pyproject = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
 
-    assert "license" not in pyproject["project"]
-    assert "license-files" not in pyproject["project"]
+    assert pyproject["project"]["license"] == "MIT"
+    assert pyproject["project"]["license-files"] == ["LICENSE"]
+    licence = (root / "LICENSE").read_text(encoding="utf-8")
+    assert licence.startswith("MIT License")
+    assert "Oren Tirschwell" in licence
+    assert "MIT License" in (root / "README.md").read_text(encoding="utf-8")
 
 
 def test_the_build_backend_is_pinned_hashed_and_used_without_build_isolation() -> None:

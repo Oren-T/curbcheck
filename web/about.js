@@ -128,7 +128,7 @@ export function renderAbout(container, view) {
           "Data © NYC Open Data (NYC DOT, NYC DCP), used under the NYC Open Data terms of use. " +
           "Basemap © OpenStreetMap contributors, tiles built with Protomaps (BSD-3-Clause). " +
           "Map rendering by MapLibre GL JS (BSD-3-Clause). Typeface: Inter, SIL Open Font " +
-          "License 1.1.",
+          "License 1.1. CurbCheck itself is open source under the MIT License.",
       }),
     ]),
     el("section", {}, [

@@ -74,9 +74,9 @@ database) — and port the behaviour tests of the Python modules they mirror.
 5. Run the workflow again; the base path becomes `/`. Check with
    `curl -sI https://curbcheck.orentirschwell.com/`.
 
-Before step 1, three things are the owner's: the repository licence, the NYC
-Open Data terms review, and the §17 notice on first visit
-(`docs/STATIC_SITE.md`, "What stays the owner's call").
+Before step 1, two things are the owner's: the NYC Open Data terms review and
+the §17 notice on first visit (`docs/STATIC_SITE.md`, "What stays the owner's
+call"). The code is MIT-licensed (`LICENSE`).
 
 ## Privacy
 

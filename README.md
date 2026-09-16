@@ -236,6 +236,11 @@ make compile   # re-pin requirements*.txt after editing a .in file
 
 ## License
 
-**License: TBD by the owner.** No licence has been chosen for this repository
-yet. Third-party components carry their own licences; see
-`docs/DEPENDENCIES.md`, `web/vendor/MANIFEST.md` and `web/basemap/MANIFEST.md`.
+The code is released under the **MIT License** (`LICENSE`). It covers the
+software only: the parking data is NYC Open Data under the city's terms of
+use, the basemap is © OpenStreetMap contributors under the ODbL, and the
+vendored libraries and fonts carry their own licences — see
+`docs/DEPENDENCIES.md`, `web/vendor/MANIFEST.md`, `web/basemap/MANIFEST.md`
+and `web/fonts/MANIFEST.md`. MIT's warranty disclaimer is also the honest
+statement of what this tool is: advisory, and never a substitute for the
+posted sign (SPEC §17).

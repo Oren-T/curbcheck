@@ -520,9 +520,9 @@ Recorded so the doc and the code do not silently disagree:
 
 ## What stays the owner's call
 
-The repository licence (README: "TBD"), the NYC Open Data terms review for the
-seven datasets, and whether the §17 notice is shown in full on a first visit.
-None of these blocks building; all three block publishing.
+The NYC Open Data terms review for the seven datasets, and whether the §17
+notice is shown in full on a first visit. Neither blocks building; both are
+worth settling before publishing. The licence is chosen: MIT (`LICENSE`).
 
 ## Go-live, in order
 

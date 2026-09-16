@@ -74,6 +74,7 @@ and geocoder are ported to JavaScript and the differential harness matches the
 Python engine on all 1,975 replayed queries; the 91 MB database packs to 8.3 MB
 gzipped and the whole site is 53 MB. Going live needs the owner to make the
 repo public, enable Pages, and add one CNAME at Squarespace (`site/README.md`).
+The code is MIT-licensed (`LICENSE`, chosen 2026-09-15).
 
 ## Non-negotiables
 
