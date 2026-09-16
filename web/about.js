@@ -55,8 +55,7 @@ const SOURCES = [
 ];
 
 /** "15 Sep 2026, 08:06" from an ISO timestamp, or null when there is none. */
-function snapshotText(status) {
-  const raw = status && status.last_sync_at;
+function formatTimestamp(raw) {
   if (typeof raw !== "string" || raw === "") {
     return null;
   }
@@ -106,6 +105,9 @@ export function renderAbout(container, view) {
   close.addEventListener("click", () => view.onClose());
 
   const snapshot = el("dl", { className: "facts" }, definition("Data snapshot", "Reading…"));
+  // Filled in only when the backend says this is the static copy; removed
+  // otherwise, so the local server's sheet is exactly what it was.
+  const hosting = el("section", { className: "about-hosting" });
   const scroll = el("div", { className: "detail-scroll" }, [
     el("section", {}, [
       el("h3", { text: "Data snapshot" }),
@@ -113,10 +115,11 @@ export function renderAbout(container, view) {
         className: "about-lede",
         text:
           "CurbCheck answers from a local copy of NYC Open Data. Nothing on this page " +
-          "is fetched live, and nothing leaves this machine.",
+          "is fetched live, and no search leaves this browser.",
       }),
       snapshot,
     ]),
+    hosting,
     el("section", {}, [el("h3", { text: "Where the answer comes from" }), sourceList()]),
     el("section", {}, [
       el("h3", { text: "Credit and licence" }),
@@ -146,7 +149,37 @@ export function renderAbout(container, view) {
   );
 
   loadSnapshot(snapshot, container);
+  loadHosting(hosting, container);
   return close;
+}
+
+/**
+ * Fill in "How this copy is served" when `health` carries a `hosting` block.
+ *
+ * Only the static build sets one (docs/STATIC_SITE.md); it is where a visitor
+ * reads what the host can see about them, which on a machine serving itself is
+ * nothing and therefore not worth a paragraph. The sentences are the worker's,
+ * printed as sent — `site/PRIVACY.md` is the long form of the same thing.
+ */
+async function loadHosting(node, container) {
+  let hosting = null;
+  try {
+    hosting = (await api.health()).hosting;
+  } catch {
+    // app.js already surfaced a failing health call; a second copy of that
+    // message inside this sheet would not tell the reader anything new.
+    hosting = null;
+  }
+  if (container.hidden || !hosting || hosting.kind !== "static" || !hosting.text) {
+    node.remove();
+    return;
+  }
+  const built = formatTimestamp(hosting.built_at);
+  replaceChildren(node, [
+    el("h3", { text: "How this copy is served" }),
+    el("p", { text: hosting.text }),
+    built ? el("dl", { className: "facts" }, definition("Data build", built)) : null,
+  ]);
 }
 
 /**
@@ -159,7 +192,7 @@ async function loadSnapshot(node, container) {
   let rows;
   try {
     const status = await api.syncStatus();
-    const text = snapshotText(status);
+    const text = formatTimestamp(status && status.last_sync_at);
     rows = [
       ...definition("Last synced", text || "unknown"),
       ...definition("Signs loaded", countText(status, "signs_loaded")),

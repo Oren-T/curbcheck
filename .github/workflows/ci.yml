@@ -40,8 +40,12 @@ jobs:
       # The repo has no package.json on purpose (no bundler, vendored libs), so
       # the versions are pinned in the command rather than in a lockfile; both
       # were run against this tree before being written down.
-      - run: npx --yes prettier@3.9.6 --check web
-      - run: npx --yes eslint@10.10.0 web
+      - run: npx --yes prettier@3.9.6 --check web site
+      - run: npx --yes eslint@10.10.0 web site
+
+      # The browser engine's unit tests (docs/STATIC_SITE.md). The differential
+      # harness needs the database and runs in pages.yml, where one is built.
+      - run: node --test site/tests/*.test.js site/tests/harness/*.test.js
 
   docker:
     runs-on: ubuntu-latest

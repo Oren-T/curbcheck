@@ -331,6 +331,9 @@ const ERROR_SENTENCE = {
   invalid_request: "That stretch of curb could not be looked up.",
   not_found: "That stretch of curb is no longer in the database. Search again.",
   database_unavailable: "There is no parking database yet. Run `curbcheck sync` to build one.",
+  pack_unavailable:
+    "The parking data pack could not be loaded. Reload the page; if it keeps failing, " +
+    "the site's weekly data build is broken.",
   internal_error:
     "The server hit an unexpected error. Try again; the terminal running " +
     "`curbcheck serve` has the details.",

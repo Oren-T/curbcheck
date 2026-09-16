@@ -86,13 +86,6 @@ class GeocodeKind(StrEnum):
     PIN = "pin"
 
 
-# A street's pin is a vertex of one of its own centerline segments and a corner
-# is a segment endpoint (`etl.addresses._street_points`, `_write_intersections`),
-# so both are at distance zero from the centerline by construction and asking
-# `within_coverage` costs a scan to learn nothing. The kinds read off another
-# dataset -- a surveyed door, a place, a ZIP centroid -- are still checked. On
-
-
 @dataclass(frozen=True)
 class GeocodeCandidate:
     """One place the query might mean. `confidence` is 0-1, higher is better.

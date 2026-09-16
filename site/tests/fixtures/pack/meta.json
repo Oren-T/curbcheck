@@ -1,0 +1,31 @@
+{
+  "format": 1,
+  "built_at": "2026-09-15T20:15:40+00:00",
+  "sync": {
+    "last_sync_at": "2026-09-15T17:37:46+00:00",
+    "calendar_missing": "0",
+    "signs_loaded": "3"
+  },
+  "coverage": {
+    "area": "Manhattan",
+    "bbox": [
+      -73.96,
+      40.78,
+      -73.9592,
+      40.790025
+    ]
+  },
+  "calendar_missing": false,
+  "counts": {
+    "spans": 4,
+    "regulations": 2,
+    "signs": 3,
+    "segments": 3
+  },
+  "dropped_sign_refs": 1,
+  "files": {
+    "rules": "rules.6198b6ee5d4e.json.gz",
+    "streets": "streets.4fb7bcee9766.json.gz",
+    "geocode": "geocode.edb0db83bedd.json.gz"
+  }
+}

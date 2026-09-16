@@ -117,12 +117,18 @@ def search_names(
 
 def _driver_rows(
     conn: sqlite3.Connection, token_sql: str, tokens: Sequence[str]
-) -> set[tuple[str, str]]:
+) -> list[tuple[str, str]]:
     """Candidates from the typed word that matched fewest rows, longest word first.
 
     Longest first because a longer prefix is usually the rarer one, and the
     scan stops as soon as a word has come back with few enough rows that
     another word could not narrow the work that follows.
+
+    Sorted on the way out: `search_names` keeps the first spelling it sees at
+    an equal match rank, and iterating a set here made the fourth suggestion
+    for "p" depend on the process's hash seed. The browser engine
+    (docs/STATIC_SITE.md) is checked against this function's output, so the
+    reference has to be the same answer every time.
     """
     driver: set[tuple[str, str]] = set()
     for index, token in enumerate(sorted(tokens, key=len, reverse=True)[:MAX_TOKEN_SCANS]):
@@ -134,4 +140,4 @@ def _driver_rows(
             driver = rows
         if len(driver) <= ENOUGH_TOKEN_ROWS:
             break
-    return driver
+    return sorted(driver)

@@ -199,10 +199,23 @@ docker compose up serve          # host networking; ./data mounted read-only
 `make docker-build`, `make docker-sync` and `make docker-serve` wrap these. The
 tradeoff and the `./data` ownership note are documented in `docker-compose.yml`.
 
+## The public copy
+
+The same app is built to run with no server at `curbcheck.orentirschwell.com`
+(not yet live; `site/README.md` has the go-live checklist): the
+engine and the address index are ported to JavaScript and run inside the
+browser over a data pack compiled from the database, so no search leaves the
+browser. A weekly GitHub Actions job rebuilds the database, replays the Python
+engine's answers through the browser engine to prove they agree, and deploys.
+`site/README.md` has the build steps, the measured sizes and the go-live
+checklist; `docs/STATIC_SITE.md` the design; `site/PRIVACY.md` what the host
+sees.
+
 ## Development
 
 ```bash
-make check     # ruff (lint + format), mypy --strict, pytest, pip-audit — CI runs exactly this
+make check     # ruff (lint + format), mypy --strict, pytest, node --test, pip-audit — CI runs exactly this
+make site      # build the static site into build/dist from the current database
 make compile   # re-pin requirements*.txt after editing a .in file
 ```
 

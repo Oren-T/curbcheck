@@ -25,6 +25,11 @@ node_modules/
 .env.*
 !.env.example
 
+# The static site's differential fixture is regenerated from the database on
+# every run (docs/STATIC_SITE.md); the small committed fixtures live in
+# site/tests/fixtures/.
+site/tests/harness/expected.json
+
 # Playwright MCP scratch output (snapshots, console logs)
 .playwright-mcp/
 

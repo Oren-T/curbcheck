@@ -9,6 +9,7 @@ from pathlib import Path
 
 import uvicorn
 
+from curbcheck import pack
 from curbcheck.api.app import create_app
 from curbcheck.config import BIND_HOST, DATA_DIR, DB_PATH, PORT, RAW_DIR, REPO_ROOT
 from curbcheck.etl import build, fetch
@@ -20,6 +21,9 @@ from curbcheck.etl.parse import report as parse_report
 # database (docs/DECISIONS.md D11).
 WEB_DIR = REPO_ROOT / "web"
 BASEMAP_PATH = DATA_DIR / "basemap" / "manhattan.pmtiles"
+# A build output, so it lives outside the tree the server serves and outside
+# version control (STYLE_GUIDE §6); `site/build.py` copies it into dist/.
+PACK_DIR = REPO_ROOT / "build" / "pack"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -52,6 +56,18 @@ def build_parser() -> argparse.ArgumentParser:
         default=parse_report.DEFAULT_RESIDUE,
         help="where to write the unparsed and partially parsed strings",
     )
+    pack_command = subcommands.add_parser(
+        "pack", help="compile the static site's data pack from the database"
+    )
+    pack_command.add_argument(
+        "--db", type=Path, default=DB_PATH, help="path to the SQLite database"
+    )
+    pack_command.add_argument(
+        "--out",
+        type=Path,
+        default=PACK_DIR,
+        help="directory to write meta.json and the three files into",
+    )
     serve = subcommands.add_parser(
         "serve", help=f"serve the API and UI on http://{BIND_HOST}:{PORT}"
     )
@@ -71,6 +87,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _serve(port=args.port, db_path=args.db)
     if args.command == "parse-report":
         return _parse_report(corpus=args.corpus, residue=args.residue)
+    if args.command == "pack":
+        return _pack(db_path=args.db, out_dir=args.out)
     print(f"{args.command}: not implemented yet")
     return 0
 
@@ -117,6 +135,17 @@ def _sync_summary(stats: build.BuildStats) -> list[str]:
         f"{addresses.intersections} corners, {addresses.places} places, "
         f"{addresses.street_variants} street spellings over {addresses.streets} streets",
     ]
+
+
+def _pack(*, db_path: Path, out_dir: Path) -> int:
+    """Compile the static site's data pack (docs/STATIC_SITE.md, "The pack")."""
+    if not db_path.is_file():
+        print(f"no database at {db_path}; run `curbcheck sync`.")
+        return 1
+    report = pack.compile_pack(db_path, out_dir)
+    for line in pack.report_lines(report):
+        print(line)
+    return 0
 
 
 def _parse_report(*, corpus: Path, residue: Path) -> int:

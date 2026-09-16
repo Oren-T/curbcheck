@@ -645,16 +645,24 @@ export function statusLine(counts, shown, walkMinutes) {
 
 /* ---- The search window ------------------------------------------------- */
 
+// The window is a wall clock in New York, and it travels through these
+// helpers as a `Date` whose *UTC* fields hold that wall clock. UTC has no
+// daylight-saving jump, so adding minutes to it is wall-clock arithmetic —
+// what `datetime + timedelta` does on the server and what a sign's hours mean.
+// A local-time `Date` did the same sum in real time: on the fall-back Sunday a
+// midnight-to-midnight window came out as 00:00 → 23:00, and on the
+// spring-forward one a "2 h" chip spanned three wall hours.
+
 const pad = (value) => String(value).padStart(2, "0");
 
-/** "2026-09-16" for a `<input type="date">`, in the browser's local time. */
+/** "2026-09-16" for a `<input type="date">`. */
 export function toDateInputValue(date) {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
 
-/** "10:00" for a `<input type="time">`, in the browser's local time. */
+/** "10:00" for a `<input type="time">`. */
 export function toTimeInputValue(date) {
-  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
 /**
@@ -668,7 +676,7 @@ export function toApiDateTime(dateValue, timeValue) {
   return `${dateValue}T${timeValue}`;
 }
 
-/** A local `Date` from the two input values, or null when either is empty. */
+/** A wall-clock `Date` from the two input values, or null when either is empty. */
 export function parseLocal(dateValue, timeValue) {
   if (!dateValue || !timeValue) {
     return null;
@@ -678,23 +686,38 @@ export function parseLocal(dateValue, timeValue) {
   if ([year, month, day, hour, minute].some((part) => Number.isNaN(part))) {
     return null;
   }
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
+  return wallClock(year, month, day, hour, minute);
 }
 
+/** Wall-clock minutes later: 00:00 plus 24 h is the next midnight on every day of the year. */
 export function addMinutes(date, minutes) {
   return new Date(date.getTime() + minutes * 60 * 1000);
 }
 
-/** The next quarter hour, local time — the default arrival. */
+/** The next quarter hour of the browser's own clock, as a wall clock — the default arrival. */
 export function nextQuarterHour(now = new Date()) {
   const next = new Date(now.getTime());
   next.setSeconds(0, 0);
   next.setMinutes(Math.ceil((next.getMinutes() + 1) / 15) * 15);
-  return next;
+  return wallClock(
+    next.getFullYear(),
+    next.getMonth() + 1,
+    next.getDate(),
+    next.getHours(),
+    next.getMinutes(),
+  );
+}
+
+// `setUTCFullYear` rather than `Date.UTC`, which reads a year under 100 as 19xx.
+function wallClock(year, month, day, hour, minute) {
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  date.setUTCHours(hour, minute, 0, 0);
+  return date;
 }
 
 function dayLabel(date) {
-  return `${WEEKDAY_FROM_SUNDAY[date.getDay()]} ${MONTHS[date.getMonth()]} ${date.getDate()}`;
+  return `${WEEKDAY_FROM_SUNDAY[date.getUTCDay()]} ${MONTHS[date.getUTCMonth()]} ${date.getUTCDate()}`;
 }
 
 /**

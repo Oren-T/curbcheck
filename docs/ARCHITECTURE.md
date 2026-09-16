@@ -271,3 +271,12 @@ splits them by what they may reach — `sync` gets network egress and a
 writable `./data`, `serve` gets host networking (the only way a browser can
 reach a process that binds `127.0.0.1` inside a container) and a read-only
 mount. The tradeoff is written out in the compose file.
+
+`site/` is the third way to run the same two programs (decision D32): the ETL
+runs on a GitHub Actions runner, `curbcheck pack` compiles the SQLite file into
+three gzipped JSON files, and a JavaScript port of `engine/` and `geocode/`
+(`site/static/`, one file per Python module) answers the same `web/` frontend
+from a Web Worker. `site/build.py` assembles `dist/`; GitHub Pages serves it.
+The Python engine stays the reference: `site/tests/harness/` replays its
+answers through the port on every deploy. `docs/STATIC_SITE.md` has the
+contract.

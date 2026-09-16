@@ -14,7 +14,8 @@ Update it when the state changes and delete anything no longer true.
   (failure surfacing) are binding; the rest is guidance, much of it overridden
   by `docs/DECISIONS.md`, which records every departure with its evidence
   (D1–D30) and is what to read before trusting a spec detail.
-- As needed: `docs/ARCHITECTURE.md` module map and schema, `docs/DATA.md` the
+- As needed: `docs/ARCHITECTURE.md` module map and schema, `docs/STATIC_SITE.md`
+  the browser build and its contract, `docs/DATA.md` the
   sources measured, `docs/VALIDATION.md` the run against DOT's own viewer (§9
   supersedes §8), `docs/API.md` the contract, `docs/SECURITY.md` the controls,
   `docs/ux/` the UI audit, `README.md` the outside view.
@@ -29,10 +30,14 @@ curbcheck/  config.py net.py model.py db.py cli.py
             addresses, build
   engine/   window, resolve, cost, search, coverage, geo, labels, ranges, signs
   api/      app, routes, schemas, errors
+  pack.py   the SQLite -> gzipped JSON compiler behind `curbcheck pack`
 web/        index.html, tokens/components/styles.css, fonts/, vendor/, basemap/,
             and 16 ES modules: app, map, api, searchcard, autocomplete, results,
             detail, verdicts, rank, legend, drawer, about, states, dom,
             format, copy
+site/       the static site: build.py, slice_basemap.py, static/ (the JS port of
+            engine/ and geocode/, one file per Python module, plus the worker and
+            the api.js shim), tests/ (node --test, incl. the differential harness)
 tests/      pytest suite; tests/gold/ is the 520-line sign-text gold set
 scripts/    Data exploration, basemap and font vendoring, gold eval, bench_api
 docs/       Spec, architecture, decisions, data, API, security, validation, ux/
@@ -42,9 +47,9 @@ data/       Mounted drive: downloads, the 94 MB SQLite DB, basemap. Gitignored.
 ## Commands and environment
 
 `make setup` hash-pinned install · `make sync` build `data/curbcheck.sqlite` ·
-`make check` ruff + mypy + pytest + audit · `pytest -m slow` the fuzzers ·
-`make serve` the API and UI on http://127.0.0.1:8765 · `make docker-*` the same
-in a container. Conda env `curbcheck` (Python 3.12) is active in every shell and
+`make check` ruff + mypy + pytest + node --test + audit · `pytest -m slow` the
+fuzzers · `make serve` the API and UI on http://127.0.0.1:8765 · `make docker-*`
+the same in a container · `make site` the static site into `build/dist`. Conda env `curbcheck` (Python 3.12) is active in every shell and
 application packages come from `requirements*.txt` via pip; data lives in
 `data/`, or wherever `CURBCHECK_DATA_DIR` points.
 
@@ -64,6 +69,11 @@ mount (32 ms on a street the connection has not read yet), where it was 489 ms;
 the same cache is what holds a 30-minute search at 0.9 s, where it was 4.8 s.
 The UI is the `docs/ux/` redesign: map-first, a 36 px §17 strip with the full
 notice one click away (D30), local autocomplete.
+The static site (D32, `site/`) is built and green but not yet live: the engine
+and geocoder are ported to JavaScript and the differential harness matches the
+Python engine on all 1,975 replayed queries; the 91 MB database packs to 8.3 MB
+gzipped and the whole site is 53 MB. Going live needs the owner to make the
+repo public, enable Pages, and add one CNAME at Squarespace (`site/README.md`).
 
 ## Non-negotiables
 

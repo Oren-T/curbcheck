@@ -104,6 +104,8 @@ const dom = {
 dom.resultsHeading.hidden = true;
 
 const state = {
+  // A warning about the data itself, re-rendered under every answer.
+  healthNotice: null,
   /** The resolved destination, and the text that was in the box when it resolved. */
   resolved: null,
   resolvedText: "",
@@ -209,7 +211,9 @@ async function runSearch(where, window_) {
   const walkMinutes = searchCard.walkMinutes();
   state.walkMinutes = walkMinutes;
   setSearching(true);
-  renderNotice(dom.notices, null);
+  // The health notice (a stale data pack, a missing calendar) is about every
+  // answer, so it outlives the one that is about to be replaced.
+  renderNotice(dom.notices, state.healthNotice);
   // UX_AUDIT P1-9: a second search used to replace the answer with skeletons
   // before the server had said anything, so the screen went blank for 2.6 s and
   // the user could not compare the two. The previous answer stays and dims.
@@ -682,13 +686,18 @@ async function reportHealth() {
     // `degraded` with a database present means the calendar did not survive the
     // sync; searching still works, so this is a warning, not a refusal.
     if (health.calendar_missing) {
-      renderNotice(dom.notices, {
+      state.healthNotice = {
         kind: "warn",
         title: "Holiday calendar missing",
         text: `${CALENDAR_MISSING_CAVEAT}. Searching still works.`,
-      });
-      return;
+      };
+    } else if (health.notice) {
+      // Only the static build sets `notice`: its data pack is rebuilt weekly,
+      // and a job that silently stopped must not leave a page that looks
+      // current (docs/STATIC_SITE.md). The server never sets it.
+      state.healthNotice = health.notice;
     }
+    renderNotice(dom.notices, state.healthNotice);
     setStatus(`Ready. ${signs.toLocaleString("en-US")} signs loaded.`);
   } catch (error) {
     renderNotice(dom.notices, {

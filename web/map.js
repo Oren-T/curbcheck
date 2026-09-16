@@ -4,7 +4,8 @@
  *
  * Everything it loads is local: the style, glyphs, and sprites come from
  * `/basemap/` and the tiles from `pmtiles:///basemap/manhattan.pmtiles` through
- * the PMTiles protocol, so panning makes no third-party request (SPEC §16).
+ * the PMTiles protocol — or, on the static build, from `{z}/{x}/{y}.pbf` files
+ * — so panning makes no third-party request (SPEC §16).
  *
  * The map draws **every** span the server returned. The list is capped; the map
  * is not, because the ranked-legal/everything-else split the server does
@@ -216,7 +217,13 @@ export class CurbMap {
     this.reportedErrors = new Set();
     this.padding = { top: 40, right: 40, bottom: 40, left: 40 };
 
-    registerPmtilesProtocol();
+    // Only the local server's style reaches for `pmtiles://`. The static build
+    // slices the archive into `{z}/{x}/{y}.pbf` files and does not ship
+    // pmtiles.js (docs/STATIC_SITE.md, "The build"), so registering the
+    // protocol unconditionally would throw there on a protocol nothing asks for.
+    if (usesPmtilesSource(style)) {
+      registerPmtilesProtocol();
+    }
 
     this.map = new maplibregl.Map({
       container,
@@ -728,6 +735,14 @@ export class CurbMap {
     this.reportedErrors.add(message);
     this.onError(message);
   }
+}
+
+/** True when any source in the style is served through the `pmtiles://` protocol. */
+function usesPmtilesSource(style) {
+  const sources = style && style.sources ? Object.values(style.sources) : [];
+  return sources.some(
+    (source) => source && typeof source.url === "string" && source.url.startsWith("pmtiles://"),
+  );
 }
 
 function registerPmtilesProtocol() {

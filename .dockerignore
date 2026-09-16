@@ -41,7 +41,8 @@ Makefile
 README.md
 STYLE_GUIDE.md
 environment.yml
-requirements-dev.txt
+# requirements-dev.txt stays in the context: the build stage installs the
+# hashed hatchling from it (Dockerfile).
 requirements-dev.in
 requirements.in
 eslint.config.js

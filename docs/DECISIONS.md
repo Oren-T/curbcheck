@@ -751,3 +751,58 @@ Industries, `guggenheim` the bandshell above the museum — because the index ha
 no way to know which name a New Yorker means and will not invent one. Anything
 that did (a visit count, an OSM `wikidata` tag) would replace the
 shorter-name tie-break, not the word matching.
+
+## D32. The public copy is a static site with the engine in the browser, not a hosted server
+
+**Decided:** 2026-09-15. CurbCheck is published at `curbcheck.orentirschwell.com`
+as files on GitHub Pages: the same `web/` frontend, a JavaScript port of
+`engine/` and `geocode/` running in a Web Worker, and a data pack that
+`curbcheck pack` compiles from the SQLite file. A weekly GitHub Actions job
+runs the ETL, compiles the pack, replays the Python engine's answers through
+the browser engine on that exact data, and deploys only if they agree.
+`docs/STATIC_SITE.md` is the contract.
+
+**Why not host the server.** SPEC §3 and `docs/SECURITY.md` T6 promise that a
+destination never leaves the machine. A hosted `curbcheck serve` would break
+that for every visitor at once — the operator terminates every request and
+sees every typed address whether or not it is logged — and would put a public
+listener in front of an engine written for one local user, with no rate limit,
+no body cap and a 5–7 s worst-case query. Fixing all of that is about six
+engineering days; it still ends with a privacy statement that says the
+opposite of T6. The static site keeps T6 except for what any host sees (the
+IP and which map tiles were fetched), costs nothing to run, and is faster:
+the engine holds the whole pack in memory, so a search that took 0.9 s over
+SQLite takes tens of milliseconds.
+
+**Why a port and not Pyodide.** Pyodide can run the existing Python in the
+browser — shapely, numpy, sqlite3 and pydantic are all packaged — but the
+runtime is about 11 MB before any data, boots in seconds, and needs
+`wasm-unsafe-eval` in the CSP. The information content of the database is
+small: the 91 MB SQLite file is 27 MB of columnar JSON and about 9 MB gzipped
+once the GeoJSON text, the repeated ids and the 59,020 copies of 1,751 sign
+descriptions are factored out. The runtime reads four shapely operations,
+none of which needs a library, and never imports pyproj.
+
+**What keeps two engines honest.** The Python engine stays the reference and
+the differential harness (`site/tests/harness/`) is a deploy gate, not a unit
+test: 600 searches, 200 typed strings, 100 pins and every detail panel behind
+them, compared exactly — verdicts, reasons, caveats, money, ranking, counts —
+with a 1e-9 relative tolerance on floats and nothing else. The pack carries
+exact doubles rather than quantized coordinates so that "any difference is a
+bug" is literally true. Two things the review of this decision found in the
+reference and fixed there: the geocoder's driver rows came out of a `set`, so
+a suggestion list could differ between processes, and the money rule the
+first draft wrote down (`ROUND_HALF_EVEN`) was not the one `cost.py` uses.
+
+**What the host cannot do.** GitHub Pages sets its own headers: no
+`X-Content-Type-Options`, no `frame-ancestors`, `Cache-Control: max-age=600` on
+everything, and byte-range requests that Firefox caches wrongly, which is why
+the basemap is sliced into 474 tile files rather than served as one PMTiles
+archive. The CSP is a `<meta>` tag with everything it can express. Clickjacking
+is accepted and written down (`docs/SECURITY.md`). A host that sets headers
+would close it; none that does is free, and the site is a hobby.
+
+**Would reverse it:** a change in the rules that only a server could apply
+(a live 311 suspension feed the browser could not fetch same-origin), or a
+Pages limit the pack outgrows — the whole site is about 60 MB against a 1 GB
+cap, so not soon.

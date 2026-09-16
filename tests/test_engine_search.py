@@ -351,7 +351,22 @@ def test_the_grey_reason_and_caveats_follow_the_gap_kind(conn: sqlite3.Connectio
 
 def test_a_database_without_gap_kind_still_searches(conn: sqlite3.Connection) -> None:
     """Older snapshots predate the column; they lose the reason, not the search."""
-    conn.execute("ALTER TABLE regulation_segment DROP COLUMN gap_kind")
+    # Rebuilt by hand rather than `ALTER TABLE ... DROP COLUMN`: SQLite builds
+    # before 3.47 fail with "incomplete input" when the dropped column is the
+    # last one and a comment sits above it, and the Python that CI's runner
+    # bundles is one of them. Foreign keys are off for the rebuild only.
+    conn.commit()
+    conn.execute("PRAGMA foreign_keys = OFF")
+    conn.execute("PRAGMA legacy_alter_table = ON")
+    conn.execute("ALTER TABLE regulation_segment RENAME TO regulation_segment_with_gap_kind")
+    conn.execute(
+        "CREATE TABLE regulation_segment AS SELECT reg_seg_id, segment_id, side, start_ft,"
+        " end_ft, geom, min_lon, min_lat, max_lon, max_lat, length_ft, capacity_cars,"
+        " capacity_approximate, confidence, derived_from FROM regulation_segment_with_gap_kind"
+    )
+    conn.execute("DROP TABLE regulation_segment_with_gap_kind")
+    conn.execute("PRAGMA legacy_alter_table = OFF")
+    conn.execute("PRAGMA foreign_keys = ON")
 
     results = run_search(conn)
 

@@ -29,9 +29,13 @@ from curbcheck.engine.resolve import (
     PARTIAL_ABSENCE_CAVEAT,
 )
 
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+WEB_DIR = REPO_ROOT / "web"
 INDEX_HTML = WEB_DIR / "index.html"
 STYLE_JSON = WEB_DIR / "basemap" / "style.json"
+# The static site's overlay (docs/STATIC_SITE.md): a second frontend, loaded
+# from the same origin by the same page, so the same two rules apply to it.
+SITE_STATIC_DIR = REPO_ROOT / "site" / "static"
 
 # Every module the page loads, as index.html and the imports expect them. A new
 # module is fine; a missing one means the page 404s a script and renders blank.
@@ -63,6 +67,11 @@ REMOTE_SCHEME = re.compile(r"^\s*(?:https?:)?//", re.IGNORECASE)
 # SPEC §3.3/§3.4 and STYLE_GUIDE §4: no code from data, no markup from data.
 FORBIDDEN_JS = ("innerHTML", "outerHTML", "eval(", "new Function", "document.write")
 
+# A remote URL written into a script: an absolute `http(s)://` or a
+# protocol-relative `//host/…` inside a string literal. SPEC §3.4 and
+# docs/STATIC_SITE.md T6: every file either frontend loads is same-origin.
+JS_REMOTE_URL = re.compile(r"""['"`](?:https?:)?//[^'"`\s]""")
+
 
 class _Links(HTMLParser):
     """Collect (tag, attributes-dict) for every element carrying a URL attribute."""
@@ -82,6 +91,20 @@ def app_js_files() -> list[Path]:
     return sorted(
         path for path in WEB_DIR.rglob("*.js") if "vendor" not in path.relative_to(WEB_DIR).parts
     )
+
+
+def frontend_js_files() -> list[Path]:
+    """`web/` plus the static site's overlay.
+
+    `site/static/` is globbed rather than listed: it lands module by module, and
+    a rule that only starts applying once the last file arrives is a rule that
+    never caught anything.
+    """
+    return [*app_js_files(), *sorted(SITE_STATIC_DIR.rglob("*.js"))]
+
+
+def js_id(path: Path) -> str:
+    return path.relative_to(REPO_ROOT).as_posix()
 
 
 def test_index_html_loads_nothing_from_the_network() -> None:
@@ -112,13 +135,38 @@ def test_index_html_loads_the_pmtiles_global_before_the_module() -> None:
     assert classic < module
 
 
-@pytest.mark.parametrize("path", app_js_files(), ids=lambda path: path.name)
+@pytest.mark.parametrize("path", frontend_js_files(), ids=js_id)
 def test_frontend_scripts_never_build_markup_or_code_from_data(path: Path) -> None:
     source = path.read_text(encoding="utf-8")
     for pattern in FORBIDDEN_JS:
         # The ESLint config bans these too, but ESLint is not installed here and
         # sign text is attacker-controlled, so the rule gets a test of its own.
-        assert pattern not in source, f"{path.name} contains {pattern!r}"
+        assert pattern not in source, f"{js_id(path)} contains {pattern!r}"
+
+
+@pytest.mark.parametrize("path", frontend_js_files(), ids=js_id)
+def test_frontend_scripts_name_no_remote_url(path: Path) -> None:
+    """The one remote URL in the repository is the visible attribution anchor in
+    index.html. No script fetches anything that is not same-origin — on the
+    static copy that is the whole of what keeps a destination off the network."""
+    match = JS_REMOTE_URL.search(path.read_text(encoding="utf-8"))
+    assert match is None, f"{js_id(path)} names a remote URL: {match.group(0)!r}"
+
+
+def test_the_remote_url_pattern_catches_what_it_is_for() -> None:
+    """A pattern that never fires is not a check. These are the shapes it must catch."""
+    for bad in (
+        'fetch("https://example.com/tiles")',
+        "import(`//cdn.example.com/x.js`)",
+        "element.src = 'http://example.com/pixel.gif'",
+    ):
+        assert JS_REMOTE_URL.search(bad), bad
+    for good in (
+        'const STYLE_URL = "/basemap/style.json";',
+        'url: "pmtiles:///basemap/manhattan.pmtiles"',
+        'const done = "";\n// a trailing comment',
+    ):
+        assert not JS_REMOTE_URL.search(good), good
 
 
 def test_basemap_style_points_only_at_local_paths() -> None:
